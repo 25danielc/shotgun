@@ -184,6 +184,9 @@ async def approve_action(body: ApproveBody, conn: Conn) -> Reply:
         return Reply(ok=False, message="I couldn't find that job.", job_id=job_id)
     except IllegalTransition:
         return Reply(ok=False, message="That one isn't waiting for your OK.", job_id=job_id)
+    if job.state is JobState.FAILED:
+        # The driver heard "OK, cancelled" on this call: no callback about it.
+        await jobs.set_announced(conn, job.id, job.state)
     log.info("approve_action: job %s -> %s", job.id, job.state)
     message = "Done, going ahead." if body.approved else "OK, cancelled."
     return Reply(ok=True, message=message, job_id=job.id)

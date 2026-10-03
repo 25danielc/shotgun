@@ -69,7 +69,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | 3.2 | Email worker via Composio | 2.1 | Job → draft in Gmail, status needs\_approval; approve → sent | 1.5 | Stretch | Not started |
 | 3.4 | Food worker: DoorDash CLI, or browser agent stopping at cart | 0.1, 2.1 | Job → cart with the right items and total; order placed only after approval | 2.5 | Hero (pick one) | Not started |
 | 3.5 | Research worker via Places API | 2.1 | Job → 3 open restaurants near the destination with hours | 1 | Stretch | Not started |
-| 4.1 | Callback watcher places an outbound call with a summary | 1.2, 2.1 | Job flipped to done by hand → phone rings and reads the summary | 1 | Core | Not started |
+| 4.1 | Callback watcher places an outbound call with a summary | 1.2, 2.1 | Job flipped to done by hand → phone rings and reads the summary | 1 | Core | Blocked: done offline (15 tests). Needs 1.2 + Neon, then `make callback-demo` and Daniel confirms the ring |
 | 4.2 | Spoken approval loop | 2.3, 4.1 | "Yes" runs the action, "no" cancels; both logged | 1 | Core | Not started |
 | 4.3 | Call policy: cooldown, drive of 10+ min or pending items | 1.5 | Unit test per rule passes | 0.5 | Stretch | Not started |
 | 5.1 | ETA from the Routes API | 1.3 | Coordinates → minutes within 2 of Google Maps | 0.75 | Core | Not started |

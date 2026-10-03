@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools deploy smoke
+.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools callback-demo deploy smoke
 
 PORT ?= 8000
 
@@ -43,6 +43,9 @@ ring:  ## Step 1.2: ring MY_PHONE_NUMBER through ElevenLabs (MSG="..." to set th
 
 curl-tools:  ## Step 2.2: curl sample ElevenLabs payloads at BASE (default PUBLIC_BASE_URL)
 	bash scripts/curl_tools.sh $(BASE)
+
+callback-demo:  ## Step 4.1: flip a job to done in DATABASE_URL and ring with its summary
+	uv run python -m app.callbacks --demo "$(or $(MSG),I opened a pull request for the login bug.)"
 
 deploy:  ## Deploy to Railway (see .claude/skills/deploy)
 	railway up --detach

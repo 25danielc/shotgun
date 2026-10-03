@@ -119,6 +119,8 @@ create table if not exists jobs (
     created_at  timestamptz not null default now(),
     updated_at  timestamptz not null default now()
 );
+-- Columns added by later steps (idempotent).
+alter table jobs add column if not exists announced_state text;  -- step 4.1 callbacks
 -- Named checks, re-applied on every init so adding a type or state updates an existing table.
 alter table jobs drop constraint if exists jobs_type_check;
 alter table jobs add constraint jobs_type_check check (type in ({_sql_list(JobType)}));
@@ -258,6 +260,15 @@ async def claim_next(conn: AsyncConnection, types: Iterable[JobType | str]) -> J
         if row is None:
             return None
         return await transition(conn, row[0], JobState.RUNNING, note="claimed")
+
+
+async def set_announced(conn: AsyncConnection, job_id: int, state: JobState | str) -> None:
+    """Record that the driver has heard about this job in `state` (no-op if it moved on)."""
+    state = JobState(state).value
+    await conn.execute(
+        "update jobs set announced_state = %s where id = %s and state = %s",
+        (state, job_id, state),
+    )
 
 
 async def events(conn: AsyncConnection, job_id: int) -> list[tuple[str | None, str, str | None]]:

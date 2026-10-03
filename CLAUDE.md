@@ -73,6 +73,7 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 | `make lint` / `make fmt` | Ruff check + format check / auto-fix |
 | `make check-keys` | Step 0.2 pass check: one cheap read-only call per key |
 | `make ring` | Step 1.2: ring `MY_PHONE_NUMBER` via ElevenLabs. `scripts/apply_agent.py --stage greet\|full` pushes the agent config |
+| `make callback-demo` | Step 4.1: flip a job to done in Neon and ring with its summary (`MSG="..."`) |
 | `make curl-tools` | Step 2.2: curl the sample ElevenLabs payloads at a server (`BASE=...`, default `PUBLIC_BASE_URL`); 200 in < 500 ms each |
 | `make deploy` | `railway up --detach` (see the `deploy` skill) |
 | `make smoke` | GET /health on `PUBLIC_BASE_URL` (or `BASE_URL=...`) |

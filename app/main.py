@@ -8,8 +8,9 @@ Routers:
 
 On startup, if DATABASE_URL is set, the Postgres pool opens and the job tables are created or
 updated (idempotent). A database outage doesn't stop the app: /health stays up and the tools
-answer 503 until the pool is back. With a pool and ANTHROPIC_API_KEY, the planner loop
-(app/orchestrator.py) runs in the background and is cancelled on shutdown.
+answer 503 until the pool is back. Background loops, cancelled on shutdown: the planner
+(app/orchestrator.py, needs ANTHROPIC_API_KEY) and the callback watcher (app/callbacks.py, needs
+the ElevenLabs agent, phone number id and MY_PHONE_NUMBER).
 """
 
 import asyncio
@@ -20,7 +21,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import db, events, jobs, orchestrator, voice_tools
+from app import callbacks, db, events, jobs, orchestrator, voice_tools
 from app.config import settings
 from app.workers import coder
 
@@ -46,6 +47,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         background.append(asyncio.create_task(orchestrator.run_planner(pool), name="planner"))
     else:
         log.warning("planner not running (needs DATABASE_URL and ANTHROPIC_API_KEY)")
+    calls_configured = all(
+        [
+            settings.elevenlabs_api_key,
+            settings.elevenlabs_agent_id,
+            settings.elevenlabs_phone_number_id,
+            settings.my_phone_number,
+        ]
+    )
+    if pool is not None and calls_configured:
+        background.append(asyncio.create_task(callbacks.run_callbacks(pool), name="callbacks"))
+    else:
+        log.warning("callbacks not running (needs DATABASE_URL and the ElevenLabs/phone settings)")
     yield
     for task in background:
         task.cancel()
