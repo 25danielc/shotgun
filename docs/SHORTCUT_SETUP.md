@@ -27,11 +27,11 @@ This is the only Apple dependency. The phone is just a sensor: it tells the serv
         - `location` (Dictionary) with `lat` (Number) = *Current Location → Latitude* and `lng` (Number) = *Current Location → Longitude*. Tap the variable and pick the Latitude/Longitude property.
 4. If iOS asks to allow the URL action to run automatically, allow it. Apple notes some actions must each be set to run automatically.
 
-### Step 5.1 check: the plug-in must send its location (Daniel)
+### Step 5.1 check: the plug-in sends its location
 
-The ETA (D17) is computed once, from where the phone was at plug-in. At step 1.5 the Shortcut sent `location` empty, so the Latitude/Longitude fields weren't mapped. In the **Connects** automation's Get Contents of URL, open the `location` dictionary. Tap `lat`, choose the *Current Location* variable, then tap it again and pick **Latitude**. Do the same for `lng` with **Longitude**. Both fields must be **Number**, not Text.
+The ETA (D17) is computed once, from where the phone was at plug-in. Railway logged `location True` for the 18:26 plug-in, so the Shortcut already sends lat/lng (the empty location at 15:06 was an older version of it). Before the 4.1 deploy the server didn't store it; now it goes on the drive.
 
-Check: run the automation by hand, then `make watch`. The drive line should show `at 42.xxxx,-83.xxxx`, not "(no location from the Shortcut)". Without a location, the arrival call falls back to "once every job is done" instead of ETA − 3 min.
+Check: `make watch` shows `at 42.xxxx,-83.xxxx` on the drive line. "(no location from the Shortcut)" means the Latitude/Longitude fields aren't mapped: map them to *Current Location → Latitude / Longitude* as **Number**. Without a location, the arrival call falls back to "once every job is done".
 
 ## 2. "CarPlay disconnects" automation
 
