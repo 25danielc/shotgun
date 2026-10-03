@@ -289,3 +289,8 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - A silent plug-in still opens a drive. The decision is made in the request (a few queries), so `/events` returns an accurate `calling`. If the DB or the policy fails, it rings anyway (the never-cut ring).
   - The departure greeting leads with what's waiting and asks its question. Otherwise "Hey, it's Shotgun, riding along."
   - **For rehearsals and filming, set `CALL_POLICY=always` in Railway.**
+- 2026-10-03 18:12 (hour 6.5): **Step 4.4 (D17).**
+  - Unplug (`carplay_disconnected` or the alias `car_disconnected`) closes the open drive. That cancels its arrival call: `app/calls.py` only rings for open drives.
+  - Then one ntfy push (`app/recap.py`) with lines grouped as Done / Waiting on you / Still running / Didn't work. A drive with no jobs pushes nothing.
+  - Items still waiting come back on the next departure call (4.3's pending rule).
+  - `NTFY_TOPIC` is a secret (ntfy.sh topics are public by name). It was generated into `.env` as `shotgun-<24 hex>`. `make check-keys` checks it locally only, because a request would publish the name.

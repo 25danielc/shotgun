@@ -17,6 +17,8 @@ Rules:
   policy (app/policy.py) whether to ring, answer, then ring in the background via
   app/telephony.py. The Shortcut never waits on the call. Without a database: always ring
   (the step 1.5 behaviour), with no drive.
+- carplay_disconnected (alias car_disconnected): close the drive, which cancels its arrival
+  call, and push the recap via ntfy in the background (app/recap.py, step 4.4).
 - The departure greeting leads with facts, never "How can I help?": what's waiting on the
   driver, if anything (and its question goes in pending_job_id).
 """
@@ -30,7 +32,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, 
 from psycopg.rows import class_row
 from pydantic import BaseModel, ValidationError
 
-from app import calls, db, drives, jobs, policy, telephony
+from app import calls, db, drives, jobs, policy, recap, telephony
 from app.config import settings
 from app.jobs import Job
 from app.security import check_secret
@@ -39,6 +41,7 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 CONNECTED = "carplay_connected"
+DISCONNECTED = {"carplay_disconnected", "car_disconnected"}  # the D17 spec's name is an alias
 GREETING = "Hey, it's Shotgun, riding along."
 
 
@@ -128,6 +131,25 @@ async def ring(variables: dict[str, str], drive: drives.Drive | None) -> None:
         log.exception("plug-in: could not log the departure call")
 
 
+async def end_drive() -> str | None:
+    """Close the open drive; the recap text for it, or None (no drive, no jobs, no database)."""
+    pool = db.get_pool()
+    if pool is None:
+        return None
+    async with pool.connection() as conn:
+        drive = await drives.close_drive(conn)
+        if drive is None:
+            return None
+        found = await calls.drive_jobs(conn, drive.id)
+    log.info("unplug: drive %s closed with %d job(s)", drive.id, len(found))
+    return recap.recap_text(found)
+
+
+async def send_recap(text: str) -> None:
+    if await recap.push(text):
+        log.info("unplug: recap pushed")
+
+
 @router.post("/events", status_code=status.HTTP_202_ACCEPTED)
 async def receive_event(
     request: Request,
@@ -152,4 +174,12 @@ async def receive_event(
             calling, variables, drive = True, departure_variables(None, []), None
         if calling:
             background.add_task(ring, variables, drive)
+    elif event.event in DISCONNECTED:
+        try:
+            text = await end_drive()
+        except Exception:
+            log.exception("unplug: could not close the drive")
+            text = None
+        if text:
+            background.add_task(send_recap, text)
     return {"accepted": True, "calling": calling}

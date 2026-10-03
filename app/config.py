@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     departure_min_drive_minutes: int = 10
     departure_quiet_minutes: int = 30
 
+    # Unplug recap push (step 4.4). The topic is a secret: anyone who knows it can read it.
+    ntfy_topic: str = ""
+    ntfy_server: str = "https://ntfy.sh"
+
     # Deploy
     public_base_url: str = ""
 

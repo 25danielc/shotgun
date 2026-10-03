@@ -29,7 +29,7 @@ This is the only Apple dependency. The phone is just a sensor: it tells the serv
 
 ## 2. "CarPlay disconnects" automation
 
-Same as above with **Disconnects** and `event` = `carplay_disconnected`. Location is optional.
+Same as above with **Disconnects** and `event` = `carplay_disconnected`. Location is optional. Since D17 (step 4.4) this one matters: unplugging closes the drive, cancels the arrival call if it hasn't rung, and sends the recap push. Install the **ntfy** app on the iPhone and subscribe to the `NTFY_TOPIC` from `.env` (server ntfy.sh). Copy it without printing: `grep '^NTFY_TOPIC=' .env | cut -d= -f2- | tr -d '\n' | pbcopy`.
 
 ## 3. The "Shotgun" contact (and the manual fallback)
 

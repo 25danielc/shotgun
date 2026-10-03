@@ -165,6 +165,16 @@ def check_secret(name: str) -> Callable[[dict], str]:
     return check
 
 
+NTFY_TOPIC = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+
+
+def check_ntfy(env: dict) -> str:
+    """Local only: a request would publish the topic name, and ntfy.sh topics are public."""
+    if not NTFY_TOPIC.match(env["NTFY_TOPIC"]):
+        raise CheckFailed("use 20-64 of A-Z a-z 0-9 _ -, e.g. shotgun-$(openssl rand -hex 12)")
+    return "unguessable (local check only)"
+
+
 def check_phone(name: str) -> Callable[[dict], str]:
     def check(env: dict) -> str:
         if not E164.match(env[name]):
@@ -190,6 +200,7 @@ CHECKS: list[tuple[str, list[str], Callable[[dict], str]]] = [
     ("ALLOWED_CALLER_NUMBER", ["ALLOWED_CALLER_NUMBER"], check_phone("ALLOWED_CALLER_NUMBER")),
     ("MY_PHONE_NUMBER", ["MY_PHONE_NUMBER"], check_phone("MY_PHONE_NUMBER")),
     ("TWILIO_PHONE_NUMBER", ["TWILIO_PHONE_NUMBER"], check_phone("TWILIO_PHONE_NUMBER")),
+    ("NTFY_TOPIC", ["NTFY_TOPIC"], check_ntfy),
 ]
 
 

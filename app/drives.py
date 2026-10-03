@@ -116,6 +116,17 @@ async def open_drive(
         return await cur.fetchone()
 
 
+async def close_drive(conn: AsyncConnection, now: datetime | None = None) -> Drive | None:
+    """End the open drive (unplug). Its arrival call, if not yet placed, never rings."""
+    cur = conn.cursor(row_factory=class_row(Drive))
+    await cur.execute(
+        "update drives set ended_at = %s where ended_at is null returning *",
+        (now or datetime.now(UTC),),
+    )
+    closed = await cur.fetchall()
+    return max(closed, key=lambda d: d.started_at) if closed else None
+
+
 async def current_or_open(
     conn: AsyncConnection, *, source: str = "call", now: datetime | None = None
 ) -> Drive:

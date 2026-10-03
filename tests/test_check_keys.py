@@ -38,3 +38,12 @@ def test_local_secret_and_phone_checks():
     ]
     statuses = [status for _, status, _ in check_keys.run(env, checks)]
     assert statuses == ["FAIL", "OK", "FAIL"]
+
+
+def test_ntfy_topic_must_be_unguessable():
+    checks = [("N", ["NTFY_TOPIC"], check_keys.check_ntfy)]
+    statuses = [
+        check_keys.run({"NTFY_TOPIC": topic}, checks)[0][1]
+        for topic in ("shotgun", "shotgun-" + "a1" * 12, "has spaces in it oh no!!")
+    ]
+    assert statuses == ["FAIL", "OK", "FAIL"]
