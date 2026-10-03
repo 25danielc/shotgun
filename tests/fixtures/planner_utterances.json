@@ -1,0 +1,41 @@
+[
+  {
+    "request": "Order my usual ramen so it's there when I get home, email Alex to come over, and fix the login bug Sarah filed.",
+    "eta_minutes": 31,
+    "expected": [
+      {"type": "food", "deadline_minutes": 31},
+      {"type": "email", "deadline_minutes": null},
+      {"type": "coder", "deadline_minutes": null}
+    ]
+  },
+  {
+    "request": "Text Alex that I'm running about ten minutes late.",
+    "eta_minutes": 20,
+    "expected": [
+      {"type": "email", "deadline_minutes": null}
+    ]
+  },
+  {
+    "request": "Find three ramen places that are open near home, and order a pepperoni pizza to arrive ten minutes after I get there.",
+    "eta_minutes": 25,
+    "expected": [
+      {"type": "research", "deadline_minutes": null},
+      {"type": "food", "deadline_minutes": 35}
+    ]
+  },
+  {
+    "request": "Fix the bug where login fails if my email has capital letters, and turn on the heated seats.",
+    "eta_minutes": 15,
+    "expected": [
+      {"type": "coder", "deadline_minutes": null}
+    ],
+    "unsupported": 1
+  },
+  {
+    "request": "Email my landlord that the rent is coming Monday.",
+    "eta_minutes": null,
+    "expected": [
+      {"type": "email", "deadline_minutes": null}
+    ]
+  }
+]

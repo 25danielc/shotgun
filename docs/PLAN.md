@@ -64,7 +64,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | 2.1 | Job table in Neon with state transitions | 0.2 | Tests: create job, legal transitions pass, illegal ones raise | 1 | Core | Blocked: code + tests pass offline; run `make test-neon` once DATABASE_URL is set |
 | 2.2 | Tool webhooks: dispatch\_task, get\_status, approve\_action | 2.1 | Sample ElevenLabs payloads via curl answer in under 500 ms and write rows | 1 | Core | Blocked: done offline; local curl samples 200 in ≤ 3 ms and write rows. Needs Neon (2.1) + deploy, then `make curl-tools` |
 | 2.3 | Voice prompt and tools wired in ElevenLabs; caller allowlist | 1.1, 2.2 | Live 3-part request: agent confirms, says "on it", 3 rows appear; unknown number refused | 1 | Core | Not started |
-| 2.4 | Orchestrator planner (Sonnet): request → job list with deadlines | 2.1 | 5 fixture utterances produce the expected job types and deadlines | 1.5 | Core | Not started |
+| 2.4 | Orchestrator planner (Sonnet): request → job list with deadlines | 2.1 | 5 fixture utterances produce the expected job types and deadlines | 1.5 | Core | Blocked: done offline (11 tests). Live check (`make test-live`, 5 utterances) needs a workspace-scoped Anthropic key |
 | 3.1 | Coder worker plus demo repo with a planted bug | 2.1 | Job inserted by hand → PR opens and webhook marks job done within 10 min | 2 | Hero (pick one) | Not started |
 | 3.2 | Email worker via Composio | 2.1 | Job → draft in Gmail, status needs\_approval; approve → sent | 1.5 | Stretch | Not started |
 | 3.4 | Food worker: DoorDash CLI, or browser agent stopping at cart | 0.1, 2.1 | Job → cart with the right items and total; order placed only after approval | 2.5 | Hero (pick one) | Not started |

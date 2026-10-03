@@ -8,16 +8,19 @@ Routers:
 
 On startup, if DATABASE_URL is set, the Postgres pool opens and the job tables are created or
 updated (idempotent). A database outage doesn't stop the app: /health stays up and the tools
-answer 503 until the pool is back.
+answer 503 until the pool is back. With a pool and ANTHROPIC_API_KEY, the planner loop
+(app/orchestrator.py) runs in the background and is cancelled on shutdown.
 """
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import db, events, jobs, voice_tools
+from app import db, events, jobs, orchestrator, voice_tools
 from app.config import settings
 from app.workers import coder
 
@@ -27,6 +30,7 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    background: list[asyncio.Task] = []
     if settings.database_url:
         try:
             pool = await db.open_pool()
@@ -37,7 +41,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             log.exception("database unavailable at startup; tools will answer 503")
     else:
         log.warning("DATABASE_URL not set; tools will answer 503")
+    pool = db.get_pool()
+    if pool is not None and settings.anthropic_api_key:
+        background.append(asyncio.create_task(orchestrator.run_planner(pool), name="planner"))
+    else:
+        log.warning("planner not running (needs DATABASE_URL and ANTHROPIC_API_KEY)")
     yield
+    for task in background:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
     await db.close_pool()
 
 

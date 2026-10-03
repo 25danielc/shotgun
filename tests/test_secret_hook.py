@@ -96,3 +96,18 @@ def test_allow_marker(repo):
     (repo.path / "doc.md").write_text(f"example {FAKE_ANTHROPIC}  secret-scan: allow\n")
     repo.git("add", "doc.md")
     assert run_hook(repo, "--staged").returncode == 0
+
+
+def test_config_references_are_not_secrets(repo):
+    (repo.path / "client.py").write_text(
+        "client = Anthropic(api_key=settings.anthropic_api_key)\n"
+        "token = os.environ['GITHUB_TOKEN']\n"
+    )
+    repo.git("add", "client.py")
+    assert run_hook(repo, "--staged").returncode == 0
+
+
+def test_literal_key_assignment_still_blocked(repo):
+    (repo.path / "client.py").write_text("API_" + "KEY = 'abcd1234efgh5678ijkl'\n")
+    repo.git("add", "client.py")
+    assert run_hook(repo, "--staged").returncode == 1

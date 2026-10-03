@@ -37,7 +37,8 @@ KEY_PATTERNS = [
         "secret assigned to a variable",
         re.compile(
             r"(?i)\b[A-Z0-9_]*(API_KEY|SECRET|TOKEN|PASSWORD)\s*[=:]\s*['\"]?"
-            r"(?!your|changeme|xxx|<)[A-Za-z0-9_\-\.]{16,}"
+            # skip placeholders and code references like settings.x / os.environ / self.x
+            r"(?!your|changeme|xxx|<|settings\.|os\.|self\.)[A-Za-z0-9_\-\.]{16,}"
         ),
     ),
 ]
