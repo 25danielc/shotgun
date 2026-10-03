@@ -226,3 +226,10 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **Research uses Claude web search for everything**, so no Places API (D15). The Maps key now needs only the Routes API, and `check_keys` checks only Routes.
 
   Shipped the **unclaimed guard** (`callbacks.expire_unclaimed`): a job still queued after 2 min fails with "Sorry, I can't handle this one yet: <label>.", which the watcher then rings about. Old stuck jobs 80, 81, 83 and 84 were failed silently first (marked announced), so the deploy didn't ring about them.
+- 2026-10-03 17:25 (hour 5.5): **Step 3.5 research built before 6.1 Fetch.ai** (Daniel reordered the stretch order).
+  - `app/workers/research.py` uses Sonnet 5.5 + `web_search_20260209` (max_uses 5, effort low) and runs as an in-app loop (up to 3 lookups in parallel, no pool connection held while searching).
+  - Live: 10–25 s per lookup. With dynamic filtering the final text has **no citations**, so sources come from the search-result URLs.
+  - It names only places with hours it can verify: 2 of 3 in the live check. That's deliberate (never guess hours).
+  - The planner's research tool now covers quick facts too (scores, weather, news).
+  - **Bug fixed:** the planner formatted "current time" in the server zone, which is UTC on Railway, so clock-time deadlines would have been 4 h off. New `TIMEZONE` setting (default America/Detroit).
+  - **Risk to watch:** a callback can ring while the driver is still on the dispatch call, because the watcher only spaces out *its own* calls. Research finishes about 30 s after dispatch.

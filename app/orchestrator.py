@@ -54,7 +54,8 @@ Job types:
 - create_email_job: send an email. Also use it when the user says "text" or "message" someone: \
 there is no SMS, so it becomes an email.
 - create_food_job: order food for delivery.
-- create_research_job: look up places (restaurants, shops) and report back.
+- create_research_job: look something up on the web and report back: places (restaurants, \
+shops, opening hours) or quick facts (scores, weather, news, prices).
 - report_unsupported: anything else (controlling the car, calendar, payments outside food \
 orders, reservations, anything you can't map). Never invent a job for it.
 
@@ -121,13 +122,16 @@ TOOLS: list[dict[str, Any]] = [
     ),
     _tool(
         "create_research_job",
-        "Look up places and report back.",
+        "Look something up on the web and report back (places, hours, quick facts).",
         {
-            "query": {"type": "string", "description": "What to search for, e.g. 'ramen'."},
+            "query": {
+                "type": "string",
+                "description": "What to look up, e.g. 'ramen open now' or 'Lions score'.",
+            },
             "near": {
                 "type": "string",
                 "enum": ["destination", "current_location"],
-                "description": "Where to search. Default destination.",
+                "description": "Where to search, for places. Default destination.",
             },
             "count": {"type": "integer", "description": "How many results. Default 3."},
         },
@@ -176,7 +180,7 @@ class Plan:
 def user_message(request: str, now: datetime, eta_minutes: int | None) -> str:
     drive = f"{eta_minutes} minutes" if eta_minutes is not None else "unknown"
     return (
-        f"Current time: {now.astimezone():%A %H:%M %Z}\n"
+        f"Current time: {now.astimezone(settings.tz):%A %H:%M %Z}\n"
         f"Drive time left: {drive}\n"
         f"Request: {request}"
     )

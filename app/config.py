@@ -3,6 +3,8 @@
 Every name here must match .env.example. Secrets never get logged or printed.
 """
 
+from zoneinfo import ZoneInfo
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +39,8 @@ class Settings(BaseSettings):
     # Google Maps Platform: Routes API only (ETA, step 5.1)
     google_maps_api_key: str = ""
     home_address: str = ""  # ETA destination (D16)
+    # Local time for spoken times and deadlines (the Railway server clock is UTC)
+    timezone: str = "America/Detroit"
 
     # Security
     events_shared_secret: str = ""
@@ -48,6 +52,10 @@ class Settings(BaseSettings):
 
     # Deploy
     public_base_url: str = ""
+
+    @property
+    def tz(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
 
 
 settings = Settings()

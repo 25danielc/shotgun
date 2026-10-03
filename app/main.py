@@ -10,8 +10,9 @@ On startup, if DATABASE_URL is set, the Postgres pool opens and the job tables a
 updated (idempotent). A database outage doesn't stop the app: /health stays up and the tools
 answer 503 until the pool is back. Background loops, cancelled on shutdown: the planner
 (app/orchestrator.py, needs ANTHROPIC_API_KEY), the callback watcher (app/callbacks.py, needs
-the ElevenLabs agent, phone number id and MY_PHONE_NUMBER) and the coder worker
-(app/workers/coder.py, needs GITHUB_TOKEN and GITHUB_DEMO_REPO).
+the ElevenLabs agent, phone number id and MY_PHONE_NUMBER), the coder worker
+(app/workers/coder.py, needs GITHUB_TOKEN and GITHUB_DEMO_REPO) and the research worker
+(app/workers/research.py, needs ANTHROPIC_API_KEY).
 """
 
 import asyncio
@@ -24,7 +25,7 @@ from fastapi import FastAPI
 
 from app import callbacks, db, events, jobs, orchestrator, voice_tools
 from app.config import settings
-from app.workers import coder
+from app.workers import coder, research
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -46,8 +47,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     pool = db.get_pool()
     if pool is not None and settings.anthropic_api_key:
         background.append(asyncio.create_task(orchestrator.run_planner(pool), name="planner"))
+        background.append(asyncio.create_task(research.run_research(pool), name="research"))
     else:
-        log.warning("planner not running (needs DATABASE_URL and ANTHROPIC_API_KEY)")
+        log.warning("planner + research not running (needs DATABASE_URL and ANTHROPIC_API_KEY)")
     calls_configured = all(
         [
             settings.elevenlabs_api_key,
