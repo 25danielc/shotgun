@@ -21,7 +21,7 @@ job done / needs_approval ─▶ callback watcher ─▶ outbound call with summ
 | `app/events.py` | `/events` + call trigger | 1.5, 4.3 |
 | `app/telephony.py` | ElevenLabs outbound call | 1.2 |
 | `app/voice_tools.py` | `/tools/*` webhooks | 2.2, 2.3, 4.2 |
-| `app/jobs.py` | Job table + state machine | 2.1 |
+| `app/jobs.py`, `app/db.py` | Job table + state machine; connection pool | 2.1 |
 | `app/orchestrator.py` | Request → jobs + deadlines | 2.4, 5.2 |
 | `app/callbacks.py` | Job → outbound call | 4.1 |
 | `app/eta.py` | Routes API ETA | 5.1 |
@@ -67,7 +67,8 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 |---|---|
 | `make setup` | Install Python 3.12 + deps via uv, enable the git hook, create `.env` |
 | `make dev` | Run locally on :8000 with reload (`ngrok http 8000` to expose) |
-| `make test` | Offline tests. `make test-live` runs `@live` tests (real APIs, rings phone) |
+| `make test` | Offline tests (DB tests use embedded Postgres via pgserver). `make test-live` runs `@live` tests (real APIs, rings phone) |
+| `make test-neon` / `make db-init` | Same suite with Neon as the DB (rolled back) / create the job tables in Neon |
 | `make lint` / `make fmt` | Ruff check + format check / auto-fix |
 | `make check-keys` | Step 0.2 pass check: one cheap read-only call per key |
 | `make deploy` | `railway up --detach` (see the `deploy` skill) |

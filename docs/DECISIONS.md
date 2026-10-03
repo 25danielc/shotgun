@@ -188,3 +188,4 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
 
 - 2026-10-03 13:00 (hour 1): Repo set up from PLAN.md and the planning chat; all decisions above recorded. Python 3.12 + uv, FastAPI, psycopg 3. Added `TOOLS_SHARED_SECRET` for the `/tools/*` webhooks.
 - 2026-10-03 13:30 (hour 1): Created private repo `25danielc/shotgun-demo-app` (planted bug: login fails on capitalised or space-padded email) and issues #1 to #26 on `25danielc/shotgun`, one per PLAN.md step. PLAN.md status stays authoritative.
+- 2026-10-03 13:30 (hour 1): Step 2.1 transitions are the context's chain plus `running → done` for read-only jobs (research) and `any open state → failed` (a spoken "no" means failed with the summary "Cancelled"). `needs_approval → done` is deliberately impossible. Every transition is logged in `job_events` (the approval log for 4.2). DB tests run on embedded Postgres (`pgserver` dev dependency) offline, and on Neon with `make test-neon`.

@@ -61,7 +61,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | 1.4 | FastAPI skeleton deployed on Railway | 0.2 | GET /health on the public URL returns 200 | 0.5 | Core | Not started |
 | 1.5 | /events triggers an outbound call, shared-secret check | 1.2, 1.4 | curl /events rings the phone; wrong secret returns 401 | 0.5 | Core | Not started |
 | 1.6 | Milestone 1: plug in → car rings | 1.3, 1.5 | 3 of 3 in the Civic, ring within 10 s | 0.5 | Core | Not started |
-| 2.1 | Job table in Neon with state transitions | 0.2 | Tests: create job, legal transitions pass, illegal ones raise | 1 | Core | Not started |
+| 2.1 | Job table in Neon with state transitions | 0.2 | Tests: create job, legal transitions pass, illegal ones raise | 1 | Core | Blocked: code + tests pass offline; run `make test-neon` once DATABASE_URL is set |
 | 2.2 | Tool webhooks: dispatch\_task, get\_status, approve\_action | 2.1 | Sample ElevenLabs payloads via curl answer in under 500 ms and write rows | 1 | Core | Not started |
 | 2.3 | Voice prompt and tools wired in ElevenLabs; caller allowlist | 1.1, 2.2 | Live 3-part request: agent confirms, says "on it", 3 rows appear; unknown number refused | 1 | Core | Not started |
 | 2.4 | Orchestrator planner (Sonnet): request → job list with deadlines | 2.1 | 5 fixture utterances produce the expected job types and deadlines | 1.5 | Core | Not started |

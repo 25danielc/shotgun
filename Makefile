@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: help setup dev test test-live lint fmt check-keys deploy smoke
+.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys deploy smoke
 
 PORT ?= 8000
 
@@ -20,6 +20,12 @@ test:  ## Run offline tests (live tests skipped)
 
 test-live:  ## Run tests that hit real APIs / ring the phone (needs .env)
 	RUN_LIVE=1 uv run pytest -q -m live
+
+test-neon:  ## Run the suite with Neon (DATABASE_URL) as the test DB; rolled back, no data left
+	USE_NEON=1 uv run pytest -q
+
+db-init:  ## Create the job tables in DATABASE_URL (idempotent)
+	uv run python -m app.db init
 
 lint:  ## Ruff lint + format check
 	uv run ruff check .
