@@ -391,7 +391,7 @@
     },
     {
       "name": "email",
-      "status": "offline",
+      "status": "not_built",
       "last_heartbeat": null,
       "current_job_id": null
     }

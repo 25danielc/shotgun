@@ -352,4 +352,16 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
     - ElevenLabs' built-in `voicemail_detection` with a `voicemail_message` that reads `{{summary}}` and how to answer, then hangs up.
     - The destination question is limited to departure calls.
     - The check-in is exactly "Anything else?".
+- 2026-10-03 19:44 (hour 8): **Dashboard review merged** (review agent, 33 new tests).
+  - Correctness against the D17 schema: refused callers no longer show as calls; "declined" vs "pre-approved" is right; coder steps read `result.tests`.
+  - The upcoming list reuses `calls.arrival_due`; the fixtures are now real backend output.
+  - The ToolCallRecorder middleware is proven harmless: bodies intact, < 1 ms overhead, tools still < 500 ms, never raises.
+  - Payload privacy is tested: no keys, topic, phone numbers, emails, home address or coordinates. The state handler makes zero third-party calls.
+  - The page survives bad data, rendering each window on its own.
+
+  Follow-ups done here:
+  - The email worker reads dim "not built" instead of a red "offline" that judges would read as a failure.
+  - **The token moved into a URL fragment:** open `/dashboard#token=…`; the page sends `X-Dashboard-Token`. Fragments never reach the server, so the token stays out of Railway's access logs.
+  - **Background research now searches near the drive's destination** (D17), not HOME_ADDRESS, and is localized the same way as `search_web`.
+  - `calls(drive_id)` index.
 

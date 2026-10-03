@@ -202,14 +202,7 @@ async def drive_context(drive_id: int | str | None) -> dict[str, str]:
     except Exception:
         log.exception("search_web: no drive context")
         return {}
-    if drive is None:
-        return {}
-    near = {}
-    if drive.start_lat is not None and drive.start_lng is not None:
-        near["location"] = f"{drive.start_lat:.4f}, {drive.start_lng:.4f}"
-    if drive.destination:
-        near["destination"] = drive.destination
-    return near
+    return drives.near(drive)
 
 
 @router.post("/draft_message")

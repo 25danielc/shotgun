@@ -35,7 +35,7 @@ from typing import Any
 import anthropic
 
 from app.config import settings
-from app.workers.research import ResearchError, parse_answer, speakable
+from app.workers.research import ResearchError, localized, parse_answer, speakable
 
 log = logging.getLogger(__name__)
 
@@ -46,16 +46,7 @@ WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search", "max_uses": M
 
 def web_search_tool() -> dict:
     """The search tool, localized to the driver's area when HOME_ADDRESS names a city."""
-    from app.eta import home_area  # app.eta imports nothing from here; keep the import local
-
-    area = home_area()
-    if not area:
-        return WEB_SEARCH
-    city, _, region = area.partition(", ")
-    location = {"type": "approximate", "city": city, "country": "US", "timezone": settings.timezone}
-    if region:
-        location["region"] = region
-    return {**WEB_SEARCH, "user_location": location}
+    return localized(WEB_SEARCH)
 
 
 SEARCH_PROMPT = """You answer one question for Shotgun, a friend riding along in the passenger \

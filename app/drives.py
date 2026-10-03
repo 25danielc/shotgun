@@ -58,6 +58,7 @@ create table if not exists calls (
     at               timestamptz not null default now()
 );
 create index if not exists calls_at_idx on calls (at desc);
+create index if not exists calls_drive_idx on calls (drive_id, id);
 """
 CALL_KINDS = ("departure", "arrival", "exception")
 
@@ -114,6 +115,18 @@ async def open_drive(
             (source, now, lat, lng),
         )
         return await cur.fetchone()
+
+
+def near(drive: Drive | None) -> dict[str, str]:
+    """Where the driver is, for searches: the plug-in location and the destination they named."""
+    if drive is None:
+        return {}
+    found = {}
+    if drive.start_lat is not None and drive.start_lng is not None:
+        found["location"] = f"{drive.start_lat:.4f}, {drive.start_lng:.4f}"
+    if drive.destination:
+        found["destination"] = drive.destination
+    return found
 
 
 async def close_drive(conn: AsyncConnection, now: datetime | None = None) -> Drive | None:

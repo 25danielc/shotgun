@@ -13,7 +13,8 @@ job_events) plus four in-process records kept by this module:
 - LIVE_CALL: run_monitor() asks ElevenLabs for the agent's live conversation every
   CALL_SECONDS while a drive is open (the same list telephony.call_in_progress reads).
 - Worker liveness: the app's background tasks (planner, research, coder) are found by name; a
-  running task is the heartbeat. The email worker is a stub with no task, so it shows offline.
+  running task is the heartbeat. The email worker isn't built (3.2 stretch), so it shows
+  "not_built" (dim on the page), never a red "offline" that reads as a failure.
 
 Everything derived (drive status, job steps, approval, upcoming) is computed per request from
 those rows, with the same rules the code that acts on them uses (app/calls.py arrival_due and
@@ -37,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 from psycopg.rows import class_row, dict_row
 
@@ -979,7 +980,9 @@ def agents_view(
             (j for j in open_jobs if j.type == AGENT_TYPES[name] and j.state in working),
             None,
         )
-        if task and task in alive:
+        if task is None:
+            status_, beat = "not_built", None
+        elif task in alive:
             status_ = "busy" if busy else "idle"
             beat = now
         else:
@@ -1154,8 +1157,12 @@ async def page() -> FileResponse:
 
 
 @router.get("/dashboard/state")
-async def state(response: Response, token: str | None = Query(default=None)) -> dict[str, Any]:
-    check_token(token)
+async def state(
+    response: Response,
+    token: str | None = Query(default=None),
+    x_dashboard_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    check_token(x_dashboard_token or token)
     response.headers["Cache-Control"] = "no-store"
     return await build_state()
 
@@ -1165,11 +1172,14 @@ DEMO_ACTIONS = ("plug-in", "arrive", "unplug")
 
 @router.post("/dashboard/demo/{action}", status_code=status.HTTP_202_ACCEPTED)
 async def demo(
-    action: str, background: BackgroundTasks, token: str | None = Query(default=None)
+    action: str,
+    background: BackgroundTasks,
+    token: str | None = Query(default=None),
+    x_dashboard_token: str | None = Header(default=None),
 ) -> dict[str, bool]:
     if not settings.demo_mode or action not in DEMO_ACTIONS:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    check_token(token)
+    check_token(x_dashboard_token or token)
     if action == "plug-in":
         calling, variables, drive = await events.plan_departure(
             events.Event(source="dashboard_demo", event=events.CONNECTED)

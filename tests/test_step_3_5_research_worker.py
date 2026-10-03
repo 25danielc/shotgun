@@ -79,13 +79,61 @@ async def test_request_uses_web_search_and_the_destination(db):
     [request] = client.requests
     assert request["model"] == "claude-sonnet-5-5"
     assert request["tools"] == [
-        {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+        {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 3,
+            "user_location": {
+                "type": "approximate",
+                "city": "Ann Arbor",
+                "region": "MI",
+                "country": "US",
+                "timezone": "America/Detroit",
+            },
+        }
     ]
     prompt = request["messages"][0]["content"]
     assert "Saturday 06:30 PM EDT" in prompt
     assert "Search near: 500 Main St, Ann Arbor, MI" in prompt
     assert "Lookup: ramen open now" in prompt
     assert "How many: 3" in prompt
+
+
+async def test_the_drives_destination_wins_over_home(db):
+    """D17: the driver names the destination; HOME_ADDRESS is only the fallback (D16)."""
+    job = await research_job(db, near="destination")
+    where = {"location": "42.2967, -83.7211", "destination": "333 East Jefferson"}
+    prompt = research.request_for(job, NOW, where)
+    assert "Search near: 333 East Jefferson (in or near Ann Arbor, MI)" in prompt
+    assert "500 Main St" not in prompt
+    on_the_way = await research_job(db, near="current_location")
+    assert "current location (42.2967, -83.7211), on the way to 333 East Jefferson" in (
+        research.request_for(on_the_way, NOW, where)
+    )
+    assert "Search near: 500 Main St" in research.request_for(job, NOW, {"destination": "home"})
+
+
+async def test_worker_reads_the_jobs_drive(db, monkeypatch):
+    from app import drives
+
+    drive = await drives.open_drive(db, lat=42.2967, lng=-83.7211)
+    await db.execute(
+        "update drives set destination = 'the Michigan Union' where id = %s", (drive.id,)
+    )
+    await jobs.create_job(db, JobType.RESEARCH, {"query": "coffee"}, drive_id=drive.id)
+    job = await jobs.claim_next(db, [JobType.RESEARCH])
+    client = FakeClient(searched(cited(ANSWER)))
+
+    class Pool:
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def connection(self):
+            yield db
+
+    await research.run_one(Pool(), job, client)
+    prompt = client.requests[0]["messages"][0]["content"]
+    assert "Search near: the Michigan Union (in or near Ann Arbor, MI)" in prompt
 
 
 async def test_current_location_is_described_as_on_the_way(db):

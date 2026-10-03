@@ -16,7 +16,7 @@ demo mode.
 ## Endpoint
 
 ```
-GET /dashboard/state?token=<DASHBOARD_TOKEN>
+GET /dashboard/state   header X-Dashboard-Token: <DASHBOARD_TOKEN>   (?token= also accepted)
 200 application/json   body below
 401                    token missing or wrong (constant-time compare)
 503                    DASHBOARD_TOKEN not configured (never open)
@@ -26,9 +26,10 @@ GET /dashboard/state?token=<DASHBOARD_TOKEN>
   in-memory caches. **It never calls a third-party service.** Service health and agent
   heartbeats come from caches that are filled elsewhere (see below).
 - Send `Cache-Control: no-store`.
-- `GET /dashboard` serves `static/dashboard.html`. The page reads `token` from its own URL,
-  keeps it in `sessionStorage` and removes it from the address bar (so it isn't on screen),
-  and forwards it. `<meta name="referrer" content="no-referrer">`.
+- `GET /dashboard` serves `static/dashboard.html`. Open it as `/dashboard#token=...`: a URL
+  fragment never reaches the server, so the token stays out of the access logs (`?token=` still
+  works but is logged). The page keeps it in `sessionStorage`, removes it from the address bar
+  and sends it as the `X-Dashboard-Token` header. `<meta name="referrer" content="no-referrer">`.
 
 ## Conventions
 
@@ -272,7 +273,7 @@ Sources (the rules of app/calls.py and app/workers/coder.py, imported, not copie
 | Field | Type | Notes |
 |---|---|---|
 | `name` | enum | `voice \| orchestrator \| coder \| research \| email` (always in this order). |
-| `status` | enum | `idle \| busy \| offline`. **offline** if `last_heartbeat` is older than 60 s. |
+| `status` | enum | `idle \| busy \| offline \| not_built`. **offline** if `last_heartbeat` is older than 60 s. **not_built**: the worker doesn't exist yet (email, 3.2 stretch); the page shows it dim, not as an error. |
 | `last_heartbeat` | timestamp or null | |
 | `current_job_id` | int or null | Set while busy. The diagram labels busy nodes with it. |
 
@@ -332,7 +333,7 @@ Shortened. See `tests/fixtures/dashboard_state.json` for a full payload.
   ],
   "agents": [
     {"name": "voice", "status": "busy", "last_heartbeat": "2026-10-03T22:34:50Z", "current_job_id": null},
-    {"name": "email", "status": "offline", "last_heartbeat": "2026-10-03T22:31:40Z", "current_job_id": null}
+    {"name": "email", "status": "not_built", "last_heartbeat": null, "current_job_id": null}
   ],
   "active_agent": "coder"
 }
@@ -381,7 +382,7 @@ real rows or live checks; nothing is invented.
 | `tool_calls` | `ToolCallRecorder` ASGI middleware on `/tools/*`. Refused callers (401, 403, a stranger's `/tools/init`) are not recorded. Latency stops at the last response byte. In memory (last 20), so it resets on deploy. |
 | `events` | `drives` (plug_in by source, unplug), `calls` (call_started, arrival_call, exception_call), `job_events` (job_dispatched, job_state), coder `result` (issue filed, PR opened) and in-memory tool, call and demo events. |
 | `services` | `run_monitor()` every 30 s, read-only probes as above. `api_server.latency_ms` is the time the last payload took to build. |
-| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`) is alive → idle or busy (a `running` or `approved` job of its type); no task → offline. `email` has no worker yet, so it is always offline. |
+| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`) is alive → idle or busy (a `running` or `approved` job of its type); no task → offline. `email` has no worker yet, so it is always `not_built`. |
 | `active_agent` | The newest of: the live call's last tool call (voice), and each working job's last state change or PR (its worker). |
 
 The state read is five indexed queries on one pooled connection (2 s pool timeout): the latest

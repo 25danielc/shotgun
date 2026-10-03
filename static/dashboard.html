@@ -304,19 +304,23 @@ const params = new URLSearchParams(location.search);
 const MOCK = params.get('mock'); // "1" | "empty" | "edge" | null
 const MOCK_FILES = { 1: 'dashboard_state.json', empty: 'dashboard_state_empty.json', edge: 'dashboard_state_edge.json' };
 const TOKEN_KEY = 'shotgun_dashboard_token';
+// Open the page as /dashboard#token=...: a #fragment never reaches the server, so the token
+// stays out of Railway's access logs. ?token= still works. Requests send it as a header.
 const TOKEN = (() => {
-  let t = params.get('token') || '';
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  let t = hash.get('token') || params.get('token') || '';
   try {
     if (t) sessionStorage.setItem(TOKEN_KEY, t);
     else t = sessionStorage.getItem(TOKEN_KEY) || '';
   } catch (_) { /* storage blocked: the URL token still works for this load */ }
-  if (params.has('token')) {
+  if (params.has('token') || hash.has('token')) {
     params.delete('token');
     const q = params.toString();
-    try { history.replaceState(null, '', location.pathname + (q ? `?${q}` : '') + location.hash); } catch (_) {}
+    try { history.replaceState(null, '', location.pathname + (q ? `?${q}` : '')); } catch (_) {}
   }
   return t;
 })();
+const AUTH = () => ({ 'X-Dashboard-Token': TOKEN });
 const POLL_MS = 1500;
 const STALE_MS = 90000;
 const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧';
@@ -708,9 +712,11 @@ function renderAgents(s) {
   const byName = Object.fromEntries(arr(s.agents).filter((a) => a && a.name)
     .map((a) => [a.name, { ...a, status: String(a.status || 'offline') }]));
   const agents = AGENT_ORDER.map((n) => byName[n]).filter(Boolean);
-  const up = agents.filter((a) => a.status !== 'offline').length;
-  const off = agents.length - up;
-  setStat('agents', `${up} up${off ? ` · <span class="err">${off} offline</span>` : ''}`);
+  const up = agents.filter((a) => a.status !== 'offline' && a.status !== 'not_built').length;
+  const off = agents.filter((a) => a.status === 'offline').length;
+  const unbuilt = agents.filter((a) => a.status === 'not_built').length;
+  setStat('agents', `${up} up${off ? ` · <span class="err">${off} offline</span>` : ''}`
+    + `${unbuilt ? ` · <span class="dim">${unbuilt} not built</span>` : ''}`);
   const view = agents.map((a) => [a.name, a.status, a.current_job_id]);
   const pulseNow = changed('agents-pulse', [view, s.active_agent]);
   if (!changed('agents', [agents, s.active_agent])) return;
@@ -723,14 +729,16 @@ function renderAgents(s) {
     else if (a.name !== 'voice') edge = workers.indexOf(a) === workers.length - 1 ? '    └─▶ ' : '    ├─▶ ';
     const active = s.active_agent === a.name;
     const nameW = 16 - edge.length;
-    const nameCls = active ? 'act' : `s-${a.status === 'idle' ? 'fg' : a.status}`;
+    const nameCls = active ? 'act' : a.status === 'not_built' ? 'dim' : `s-${a.status === 'idle' ? 'fg' : a.status}`;
     const job = a.current_job_id != null ? `#${a.current_job_id}` : a.name === 'voice' && a.status === 'busy' ? 'call' : '';
     const hb = a.last_heartbeat
       ? `<span class="${a.status === 'offline' ? 'err' : 'dim'}" data-ago="${ts(a.last_heartbeat)}" data-pad="5"></span>`
       : '<span class="dim">   --</span>';
     return `<span class="${active ? 'act' : 'dim'}">${active ? '▸' : ' '}</span> `
       + `<span class="edge">${edge}</span><span class="${nameCls}">${esc(a.name.padEnd(nameW))}</span> `
-      + `<span class="s-${a.status}">● ${a.status.padEnd(7)}</span> `
+      + (a.status === 'not_built'
+        ? `<span class="dim">○ ${'not built'.padEnd(7)}</span> `
+        : `<span class="s-${a.status}">● ${a.status.padEnd(7)}</span> `)
       + `<span class="${a.status === 'busy' ? 'amb' : 'dim'}">${esc(job.padEnd(4))}</span> ${hb}`;
   });
   $('b-agents').innerHTML = `<pre class="tree">${lines.join('\n')}</pre>`;
@@ -797,7 +805,7 @@ $('b-sys').addEventListener('click', async (e) => {
       demoNote = `${action} → mock event`;
       apply(await mockNext());
     } else {
-      const r = await fetch(`/dashboard/demo/${action}?token=${encodeURIComponent(TOKEN)}`, { method: 'POST' });
+      const r = await fetch(`/dashboard/demo/${action}`, { method: 'POST', headers: AUTH() });
       demoNote = `${action} → ${r.status}`;
     }
   } catch (err) {
@@ -869,11 +877,11 @@ function apply(raw) {
 
 // ── data source: live polling ───────────────────────────────────
 async function fetchState() {
-  if (!TOKEN) throw new Error('no ?token= in URL');
+  if (!TOKEN) throw new Error('no #token= in URL');
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 4000);
   try {
-    const r = await fetch(`/dashboard/state?token=${encodeURIComponent(TOKEN)}`, { cache: 'no-store', signal: ctl.signal });
+    const r = await fetch('/dashboard/state', { cache: 'no-store', signal: ctl.signal, headers: AUTH() });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
   } catch (err) {

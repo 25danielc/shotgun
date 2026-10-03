@@ -31,8 +31,9 @@ from typing import Any
 
 import anthropic
 
-from app import jobs
+from app import drives, jobs
 from app.config import settings
+from app.eta import home_area
 from app.jobs import Job, JobState, JobType
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,19 @@ MAX_CONTINUATIONS = 3
 MAX_PARALLEL = 3
 MAX_SPOKEN_CHARS = 320
 WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search", "max_uses": MAX_SEARCHES}
+
+
+def localized(tool: dict) -> dict:
+    """The search tool with user_location set to the home area, as app/inline.py does."""
+    area = home_area()
+    if not area:
+        return tool
+    city, _, region = area.partition(", ")
+    location = {"type": "approximate", "city": city, "country": "US", "timezone": settings.timezone}
+    if region:
+        location["region"] = region
+    return {**tool, "user_location": location}
+
 
 SYSTEM_PROMPT = """You do one lookup for Shotgun, an assistant a driver talks to on a phone call. \
 Search the web, then answer. Your answer is read aloud on a call, so:
@@ -64,16 +78,28 @@ class Answer:
     sources: list[str] = field(default_factory=list)
 
 
-def request_for(job: Job, now: datetime) -> str:
+def destination_of(where: dict[str, str]) -> str:
+    """The drive's destination (D17: the driver names it), else home (D16), else unknown."""
+    named = where.get("destination")
+    if named and named != "home":
+        area = home_area()
+        return f"{named} (in or near {area})" if area and "," not in named else named
+    return settings.home_address or "unknown"
+
+
+def request_for(job: Job, now: datetime, where: dict[str, str] | None = None) -> str:
+    """The lookup, placed where the driver is going (or where they started, if asked)."""
+    where = where or {}
     details = job.details
     query = details.get("query") or details.get("label") or job.request or ""
-    near = details.get("near") or "destination"
-    place = settings.home_address or "unknown"
-    if near == "current_location":
-        place = f"the driver's current location, on the way to {place}"
+    destination = destination_of(where)
+    place = destination
+    if (details.get("near") or "destination") == "current_location":
+        start = f" ({where['location']})" if where.get("location") else ""
+        place = f"the driver's current location{start}, on the way to {destination}"
     lines = [
         f"Current time: {now.astimezone(settings.tz):%A %I:%M %p %Z}",
-        f"Driver's destination: {settings.home_address or 'unknown'}",
+        f"Driver's destination: {destination}",
         f"Search near: {place}",
         f"Lookup: {query}",
     ]
@@ -120,11 +146,15 @@ def parse_answer(content: list[Any]) -> Answer:
 
 
 async def research(
-    job: Job, *, now: datetime | None = None, client: anthropic.AsyncAnthropic | None = None
+    job: Job,
+    *,
+    now: datetime | None = None,
+    where: dict[str, str] | None = None,
+    client: anthropic.AsyncAnthropic | None = None,
 ) -> Answer:
     """One web-search answer for a research job. Raises ResearchError."""
     client = client or anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-    user = {"role": "user", "content": request_for(job, now or datetime.now(settings.tz))}
+    user = {"role": "user", "content": request_for(job, now or datetime.now(settings.tz), where)}
     messages: list[dict[str, Any]] = [user]
     for _ in range(MAX_CONTINUATIONS + 1):
         try:
@@ -132,7 +162,7 @@ async def research(
                 model=settings.orchestrator_model,
                 max_tokens=MAX_TOKENS,
                 system=SYSTEM_PROMPT,
-                tools=[WEB_SEARCH],
+                tools=[localized(WEB_SEARCH)],
                 messages=messages,
                 output_config={"effort": "low"},
             )
@@ -171,8 +201,12 @@ async def finish(conn, job: Job, outcome: Answer | Exception) -> Job:
 
 async def run_one(pool, job: Job, client: anthropic.AsyncAnthropic) -> None:
     """Search without holding a connection, then record the outcome."""
+    where: dict[str, str] = {}
+    if job.drive_id is not None:
+        async with pool.connection() as conn:
+            where = drives.near(await drives.get_drive(conn, job.drive_id))
     try:
-        outcome: Answer | Exception = await research(job, client=client)
+        outcome: Answer | Exception = await research(job, where=where, client=client)
     except ResearchError as exc:
         outcome = exc
     async with pool.connection() as conn:

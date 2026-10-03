@@ -82,6 +82,23 @@ async def test_token_required(http, monkeypatch):
     assert (await http.get("/dashboard/state", params={"token": TOKEN})).status_code == 503
 
 
+async def test_token_in_a_header_keeps_it_out_of_access_logs(http):
+    """The page sends X-Dashboard-Token (opened as /dashboard#token=...), so no URL carries it."""
+    ok = await http.get("/dashboard/state", headers={"X-Dashboard-Token": TOKEN})
+    assert ok.status_code == 200
+    bad = await http.get("/dashboard/state", headers={"X-Dashboard-Token": "nope"})
+    assert bad.status_code == 401
+    page = (await http.get("/dashboard")).text
+    assert "'X-Dashboard-Token': TOKEN" in page
+    assert "/dashboard/state?token=" not in page
+
+
+async def test_unbuilt_worker_is_not_reported_as_offline(http):
+    state = (await http.get("/dashboard/state", headers={"X-Dashboard-Token": TOKEN})).json()
+    email = next(a for a in state["agents"] if a["name"] == "email")
+    assert (email["status"], email["last_heartbeat"]) == ("not_built", None)
+
+
 async def test_page_is_served(http):
     response = await http.get("/dashboard")
     assert response.status_code == 200
