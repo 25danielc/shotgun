@@ -318,4 +318,9 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - `search_web` now gets the drive's plug-in location and destination (dynamic variable `drive_id`), so "nearby" means near the driver.
   - The search prompt now requires places that match exactly, no repeats, and never reading out the home address.
   - Live, the same query from Ann Arbor: Haiku 4.5 took 2.9–3.5 s but still counted a poke place as ramen in some runs; Sonnet 5.5 took 4.7–5.4 s and gave 3 real ramen shops. Kept Haiku as Daniel specified; `INLINE_MODEL=claude-sonnet-5-5` switches with no code change.
+- 2026-10-03 18:38 (hour 6.6): **Deployed 4.1–5.1 and pushed the D17 agent** (Daniel: "go").
+  - Railway variables synced (22, names only), including `NTFY_TOPIC` and `CALL_POLICY=always` for testing. Deploy `3009e528` SUCCESS; `/health` 200, `database ready`, no loop warnings.
+  - `apply_agent.py --stage full`: created `search_web`, `draft_message` and `set_destination`, updated the other 3 tools, the agent and the number. Read back OK.
+  - **Location:** Daniel's Shortcut already sends lat/lng (Railway logged `location True` at 18:26). The server deployed at 17:58 just didn't store it yet, so SHORTCUT_SETUP.md was corrected.
+  - Not run: the curl check of `dispatch_task` against Railway. A dispatched job now earns a real arrival call.
 
