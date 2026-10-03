@@ -3,7 +3,11 @@
 `static/dashboard.html` ("mission control", shown on a laptop at the judging table) only ever
 reads one endpoint, `GET /dashboard/state`. This file defines exactly what that endpoint
 returns. Fixtures: `tests/fixtures/dashboard_state.json` (mid-drive) and
-`tests/fixtures/dashboard_state_empty.json` (plugged in, nothing dispatched).
+`tests/fixtures/dashboard_state_empty.json` (plugged in, nothing dispatched) are real backend
+output: `tests/test_dashboard_fixtures.py` builds both drives in the database and fails if
+`build_state()` no longer returns them byte for byte (`REGEN_DASHBOARD_FIXTURES=1` rewrites
+them). `tests/fixtures/dashboard_state_edge.json` is deliberately malformed (nulls, missing
+fields, long text, every state) to check the page never throws.
 
 The dashboard is read-only. It never approves, cancels or merges anything: approval stays
 voice-only. The only writes are the three demo endpoints at the end, and they only work in
@@ -22,8 +26,9 @@ GET /dashboard/state?token=<DASHBOARD_TOKEN>
   in-memory caches. **It never calls a third-party service.** Service health and agent
   heartbeats come from caches that are filled elsewhere (see below).
 - Send `Cache-Control: no-store`.
-- `GET /dashboard` serves `static/dashboard.html`. The page reads `token` from its own URL and
-  forwards it.
+- `GET /dashboard` serves `static/dashboard.html`. The page reads `token` from its own URL,
+  keeps it in `sessionStorage` and removes it from the address bar (so it isn't on screen),
+  and forwards it. `<meta name="referrer" content="no-referrer">`.
 
 ## Conventions
 
@@ -33,8 +38,10 @@ GET /dashboard/state?token=<DASHBOARD_TOKEN>
   elapsed timer. The server clock wins, so the laptop clock doesn't matter.
 - IDs are the Postgres bigint IDs, sent as JSON numbers.
 - Lists have a fixed order (stated per field), so the page can diff by ID.
-- No secrets, phone numbers or email addresses anywhere in the payload. The repo and the demo
-  are public. Recipient names are fine; addresses are not.
+- No secrets, phone numbers, email addresses, `HOME_ADDRESS` or coordinates anywhere in the
+  payload. The repo and the demo are public. Recipient names are fine; addresses are not.
+  Every free-text field is scrubbed (`[email]`, `[phone]`, `[home]`); the drive's plug-in
+  lat/lng is never read into the payload; keys and `NTFY_TOPIC` are never read at all.
 
 ## Top level
 
@@ -50,7 +57,7 @@ GET /dashboard/state?token=<DASHBOARD_TOKEN>
 | `tool_calls` | array of ToolCall | The 20 most recent `/tools/*` calls, newest first. |
 | `events` | array of Event | The 100 most recent events, **oldest first**. |
 | `agents` | array of Agent | Always 5 entries: voice, orchestrator, coder, research, email. |
-| `active_agent` | enum or null | `voice \| orchestrator \| coder \| research \| email \| null`: whichever agent did the most recent thing (newest event or heartbeat with work in hand). The AGENTS diagram highlights it. |
+| `active_agent` | enum or null | `voice \| orchestrator \| coder \| research \| email \| null`: whichever agent did the most recent thing: the live call's last tool call (voice), or the newest state change or PR of a job a worker is on. The AGENTS diagram highlights it. |
 
 ### server
 
@@ -81,7 +88,7 @@ cheap, read-only, no-side-effect probe per service:
 |---|---|
 | `api_server` | The process itself: always `ok: true`, `latency_ms` = time to build the last state payload. |
 | `neon` | `select 1` on the pool. |
-| `elevenlabs` | `GET /v1/convai/agents/{ELEVENLABS_AGENT_ID}` (TODO(verify) against current docs). |
+| `elevenlabs` | `GET /v1/convai/agents?page_size=1` (a key check, DECISIONS §11). |
 | `twilio` | `GET /2010-04-01/Accounts/{sid}.json` (TODO(verify)). |
 | `anthropic` | `GET /v1/models` (no tokens spent). |
 | `github` | `GET /repos/{GITHUB_DEMO_REPO}`. |
@@ -107,11 +114,12 @@ cheap, read-only, no-side-effect probe per service:
 
 How `status` is derived:
 - `parked`: `ended_at` is set.
-- `on_call`: a call is ringing or active.
+- `on_call`: a call is ringing or active, or we placed one (a `calls` row) under 15 s ago and
+  the live-call monitor hasn't seen it yet.
 - `silent`: the drive is open, no call, and the departure call has already happened, or the
   call policy decided not to ring.
 - `plugged_in`: the drive is open and the departure call hasn't happened yet (it's being
-  placed, or there's no call at all yet).
+  placed, or there's no call at all yet): no `calls` row and under 60 s old.
 
 ### Call
 
@@ -126,7 +134,7 @@ How `status` is derived:
 | `started_at` | timestamp | When it started ringing. |
 | `duration_s` | int | Seconds since it was answered, as of `server.now` (0 while ringing). The page keeps ticking it locally between polls. |
 | `last_tool` | string or null | Name of the most recent `/tools/*` call during this call, e.g. `"dispatch_task"`. |
-| `transcript` | array or omitted | Optional. The last ≤ 6 turns, `{at, role: "agent" \| "driver", text}`, oldest first. Omit it if it isn't available cheaply. The page hides the section when it's missing. |
+| `transcript` | array or omitted | Optional, not built. The last ≤ 6 turns, `{at, role: "agent" \| "driver", text}`, oldest first. Without it the page lists the call's `tool_calls` (those at or after `started_at`) in that space. |
 
 ### Job
 
@@ -155,14 +163,15 @@ How `status` is derived:
 | status | Meaning | Page renders |
 |---|---|---|
 | `not_needed` | Read-only job (research, plan). | nothing |
-| `preapproved` | A pre-approval exists and still holds. | `pre-approved: <preapproval.condition>` |
+| `preapproved` | A pre-approval exists and still holds (also after it moved the job `running → approved` with no call). | `pre-approved: <preapproval.condition>` |
 | `pending` | No pre-approval: the job will need a spoken yes (not at `needs_approval` yet, or at `needs_approval` while a call is live). | `needs approval` |
 | `held` | `needs_approval`, waiting for the arrival call. | `held for arrival` |
-| `approved` | Spoken yes (at dispatch or `approve_action`). | `approved by voice` |
-| `declined` | Spoken no. | `declined` |
+| `approved` | Spoken yes through `approve_action` (from `needs_approval` or `exception`). | `approved by voice` |
+| `declined` | Spoken no: `approve_action` moved it from `needs_approval` or `exception` to `failed`. | `declined` |
 | `exception` | The result broke its pre-approval. | `exception: <note>` |
 
-`approval.note` is a string or null: a short reason, e.g. `"tests failed"` or `"total $31.40 > $25"`.
+`approval.note` is a string or null: the reason from the `exception` job_event, e.g.
+`"the tests failed"` or `"it comes to 31.40 dollars, over your 25 dollar limit"`.
 
 ### Step
 
@@ -187,8 +196,13 @@ Steps per job type. Always send the full list, with not-yet-reached steps as `pe
 | `food` | `cart_built → approval_check → ordered` |
 | `plan` | `planning` |
 
-`approval_check` is `done` when a pre-approval held or a spoken yes arrived, `running` while
-it's held or pending, and `failed` on exception or decline.
+`approval_check` is `done` when a pre-approval held or a spoken yes arrived (detail
+`pre-approved` / `spoken yes`), `running` while it's held or in `exception` (both wait for a
+yes or no), and `failed` on a spoken no. The coder `tests` step follows `result.tests`
+(app/workers/coder.py): `pending` → running ("waiting for checks"), `success` → done, any other
+check_run conclusion or `timed_out` → failed (detail "failed", "never reported", ...). When a
+job fails, the step that was in progress is marked failed with `jobs.error` as its detail,
+unless a step already failed (a spoken no is not a failed merge).
 
 ### Upcoming
 
@@ -203,15 +217,23 @@ it's held or pending, and `failed` on exception or decline.
 | `description` | string | One line, e.g. `"merge the PR if tests pass (pre-approved)"`. |
 | `job_id` | int or null | |
 
-Sources:
-- `arrival_call`: `drive.arrival_call_at` while `arrival_called` is false.
-- `preapproved_action`: each open job with `approval.status = preapproved` whose irreversible
-  step hasn't run yet.
-- `held_action`: each job with `approval.status = held`. Description:
-  `"held for arrival call: <action>"`. `at` = the arrival call time.
-- `job_expiry`: open jobs with a deadline (`jobs.deadline`, or coder `created_at` +
-  `PR_TIMEOUT_MINUTES`), plus queued jobs that nobody has claimed.
-- `exception_call`: an exception call is queued but waiting on the 10-minute rate limit.
+Sources (the rules of app/calls.py and app/workers/coder.py, imported, not copied):
+- `arrival_call`: while `arrival_called` is false and the drive has any job
+  (`calls.arrival_due`). `at` = `drive.arrival_call_at`; with no ETA, `server.now` once every
+  job is terminal or held, else `null`. The count is the jobs `calls.spoken()` reads out.
+- `preapproved_action`: each `running` non-read-only job with a pre-approval (`at: null`,
+  "merge the PR if the tests pass (pre-approved)"), and each `approved` job (`at: now`,
+  "merge the PR: approved, going through").
+- `held_action`: each `needs_approval` job. `"held for arrival call: <label>"` at the arrival
+  call time; after the arrival call, `"waiting on you (next plug-in call): <label>"`, `at: null`
+  (nothing rings after the arrival call; 4.3's departure call asks).
+- `job_expiry`: a `queued` job whose worker isn't running (or isn't claimed after 10 s) fails at
+  `updated_at + UNCLAIMED_MINUTES`; a `running` coder job with no PR fails at
+  `updated_at + PR_TIMEOUT_MINUTES`; one waiting for its tests goes to `exception` at
+  `pr_opened_at + TESTS_TIMEOUT_MINUTES`. `jobs.deadline` isn't enforced by any code yet
+  (step 5.2), so it isn't shown.
+- `exception_call`: each unannounced `exception` job in a drive whose arrival call hasn't
+  rung (`calls.exception_job`), at `max(now, last exception call + 10 min)`, one gap apart.
 
 ### ToolCall
 
@@ -223,7 +245,7 @@ Sources:
 |---|---|---|
 | `at` | timestamp | When the request arrived. |
 | `tool` | enum | `search_web \| draft_message \| set_destination \| dispatch_task \| get_status \| approve_action` |
-| `query` | string or null | The main argument (search query, draft instruction, destination, task text). Truncate to 120 chars. |
+| `query` | string or null | The main argument, ≤ 120 chars: `search_web` query, `draft_message` "to: intent", `set_destination` text, `dispatch_task` "type: details", `approve_action` "job #N: yes/no", `get_status` "drive #N". |
 | `latency_ms` | int | Time to the response. Budgets: inline 8000 ms, background 500 ms. The page turns over-budget calls red. |
 | `ok` | bool | False on error or timeout. |
 
@@ -238,7 +260,7 @@ Sources:
 | `id` | int | Monotonic, derived from the time (`epoch_ms × 16 + source rank`). The page appends ids it hasn't seen. |
 | `at` | timestamp | |
 | `type` | enum | `plug_in \| unplug \| call_started \| call_ended \| tool_called \| job_dispatched \| job_state \| arrival_scheduled \| arrival_call \| exception_call \| push_sent`. `job_state` covers both state changes and step changes. |
-| `message` | string | One line, written for a judge reading over a shoulder. |
+| `message` | string | One line (≤ 200 chars), written for a judge reading over a shoulder. |
 | `job_id` | int or null | Optional; omit or null when it doesn't apply. |
 
 ### Agent
@@ -255,9 +277,9 @@ Sources:
 | `current_job_id` | int or null | Set while busy. The diagram labels busy nodes with it. |
 
 Heartbeats:
-- **Workers** (orchestrator, coder, research, email): each worker loop writes a heartbeat
-  every ≤ 20 s, including when idle, e.g. into a `heartbeats(name, at, job_id)` table upserted
-  per tick, or an in-process dict if every worker runs in the Railway process.
+- **Workers** (orchestrator, coder, research, email): every worker loop runs in the Railway
+  process, so the heartbeat is its asyncio task (named `planner`, `coder`, `research` in
+  app/main.py) being alive: `last_heartbeat` = `server.now`, else `offline` with null.
 - **voice**: `busy` while a call is ringing or active. Otherwise `idle` if the last
   ElevenLabs health check passed, `offline` if it failed. `last_heartbeat` = the most recent
   `/tools/*` call or post-call webhook.
@@ -275,7 +297,7 @@ Shortened. See `tests/fixtures/dashboard_state.json` for a full payload.
   "server": {"now": "2026-10-03T22:34:52Z", "uptime_s": 11520, "demo_mode": true},
   "services": [
     {"name": "neon", "ok": true, "latency_ms": 42, "checked_at": "2026-10-03T22:34:40Z", "detail": null},
-    {"name": "google_routes", "ok": false, "latency_ms": null, "checked_at": "2026-10-03T22:34:44Z", "detail": "timeout after 5000ms"}
+    {"name": "google_routes", "ok": null, "latency_ms": null, "checked_at": "2026-10-03T22:34:44Z", "detail": "not probed: billed per request"}
   ],
   "drive": {"id": 17, "status": "on_call", "started_at": "2026-10-03T22:29:10Z", "ended_at": null,
             "destination": "North Campus", "eta": "2026-10-03T22:45:00Z",
@@ -300,13 +322,13 @@ Shortened. See `tests/fixtures/dashboard_state.json` for a full payload.
   ],
   "upcoming": [
     {"at": "2026-10-03T22:42:00Z", "kind": "arrival_call", "description": "arrival call: batched summary of 2 jobs", "job_id": null},
-    {"at": null, "kind": "preapproved_action", "description": "merge the PR if tests pass (pre-approved)", "job_id": 42}
+    {"at": null, "kind": "preapproved_action", "description": "merge the PR if the tests pass (pre-approved)", "job_id": 42}
   ],
   "tool_calls": [
     {"at": "2026-10-03T22:29:41Z", "tool": "search_web", "query": "is the Bonisteel lot open on Saturday", "latency_ms": 3712, "ok": true}
   ],
   "events": [
-    {"id": 301, "at": "2026-10-03T22:29:10Z", "type": "plug_in", "message": "CarPlay connected, drive #17 opened", "job_id": null}
+    {"id": 301, "at": "2026-10-03T22:29:10Z", "type": "plug_in", "message": "CarPlay connected: drive #17 opened", "job_id": null}
   ],
   "agents": [
     {"name": "voice", "status": "busy", "last_heartbeat": "2026-10-03T22:34:50Z", "current_job_id": null},
@@ -341,24 +363,35 @@ one also writes an event (`plug_in` / `arrival_call` / `unplug`) whose message e
 
 ## Implementation status
 
-Built in `app/dashboard.py` (tests: `tests/test_dashboard_state.py`). Everything comes from
+Built in `app/dashboard.py`. Tests: `tests/test_dashboard_state.py` (contract shape, auth,
+demo routes), `tests/test_dashboard_derived.py` (every job state, upcoming rules, privacy,
+robustness, query count, health probes, live-call monitor), `tests/test_dashboard_recorder.py`
+(the middleware: body and stream pass-through, no raise, < 1 ms overhead, a background tool
+< 500 ms through the full app, refused callers and `/tools/init`) and
+`tests/test_dashboard_fixtures.py` (the fixtures are backend output). Everything comes from
 real rows or live checks; nothing is invented.
 
 | Field | Source |
 |---|---|
-| `drive` | Latest `drives` row (open < 3 h, or parked < 30 min). |
-| `drive.status` | `parked` if ended; `on_call` if a call is live; `plugged_in` if no call yet and < 60 s old; else `silent`. |
-| `call` | `LIVE_CALL`: the agent's live ElevenLabs conversation, polled every 5 s while a drive is open (`GET /v1/convai/conversations`, as `telephony.call_in_progress`), and set immediately by `/tools/init`. `kind` comes from the matching `calls` row (no match = `inbound`). No `transcript`. |
-| `jobs` | `jobs` for the drive, plus `job_events` for timing. Plan jobs only while open. `steps` are derived from the state history and `result` (coder: issue/PR numbers, `tests`, `pr_opened_at`). |
-| `upcoming` | Arrival call, pre-approved actions, held jobs, exception calls (10-min gap), and the real timeouts (`UNCLAIMED_MINUTES`, coder `PR_TIMEOUT_MINUTES`, `TESTS_TIMEOUT_MINUTES`). |
-| `tool_calls` | `ToolCallRecorder` ASGI middleware on `/tools/*`. Refused callers are not recorded. In memory (last 20), so it resets on deploy. |
-| `events` | `drives` (plug_in, unplug), `calls` (call_started, arrival_call, exception_call), `job_events` (job_dispatched, job_state) and in-memory tool, call and demo events. |
-| `services` | `run_monitor()` every 30 s, read-only probes as above. |
-| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`) is alive → idle or busy (a `running` job of its type); no task → offline. `email` has no worker yet, so it is always offline. |
+| `drive` | Latest `drives` row by id (open < 3 h, or parked < 30 min). |
+| `drive.status` | `parked` if ended; `on_call` if a call is live or one was placed < 15 s ago; `plugged_in` if no call yet and < 60 s old; else `silent`. |
+| `call` | `LIVE_CALL`: the agent's live ElevenLabs conversation, polled every 5 s while a drive is open (`GET /v1/convai/conversations`, as `telephony.call_in_progress`), and set immediately by `/tools/init` for the allowed caller only. A `calls` row the monitor hasn't seen yet shows as `ringing`. `kind` comes from the matching `calls` row (no match = `inbound`). No `transcript`. |
+| `jobs` | `jobs` for the drive, plus `job_events` for timing. A `done` plan job is hidden (its parts speak for it, `calls.spoken`); a failed one is shown. `steps` are derived from the state history and `result` (coder: issue/PR numbers, `tests`, `pr_opened_at`). A row that breaks the derivation is still listed, without steps. |
+| `upcoming` | Arrival call, pre-approved and approved actions, held jobs, exception calls (10-min gap), and the real timeouts (`UNCLAIMED_MINUTES`, coder `PR_TIMEOUT_MINUTES`, `TESTS_TIMEOUT_MINUTES`). |
+| `tool_calls` | `ToolCallRecorder` ASGI middleware on `/tools/*`. Refused callers (401, 403, a stranger's `/tools/init`) are not recorded. Latency stops at the last response byte. In memory (last 20), so it resets on deploy. |
+| `events` | `drives` (plug_in by source, unplug), `calls` (call_started, arrival_call, exception_call), `job_events` (job_dispatched, job_state), coder `result` (issue filed, PR opened) and in-memory tool, call and demo events. |
+| `services` | `run_monitor()` every 30 s, read-only probes as above. `api_server.latency_ms` is the time the last payload took to build. |
+| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`) is alive → idle or busy (a `running` or `approved` job of its type); no task → offline. `email` has no worker yet, so it is always offline. |
+| `active_agent` | The newest of: the live call's last tool call (voice), and each working job's last state change or PR (its worker). |
+
+The state read is five indexed queries on one pooled connection (2 s pool timeout): the latest
+drive (primary key), the last exception call (`calls_at_idx`), the drive's calls, its jobs
+(`jobs_drive_idx`) and their events (`job_events_job_idx`). A database error is logged at most
+once a minute and the payload still answers, with `drive: null`.
 
 Not built yet:
 - **No `expired` state.** Timed-out jobs are `failed` in the jobs table.
 - **No `push_sent` event.** The unplug recap isn't logged.
-- **`arrival_scheduled` appears only for the demo arrive.**
+- **`arrival_scheduled` appears only for the demo arrive.** `set_destination` shows as its tool call.
 - **In-memory records reset on restart.** Tool calls, call status and health live in process memory, so a redeploy clears them.
 - **`DASHBOARD_TOKEN` and `DEMO_MODE` are Railway variables.** They must be set there for the deployed page.

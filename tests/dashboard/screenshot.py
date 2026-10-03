@@ -11,8 +11,10 @@ against .claude/skills/shotgun-dashboard-design/SKILL.md.
     uv run tests/dashboard/screenshot.py [--out DIR] [--wait SECONDS]
 
 Serves the repo root statically (so ?mock= can fetch tests/fixtures/) and writes
-dashboard_<mock>_<w>x<h>.png for ?mock=1 and ?mock=empty at 1440x900 and 1280x800.
-Offline: no server, database or API is touched.
+dashboard_<mock>_<w>x<h>.png for ?mock=1 (mid-drive), ?mock=empty and ?mock=edge (nulls, long
+text, every state: a robustness check) at 1440x900 and 1280x800. Exits 1 on any JS error or
+console error. Offline: no server, database or API is touched (Google Fonts are fetched if
+reachable; the page falls back to ui-monospace).
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
-MOCKS = ("1", "empty")
+MOCKS = {"1": "mock", "empty": "empty", "edge": "edge"}
 SIZES = ((1440, 900), (1280, 800))
 
 
@@ -59,20 +61,29 @@ def main() -> None:
     errors: list[str] = []
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
-        for mock in MOCKS:
+        for mock, name in MOCKS.items():
             for width, height in SIZES:
                 page = browser.new_page(viewport={"width": width, "height": height})
-                page.on("pageerror", lambda exc: errors.append(str(exc)))
+                where = f"{name} {width}x{height}"
+                page.on("pageerror", lambda exc, w=where: errors.append(f"{w}: {exc}"))
+                page.on(
+                    "console",
+                    lambda msg, w=where: (
+                        errors.append(f"{w}: console {msg.text}")
+                        if msg.type == "error" and "fonts.g" not in msg.text
+                        else None
+                    ),
+                )
                 page.goto(f"{base}?mock={mock}")
                 page.evaluate("document.fonts.ready")
                 page.wait_for_timeout(args.wait * 1000)
+                if page.locator("text=[ OFFLINE ]").count():  # poll() caught a render error
+                    errors.append(f"{where}: page shows OFFLINE: " + page.inner_text("#b-sys"))
                 scroll = page.evaluate(
                     "[document.documentElement.scrollWidth > innerWidth,"
                     " document.documentElement.scrollHeight > innerHeight]"
                 )
-                path = (
-                    args.out / f"dashboard_{'mock' if mock == '1' else mock}_{width}x{height}.png"
-                )
+                path = args.out / f"dashboard_{name}_{width}x{height}.png"
                 page.screenshot(path=str(path))
                 note = "  PAGE SCROLLS" if any(scroll) else ""
                 print(f"{path}{note}")

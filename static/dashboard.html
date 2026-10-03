@@ -3,15 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
 <title>Shotgun · mission control</title>
 <!--
   Shotgun mission control: the judging-table view of a drive. Read-only: it polls
   GET /dashboard/state (docs/dashboard_state.schema.md) and never approves anything.
   Design rules: .claude/skills/shotgun-dashboard-design/SKILL.md.
 
-  ?token=...    poll /dashboard/state every 1.5 s
+  ?token=...    poll /dashboard/state every 1.5 s. The token is moved out of the address bar
+                (kept in sessionStorage for reloads), so it isn't on screen at the judging table.
   ?mock=1       replay tests/fixtures/dashboard_state.json with a scripted story
   ?mock=empty   tests/fixtures/dashboard_state_empty.json
+  ?mock=edge    tests/fixtures/dashboard_state_edge.json (nulls, long text, every state)
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -171,6 +174,8 @@ a:hover { color: var(--accent); }
 .tx { flex: 1; min-height: 0; overflow: hidden; margin-top: 4px; border-top: 1px dashed var(--line); padding-top: 4px; }
 .tx .turn { display: grid; grid-template-columns: 7ch 1fr; column-gap: 1ch; }
 .tx .who-agent { color: var(--call); }
+.ct { display: grid; grid-template-columns: 8ch minmax(0, 1fr) 8ch; column-gap: 1ch; }
+.ct .lat { text-align: right; }
 
 /* ── JOBS ────────────────────────────────────────────────────── */
 .job { padding: 6px 0 7px; border-top: 1px dashed var(--line); }
@@ -201,6 +206,8 @@ a:hover { color: var(--accent); }
 #b-jobs.d2 .jc { display: block; }
 
 /* ── LOG ─────────────────────────────────────────────────────── */
+/* scrollback fades out under the title band instead of a half-clipped line */
+#b-log { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
 .ev { display: grid; grid-template-columns: 8ch 8ch 1fr; column-gap: 1ch; }
 .ev .ts { color: var(--dim); }
 .ev .ty { font-size: 11px; letter-spacing: .06em; line-height: 19px; }
@@ -294,8 +301,22 @@ a:hover { color: var(--accent); }
 
 // ── config ──────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
-const MOCK = params.get('mock'); // "1" | "empty" | null
-const TOKEN = params.get('token') || '';
+const MOCK = params.get('mock'); // "1" | "empty" | "edge" | null
+const MOCK_FILES = { 1: 'dashboard_state.json', empty: 'dashboard_state_empty.json', edge: 'dashboard_state_edge.json' };
+const TOKEN_KEY = 'shotgun_dashboard_token';
+const TOKEN = (() => {
+  let t = params.get('token') || '';
+  try {
+    if (t) sessionStorage.setItem(TOKEN_KEY, t);
+    else t = sessionStorage.getItem(TOKEN_KEY) || '';
+  } catch (_) { /* storage blocked: the URL token still works for this load */ }
+  if (params.has('token')) {
+    params.delete('token');
+    const q = params.toString();
+    try { history.replaceState(null, '', location.pathname + (q ? `?${q}` : '') + location.hash); } catch (_) {}
+  }
+  return t;
+})();
 const POLL_MS = 1500;
 const STALE_MS = 90000;
 const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧';
@@ -312,32 +333,40 @@ const EV = {
 // ── helpers ─────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const ts = (t) => (t == null ? null : Date.parse(t));
+const ts = (t) => {
+  if (t == null || t === '') return null;
+  const v = typeof t === 'number' ? t : Date.parse(t);
+  return Number.isFinite(v) ? v : null;
+};
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
 const pad = (n) => String(n).padStart(2, '0');
+const arr = (v) => (Array.isArray(v) ? v : []);
 let skew = 0; // server clock minus laptop clock; the server wins
 const now = () => Date.now() + skew;
 function hms(t) {
-  if (t == null) return '--:--:--';
-  const d = new Date(typeof t === 'number' ? t : ts(t));
+  const v = ts(t);
+  if (v == null) return '--:--:--';
+  const d = new Date(v);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 function dur(sec) {
+  if (!Number.isFinite(sec)) return '--:--';
   sec = Math.max(0, Math.floor(sec));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 function ago(sec) {
+  if (!Number.isFinite(sec)) return '--';
   sec = Math.max(0, Math.floor(sec));
   if (sec < 60) return `${sec}s`;
   if (sec < 3600) return `${Math.floor(sec / 60)}m${pad(sec % 60)}s`;
   return `${Math.floor(sec / 3600)}h${pad(Math.floor((sec % 3600) / 60))}m`;
 }
 function bar(p, width) {
-  const n = Math.round(Math.max(0, Math.min(1, p)) * width);
+  const n = Math.round(Math.max(0, Math.min(1, Number.isFinite(p) ? p : 0)) * width);
   return `<span class="bar">[<span class="fill">${'█'.repeat(n)}</span><span class="rest">${'░'.repeat(width - n)}</span>]</span>`;
 }
-const tag = (s) => `<span class="tag s-${esc(s)}">[${esc(String(s).replace(/_/g, ' ').toUpperCase())}]</span>`;
+const tag = (s) => `<span class="tag s-${esc(s)}">[${esc(String(s ?? '?').replace(/_/g, ' ').toUpperCase())}]</span>`;
 const sig = (v) => JSON.stringify(v);
 
 // ── window plumbing: diff, pulse, keyed rows ────────────────────
@@ -408,34 +437,44 @@ function keyed(box, items, keyFn, htmlFn, cls, emptyText) {
 // ── DRIVE ───────────────────────────────────────────────────────
 function renderDrive(s) {
   const d = s.drive;
-  setStat('drive', d ? `drive #${d.id}` : '');
-  if (!changed('drive', d)) return;
+  setStat('drive', d ? `drive #${esc(d.id)}` : '');
+  // The arrival call's time: the drive's ETA - 3 min, or (no ETA) "now" once everything is
+  // settled, which only the server's upcoming list knows.
+  const upArrival = arr(s.upcoming).find((u) => u.kind === 'arrival_call');
+  const hasJobs = arr(s.jobs).length > 0;
+  if (!changed('drive', [d, upArrival ? upArrival.at : null, hasJobs])) return;
   pulse('drive');
   const b = $('b-drive');
   if (!d) {
     b.innerHTML = '<div class="empty">-- no drive: waiting for CarPlay --</div>';
     return;
   }
-  const start = ts(d.started_at), eta = ts(d.eta), arr = ts(d.arrival_call_at);
+  const start = ts(d.started_at), eta = ts(d.eta);
+  const arrAt = ts(d.arrival_call_at) ?? (upArrival ? ts(upArrival.at) : null);
   let hero;
   if (d.ended_at) {
     hero = `<div class="k">PARKED</div><div class="hero off">${hms(d.ended_at)}</div>
       <div class="dim">drive lasted ${dur((ts(d.ended_at) - start) / 1000)}</div>`;
   } else if (d.arrival_called) {
     hero = `<div class="k">ARRIVAL CALL</div><div class="hero">PLACED</div>
-      <div class="dim">batched summary sent at ${hms(arr)}</div>`;
-  } else if (arr) {
-    hero = `<div class="k">ARRIVAL CALL IN</div><div class="hero" data-cd="${arr}"></div>
-      <div class="nowrap" data-trip="${start},${eta || arr}"></div>`;
+      <div class="dim">batched summary${arrAt ? ` due ${hms(arrAt)}` : ''}; nothing rings after it</div>`;
+  } else if (arrAt) {
+    const trip = eta && start ? `<div class="nowrap" data-trip="${start},${eta}"></div>` : '';
+    const note = !hasJobs ? '<div class="dim">no jobs yet: it rings only with something to report</div>'
+      : !eta ? '<div class="dim">no ETA: rings once every job is done or held</div>' : '';
+    hero = `<div class="k">ARRIVAL CALL IN</div><div class="hero ${hasJobs ? '' : 'off'}" data-cd="${arrAt}"></div>${trip}${note}`;
   } else {
+    const why = !d.destination ? 'waiting for a destination'
+      : !hasJobs ? 'no jobs yet: no arrival call'
+      : 'no ETA: rings once every job is done or held';
     hero = `<div class="k">ARRIVAL CALL</div><div class="hero off">--:--</div>
-      <div class="dim">-- waiting for a destination --</div>`;
+      <div class="dim">-- ${why} --</div>`;
   }
   b.innerHTML = `
     <div class="drive-top">${tag(d.status)}<span class="r dim">since ${hms(start)}</span></div>
     <div class="kv">
       <span class="k">dest</span><span class="ell">${d.destination ? esc(d.destination) : '<span class="dim">--</span>'}</span>
-      <span class="k">eta</span><span>${eta ? `${hms(eta)} <span class="dim">in <span data-cd="${eta}"></span></span>` : '<span class="dim">--</span>'}</span>
+      <span class="k">eta</span><span>${eta ? `${hms(eta)} <span class="dim">in <span data-cd="${eta}" data-zero="arrived"></span></span>` : '<span class="dim">--</span>'}</span>
       <span class="k">driving</span><span data-since="${start}"${d.ended_at ? ` data-until="${ts(d.ended_at)}"` : ''}></span>
     </div>
     <div class="hero-wrap">${hero}</div>`;
@@ -453,59 +492,78 @@ function fitTranscript() {
   }
 }
 addEventListener('resize', fitTranscript);
+const CALL_KIND = { departure: 'departure (plug-in)', arrival: 'arrival (batched summary)', exception: 'exception (needs a yes)', inbound: 'inbound (tapped the contact)' };
 function renderCall(s) {
   const c = s.call;
   const d = s.drive;
   const live = c && c.status !== 'ended';
-  setStat('call', live ? `<span class="call">● ${esc(c.kind)}</span>` : 'idle');
+  setStat('call', live ? `<span class="call">● ${esc(c.kind)}</span>` : c ? 'ended' : 'idle');
+  // The tools the agent used on this call, oldest first: the live proof that it searched,
+  // drafted and dispatched while the driver talked. (The optional transcript wins if sent.)
+  const start = c ? ts(c.started_at) : null;
+  const during = c && start != null
+    ? arr(s.tool_calls).filter((t) => ts(t.at) != null && ts(t.at) >= start - 1000).reverse() : [];
   // duration_s ticks every poll; diff on everything else
   const view = c ? { ...c, duration_s: c.status === 'active' ? null : c.duration_s } : null;
-  const arr = d && !d.ended_at && !d.arrival_called ? d.arrival_call_at : null;
-  if (!changed('call', [view, arr])) return;
+  const nextArr = d && !d.ended_at && !d.arrival_called ? d.arrival_call_at : null;
+  if (!changed('call', [view, nextArr, during])) return;
   pulse('call');
   const b = $('b-call');
   if (!c) {
-    b.innerHTML = `<div class="empty">-- no call --</div>${arr
-      ? `<div class="dim">next: arrival call in <span data-cd="${ts(arr)}"></span></div>` : ''}`;
+    b.innerHTML = `<div class="empty">-- no call --</div>${nextArr
+      ? `<div class="dim">next: arrival call in <span data-cd="${ts(nextArr)}" data-zero="now"></span></div>` : ''}`;
     return;
   }
-  const answered = ts(s.server.now) - c.duration_s * 1000;
+  const secs = Number.isFinite(c.duration_s) ? c.duration_s : 0;
+  const answered = (ts(s.server.now) ?? now()) - secs * 1000;
   const clock = c.status === 'active'
     ? `<span class="call" data-since="${answered}"></span>`
-    : c.status === 'ringing' ? '<span class="spin call"></span>'
-    : `<span class="dim">${dur(c.duration_s)}</span>`;
+    : c.status === 'ringing' ? '<span class="call"><span class="spin"></span> ringing</span>'
+    : `<span class="dim">${dur(secs)}</span>`;
   const label = c.status === 'active' ? 'on_call' : c.status;
-  const turns = (c.transcript || []).slice(-6).map((t) =>
+  const turns = arr(c.transcript).slice(-6).map((t) =>
     `<div class="turn"><span class="k who-${esc(t.role)}">${esc(t.role)}</span><span>${esc(t.text)}</span></div>`).join('');
+  const tools = during.map((t) => {
+    const over = Number.isFinite(t.latency_ms) && t.latency_ms > BUDGET(t.tool);
+    return `<div class="ct"><span class="dim">${hms(t.at)}</span><span class="${t.ok === false ? 'err' : ''}">${esc(t.tool)}</span>`
+      + `<span class="lat ${over ? 'err' : 'dim'}">${Number.isFinite(t.latency_ms) ? `${t.latency_ms}ms` : '--'}</span></div>`;
+  }).join('');
+  const feed = turns || tools || '<div class="empty">-- no tools used yet --</div>';
   b.innerHTML = `
-    <div class="line">${tag(label)}<span>${esc(c.kind)}</span><span class="r">${clock}</span></div>
-    <div class="kv"><span class="k">tool</span><span>${c.last_tool ? esc(c.last_tool) : '<span class="dim">--</span>'}</span></div>
-    ${turns ? `<div class="tx">${turns}</div>` : ''}`;
+    <div class="line">${tag(label)}<span class="ell">${esc(CALL_KIND[c.kind] || c.kind)}</span><span class="r">${clock}</span></div>
+    <div class="kv"><span class="k">since</span><span>${hms(c.started_at)}</span>
+      <span class="k">tools</span><span>${during.length}${c.last_tool ? ` <span class="dim">· last</span> ${esc(c.last_tool)}` : ''}</span></div>
+    <div class="tx">${feed}</div>`;
   fitTranscript();
 }
 
 // ── UP NEXT ─────────────────────────────────────────────────────
 function renderNext(s) {
-  const items = [...(s.upcoming || [])].sort((a, b) => {
-    if (a.at == null) return b.at == null ? 0 : 1;
-    if (b.at == null) return -1;
-    return ts(a.at) - ts(b.at);
+  const items = arr(s.upcoming).filter(Boolean).sort((a, b) => {
+    const x = ts(a.at), y = ts(b.at);
+    if (x == null) return y == null ? 0 : 1;
+    if (y == null) return -1;
+    return x - y;
   });
   setStat('next', items.length ? `${items.length} pending` : '');
   if (!changed('next', items)) return;
-  const dirty = keyed($('b-next'), items, (u) => `${u.kind}:${u.job_id ?? ''}`, (u) => `
-      ${u.at ? `<span class="cd" data-cd="${ts(u.at)}"></span>` : '<span class="cd dim">when</span>'}
-      <span><span class="desc">${esc(u.description)}</span>${u.job_id != null && !u.description.includes(`#${u.job_id}`) ? ` <span class="dim">#${u.job_id}</span>` : ''}</span>`,
-    (u) => `up up-${u.kind}`, '-- nothing scheduled --');
+  const dirty = keyed($('b-next'), items, (u) => `${u.kind}:${u.job_id ?? ''}`, (u) => {
+    const desc = String(u.description ?? u.kind ?? '');
+    const id = u.job_id != null && !desc.includes(`#${u.job_id}`) ? ` <span class="dim">#${esc(u.job_id)}</span>` : '';
+    return `${ts(u.at) != null ? `<span class="cd" data-cd="${ts(u.at)}" data-zero="now"></span>` : '<span class="cd dim">wait</span>'}
+      <span><span class="desc">${esc(desc)}</span>${id}</span>`;
+  }, (u) => `up up-${esc(u.kind)}`, '-- nothing scheduled --');
   if (dirty) pulse('next');
 }
 
 // ── JOBS ────────────────────────────────────────────────────────
 const TERMINAL = new Set(['done', 'failed', 'expired']);
+const stepsOf = (j) => arr(j.steps).filter((x) => x && typeof x === 'object');
 function progressOf(j) {
-  if (j.progress != null) return j.progress;
-  if (!j.steps || !j.steps.length) return null;
-  return j.steps.filter((x) => x.state === 'done' || x.state === 'skipped').length / j.steps.length;
+  if (Number.isFinite(j.progress)) return j.progress;
+  const steps = stepsOf(j);
+  if (!steps.length) return null;
+  return steps.filter((x) => x.state === 'done' || x.state === 'skipped').length / steps.length;
 }
 function approvalHtml(j) {
   const a = j.approval || { status: 'not_needed' };
@@ -541,11 +599,13 @@ function jobHtml(j) {
     ? `<span class="dim">${dur((ts(j.updated_at) - ts(j.created_at)) / 1000)}</span>`
     : `${j.state === 'running' ? '<span class="spin amb"></span> ' : ''}<span data-since="${ts(j.created_at)}"></span>`;
   const appr = approvalHtml(j);
-  const link = j.result_url
-    ? `<div class="ell link"><a href="${esc(j.result_url)}" target="_blank" rel="noopener"><span class="dim">↗</span> ${esc(j.result_url.replace(/^https?:\/\//, ''))}</a></div>` : '';
+  const url = typeof j.result_url === 'string' && /^https:\/\//.test(j.result_url) ? j.result_url : null;
+  const link = url
+    ? `<div class="ell link"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span class="dim">↗</span> ${esc(url.replace(/^https:\/\//, ''))}</a></div>` : '';
   const summary = j.result_summary ? `<div class="sum">${esc(j.result_summary)}</div>` : '';
-  const steps = !done && j.steps && j.steps.length ? `<div class="steps">${j.steps.map(stepHtml).join('')}</div>` : '';
-  const cur = (j.steps || []).find((x) => x.state === 'running' || x.state === 'failed');
+  const all = stepsOf(j);
+  const steps = !done && all.length ? `<div class="steps">${all.map(stepHtml).join('')}</div>` : '';
+  const cur = all.find((x) => x.state === 'running' || x.state === 'failed');
   const compact = done
     ? `<span class="dim">${esc(j.title)}</span>${j.result_summary ? ` <span class="dim">→</span> ${esc(j.result_summary)}` : ''}`
     : [esc(j.title), appr, cur ? stepHtml(cur) : ''].filter(Boolean).join(' <span class="dim">·</span> ');
@@ -561,7 +621,7 @@ function jobHtml(j) {
     <div class="jc ell">${compact}</div>`;
 }
 function renderJobs(s) {
-  const jobs = s.jobs || [];
+  const jobs = arr(s.jobs).filter((j) => j && j.id != null);
   const counts = {};
   for (const j of jobs) counts[j.state] = (counts[j.state] || 0) + 1;
   const order = ['running', 'needs_approval', 'approved', 'exception', 'queued', 'done', 'failed', 'expired'];
@@ -583,16 +643,20 @@ addEventListener('resize', fitJobs);
 
 // ── TOOLS ───────────────────────────────────────────────────────
 function renderTools(s) {
-  const calls = s.tool_calls || [];
-  const inline = calls.filter((c) => INLINE_TOOLS.has(c.tool));
-  setStat('tools', calls.length
-    ? `${calls.length} calls${inline.length ? ` · inline max ${Math.max(...inline.map((c) => c.latency_ms))}ms` : ''}`
-    : '');
+  const calls = arr(s.tool_calls).filter(Boolean);
+  const lat = (c) => (Number.isFinite(c.latency_ms) ? c.latency_ms : null);
+  const inline = calls.filter((c) => INLINE_TOOLS.has(c.tool) && lat(c) != null);
+  const bg = calls.filter((c) => !INLINE_TOOLS.has(c.tool) && lat(c) != null);
+  const maxOf = (xs) => Math.max(...xs.map(lat));
+  const stats = [];
+  if (inline.length) stats.push(`<span class="${maxOf(inline) > 8000 ? 'err' : ''}">inline max ${maxOf(inline)}ms</span>`);
+  if (bg.length) stats.push(`<span class="${maxOf(bg) > 500 ? 'err' : ''}">background max ${maxOf(bg)}ms</span>`);
+  setStat('tools', calls.length ? [`${calls.length} calls`, ...stats].join(' · ') : '');
   if (!changed('tools', calls)) return;
   const dirty = keyed($('b-tools'), calls, (c) => `${c.at}|${c.tool}`, (c) => {
-    const over = c.latency_ms > BUDGET(c.tool);
-    return `<span class="dim">${hms(c.at)}</span><span>${esc(c.tool)}</span>
-      <span class="lat ${over ? 'err' : ''}">${c.latency_ms}ms</span>
+    const over = lat(c) != null && lat(c) > BUDGET(c.tool);
+    return `<span class="dim">${hms(c.at)}</span><span class="ell">${esc(c.tool)}</span>
+      <span class="lat ${over ? 'err' : ''}">${lat(c) != null ? `${lat(c)}ms` : '--'}</span>
       <span class="${c.ok ? 'ok' : 'err'}">${c.ok ? 'ok' : 'ERR'}</span>
       <span class="ell ${c.query ? '' : 'dim'}">${c.query ? `"${esc(c.query)}"` : '--'}</span>`;
   }, 'tool', '-- no tool calls yet --');
@@ -603,11 +667,14 @@ function renderTools(s) {
 let lastEventId = -Infinity;
 let seenEvents = new Set();
 function renderLog(s) {
-  const events = s.events || [];
+  const events = arr(s.events)
+    .filter((e) => e && typeof e === 'object')
+    .map((e) => ({ ...e, id: Number.isFinite(e.id) ? e.id : `${e.at}|${e.type}|${e.message}` }));
   const box = $('log-lines');
   const body = $('b-log');
   setStat('log', `tail -f · ${events.length} events`);
-  const maxId = events.length ? events[events.length - 1].id : -Infinity;
+  const ids = events.map((e) => e.id).filter(Number.isFinite);
+  const maxId = ids.length ? Math.max(...ids) : -Infinity;
   if (maxId < lastEventId) { // server restarted / mock looped
     box.innerHTML = '';
     lastEventId = -Infinity;
@@ -623,7 +690,7 @@ function renderLog(s) {
   const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
   for (const e of fresh) {
     seenEvents.add(e.id);
-    const [short, kind] = EV[e.type] || [e.type.toUpperCase(), 'drive'];
+    const [short, kind] = EV[e.type] || [String(e.type ?? 'event').toUpperCase().slice(0, 8), 'drive'];
     const el = document.createElement('div');
     el.className = `ev${firstRender ? '' : ' new'}`;
     el.innerHTML = `<span class="ts">${hms(e.at)}</span><span class="ty ty-${kind}">${esc(short)}</span><span>${esc(e.message)}</span>`;
@@ -638,7 +705,8 @@ function renderLog(s) {
 
 // ── AGENTS ──────────────────────────────────────────────────────
 function renderAgents(s) {
-  const byName = Object.fromEntries((s.agents || []).map((a) => [a.name, a]));
+  const byName = Object.fromEntries(arr(s.agents).filter((a) => a && a.name)
+    .map((a) => [a.name, { ...a, status: String(a.status || 'offline') }]));
   const agents = AGENT_ORDER.map((n) => byName[n]).filter(Boolean);
   const up = agents.filter((a) => a.status !== 'offline').length;
   const off = agents.length - up;
@@ -670,9 +738,14 @@ function renderAgents(s) {
 
 // ── SERVICES ────────────────────────────────────────────────────
 function renderServices(s) {
-  const svcs = s.services || [];
-  const ok = svcs.filter((x) => x.ok).length;
-  setStat('services', svcs.length ? `<span class="${ok === svcs.length ? '' : 'err'}">${ok}/${svcs.length} ok</span>` : '');
+  const svcs = arr(s.services).filter((x) => x && x.name);
+  // ok: null = not checked yet, or deliberately not probed (google_routes: billed per call)
+  const probed = svcs.filter((x) => x.ok != null);
+  const ok = probed.filter((x) => x.ok).length;
+  const skipped = svcs.length - probed.length;
+  setStat('services', svcs.length
+    ? `<span class="${ok === probed.length ? 'ok' : 'err'}">${ok}/${probed.length} ok</span>${skipped ? ` · ${skipped} unchecked` : ''}`
+    : '');
   const pulseNow = changed('services-pulse', svcs.map((x) => [x.name, x.ok]));
   if (!changed('services', svcs)) return;
   keyed($('b-services'), svcs, (x) => x.name, (x) => {
@@ -693,11 +766,11 @@ function renderServices(s) {
 let offline = false, lastOk = null, lastError = '', demoNote = '';
 function renderSystem(s) {
   const parts = ['<span class="brand">SHOTGUN</span><span class="dim">mission control</span>'];
-  if (s) parts.push(`<span><span class="k">up</span> <span data-up="${s.server.uptime_s},${ts(s.server.now)}"></span></span>`);
+  if (s) parts.push(`<span><span class="k">up</span> <span data-up="${s.server.uptime_s},${ts(s.server.now) ?? now()}"></span></span>`);
   if (offline) {
     parts.push(`<span class="err">[ OFFLINE ] retrying…</span><span class="dim">${esc(lastError)}${lastOk ? ` · last ok ${hms(lastOk)}` : ''}</span>`);
   } else if (s) {
-    parts.push(`<span><span class="ok">●</span> ${MOCK ? `mock · ${esc(MOCK === 'empty' ? 'dashboard_state_empty.json' : 'dashboard_state.json')}` : `live · poll ${POLL_MS / 1000}s`}</span>`);
+    parts.push(`<span><span class="ok">●</span> ${MOCK ? `mock · ${esc(MOCK_FILES[MOCK] || MOCK_FILES[1])}` : `live · poll ${POLL_MS / 1000}s`}</span>`);
   } else {
     parts.push('<span class="dim">connecting…</span>');
   }
@@ -739,7 +812,7 @@ function tick() {
   const t = now();
   for (const el of document.querySelectorAll('[data-cd]')) {
     const left = (+el.dataset.cd - t) / 1000;
-    el.textContent = left > 0 ? dur(left) : '00:00';
+    el.textContent = !Number.isFinite(left) ? '--:--' : left > 0 ? dur(left) : (el.dataset.zero || '00:00');
   }
   for (const el of document.querySelectorAll('[data-since]')) {
     const end = el.dataset.until ? +el.dataset.until : t;
@@ -773,20 +846,21 @@ setInterval(tick, 1000);
 
 // ── apply a state ───────────────────────────────────────────────
 let state = null;
-function apply(s) {
-  skew = ts(s.server.now) - Date.now();
+function apply(raw) {
+  if (!raw || typeof raw !== 'object') throw new Error('bad state payload');
+  const obj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  const s = { ...raw, server: obj(raw.server) ? raw.server : {} };
+  for (const k of ['services', 'jobs', 'upcoming', 'tool_calls', 'events', 'agents']) s[k] = arr(raw[k]).filter(obj);
+  for (const k of ['drive', 'call']) s[k] = obj(raw[k]) ? raw[k] : null;
+  const serverNow = ts(s.server.now);
+  if (serverNow != null) skew = serverNow - Date.now();
   state = s;
   offline = false;
   lastOk = now();
-  renderDrive(s);
-  renderCall(s);
-  renderNext(s);
-  renderJobs(s);
-  renderTools(s);
-  renderLog(s);
-  renderAgents(s);
-  renderServices(s);
-  renderSystem(s);
+  // One window's bad data must not blank the others.
+  for (const render of [renderDrive, renderCall, renderNext, renderJobs, renderTools, renderLog, renderAgents, renderServices, renderSystem]) {
+    try { render(s); } catch (err) { console.error(`${render.name}:`, err); }
+  }
   firstRender = false;
   tick();
   const ch = SPIN[spinFrame % SPIN.length];
@@ -810,10 +884,12 @@ async function fetchState() {
 }
 
 // ── data source: mock replay ────────────────────────────────────
-// Loads a fixture, then plays a scripted story on top of it: the coder job finishes its
-// pipeline, an email job is dispatched and held for the arrival call, the call ends.
-// Times are fixture time + real elapsed time, so countdowns tick. Loops after MOCK_LOOP_S.
-const MOCK_LOOP_S = 75;
+// Loads a fixture (real /dashboard/state output, regenerated by tests/test_dashboard_fixtures.py),
+// then plays a scripted story on top of it in the backend's own formats: the coder job's tests
+// pass, the pre-approval holds and the PR merges with no call; a research job is dispatched and
+// answered; an inline search; the driver says goodbye. Times are fixture time + real elapsed
+// time, so countdowns tick. Loops after MOCK_LOOP_S.
+const MOCK_LOOP_S = 45;
 let fixture = null, mock = null, mockT0 = 0, mockStep = 0;
 function mockReset() {
   mock = structuredClone(fixture);
@@ -832,11 +908,7 @@ function useTool(s, t, tool, query, latency) {
   s.tool_calls.unshift({ at: iso(t - latency), tool, query, latency_ms: latency, ok: true });
   s.tool_calls.length = Math.min(s.tool_calls.length, 20);
   if (s.call) s.call.last_tool = tool;
-  ev(s, t, 'tool_called', `${tool}${query ? ` "${query}"` : ''} ${latency}ms`);
-}
-function say(s, t, role, text) {
-  if (!s.call) return;
-  s.call.transcript = [...(s.call.transcript || []), { at: iso(t), role, text }].slice(-6);
+  ev(s, t - latency, 'tool_called', `${tool}${query ? ` "${query}"` : ''} ${latency}ms`);
 }
 function step(j, name, st, t, detail) {
   const x = S(j, name);
@@ -844,131 +916,120 @@ function step(j, name, st, t, detail) {
   if (st === 'running') x.started_at = iso(t);
   if (st === 'done' || st === 'failed') { x.finished_at = iso(t); x.started_at = x.started_at || iso(t); }
   if (detail !== undefined) x.detail = detail;
-  j.updated_at = iso(t);
   j.progress = Math.round((j.steps.filter((y) => y.state === 'done' || y.state === 'skipped').length / j.steps.length) * 100) / 100;
 }
 const dropUpcoming = (s, kind, jobId) => { s.upcoming = s.upcoming.filter((u) => !(u.kind === kind && u.job_id === jobId)); };
+const arrival = (s, n) => { const a = s.upcoming.find((u) => u.kind === 'arrival_call'); if (a) a.description = `arrival call: batched summary of ${n} jobs`; };
 
 const MOCK_SCRIPT = [
-  [3, (s, t) => {
+  [3, (s, t) => { // check_run "tests" completed: success -> approvals.settle -> approved
     const j = J(s, 42);
-    step(j, 'tests', 'done', t, '3/3 checks');
-    step(j, 'approval_check', 'running', t);
-    dropUpcoming(s, 'job_expiry', 42);
-    ev(s, t, 'job_state', '#42 tests: 3/3 checks passed', 42);
-  }],
-  [6, (s, t) => {
-    const j = J(s, 42);
+    step(j, 'tests', 'done', t, 'passed');
     step(j, 'approval_check', 'done', t, 'pre-approved');
     step(j, 'merged', 'running', t);
     j.state = 'approved';
-    ev(s, t, 'job_state', '#42 running -> approved: pre-approved: merge it if the tests pass', 42);
+    j.updated_at = iso(t);
+    dropUpcoming(s, 'job_expiry', 42);
+    const pre = s.upcoming.find((u) => u.kind === 'preapproved_action' && u.job_id === 42);
+    if (pre) Object.assign(pre, { at: iso(t), description: 'merge the PR: approved, going through' });
+    s.active_agent = 'coder';
+    ev(s, t, 'job_state', '#42 running → approved: pre-approved: merge it if the tests pass', 42);
   }],
-  [11, (s, t) => {
+  [8, (s, t) => { // coder.merge_approved
     const j = J(s, 42);
-    step(j, 'merged', 'done', t, 'squash');
+    step(j, 'merged', 'done', t);
     j.state = 'done';
-    j.result_summary = 'Merged PR #13: the login redirect loop on /settings is fixed.';
+    j.updated_at = iso(t);
+    j.result_summary = 'Merged: Fix the login redirect loop on /settings. The tests passed.';
     Object.assign(A(s, 'coder'), { status: 'idle', current_job_id: null });
-    s.active_agent = 'orchestrator';
     dropUpcoming(s, 'preapproved_action', 42);
-    ev(s, t, 'job_state', '#42 approved -> done: merged PR #13', 42);
+    ev(s, t, 'job_state', '#42 approved → done: merged', 42);
   }],
-  [15, (s, t) => {
-    say(s, t, 'driver', "Also tell Professor Kim I'll be late to office hours.");
-    useTool(s, t, 'dispatch_task', "tell Professor Kim I'll be late to office hours", 176);
+  [12, (s, t) => {
+    useTool(s, t, 'dispatch_task', 'research: gas station on the way to North Campus', 176);
     s.jobs.push({
-      id: 43, type: 'email', title: "Tell Prof. Kim you'll be late to office hours",
-      details: { to: 'Prof. Kim' }, state: 'queued', progress: 0,
-      steps: ['drafting', 'approval_check', 'sent'].map((name) => ({ name, state: 'pending', started_at: null, finished_at: null, detail: null })),
-      preapproval: null, approval: { status: 'pending', note: null },
+      id: 43, type: 'research', title: 'Gas on the way to North Campus',
+      details: { conversation_id: 'conv_17', label: 'Gas on the way to North Campus' }, state: 'queued', progress: 0,
+      steps: ['searching', 'summarizing'].map((name) => ({ name, state: 'pending', started_at: null, finished_at: null, detail: null })),
+      preapproval: null, approval: { status: 'not_needed', note: null },
       result_summary: null, result_url: null, created_at: iso(t), updated_at: iso(t),
     });
-    s.upcoming.push({ at: iso(t + 10 * 60000), kind: 'job_expiry', description: 'email #43 expires if no worker claims it (email worker offline)', job_id: 43 });
-    ev(s, t, 'job_dispatched', "email #43: tell Prof. Kim you'll be late, needs a yes before sending", 43);
+    arrival(s, 3);
     s.active_agent = 'voice';
+    ev(s, t, 'job_dispatched', 'research #43: Gas on the way to North Campus', 43);
   }],
-  [17, (s, t) => say(s, t, 'agent', "Got it. I'll draft it and check with you before it sends.")],
-  [21, (s, t) => {
-    say(s, t, 'driver', 'Any gas on the way?');
-    useTool(s, t, 'search_web', 'gas station on the way to North Campus', 2891);
-    say(s, t, 'agent', "There's a Shell on Plymouth Road, right on your route.");
-  }],
-  [25, (s, t) => {
+  [13, (s, t) => {
     const j = J(s, 43);
     j.state = 'running';
-    step(j, 'drafting', 'running', t);
-    Object.assign(A(s, 'email'), { status: 'busy', current_job_id: 43, last_heartbeat: iso(t) });
-    s.active_agent = 'email';
-    dropUpcoming(s, 'job_expiry', 43);
-    ev(s, t, 'job_state', '#43 queued -> running: email worker back online', 43);
+    j.updated_at = iso(t);
+    step(j, 'searching', 'running', t);
+    Object.assign(A(s, 'research'), { status: 'busy', current_job_id: 43 });
+    s.active_agent = 'research';
+    ev(s, t, 'job_state', '#43 queued → running: claimed', 43);
   }],
-  [31, (s, t) => {
+  [19, (s, t) => {
     const j = J(s, 43);
-    step(j, 'drafting', 'done', t, '2 lines');
-    step(j, 'approval_check', 'running', t);
-    j.state = 'needs_approval';
-    j.approval = { status: 'pending', note: 'draft ready' };
-    Object.assign(A(s, 'email'), { status: 'idle', current_job_id: null });
+    step(j, 'searching', 'done', t);
+    step(j, 'summarizing', 'done', t);
+    j.state = 'done';
+    j.updated_at = iso(t);
+    j.result_summary = "There's a Shell on Plymouth Road, right on your way.";
+    Object.assign(A(s, 'research'), { status: 'idle', current_job_id: null });
     s.active_agent = 'voice';
-    ev(s, t, 'job_state', '#43 running -> needs_approval: draft ready', 43);
-    say(s, t, 'agent', 'Draft for Professor Kim: "Running about ten minutes late to office hours." Send it?');
+    ev(s, t, 'job_state', '#43 running → done', 43);
   }],
-  [35, (s, t) => {
-    say(s, t, 'driver', "Hold it, I'll decide when I park.");
-    J(s, 43).approval = { status: 'held', note: null };
-    s.upcoming.push({ at: s.drive.arrival_call_at, kind: 'held_action', description: 'held for arrival call: send the note to Prof. Kim', job_id: 43 });
-    const arr = s.upcoming.find((x) => x.kind === 'arrival_call');
-    if (arr) arr.description = 'arrival call: batched summary of 3 jobs';
-    ev(s, t, 'job_state', '#43 held for the arrival call', 43);
-  }],
-  [39, (s, t) => {
-    say(s, t, 'driver', "That's all, thanks.");
-    say(s, t, 'agent', 'Talk soon.');
-  }],
-  [41, (s, t) => {
+  [24, (s, t) => useTool(s, t, 'search_web', 'coffee open now near North Campus', 2891)],
+  [30, (s, t) => { // the driver says goodbye; the monitor sees the conversation end
     s.call.status = 'ended';
     s.drive.status = 'silent';
     Object.assign(A(s, 'voice'), { status: 'idle', current_job_id: null });
     s.active_agent = null;
-    ev(s, t, 'call_ended', `departure call ended after ${dur(s.call.duration_s)} (driver said goodbye)`);
+    ev(s, t, 'call_ended', `call ended after ${dur(s.call.duration_s)}`);
   }],
 ];
 
 function mockDemo(action) {
   const t = ts(mock.server.now);
-  const msg = { 'plug-in': ['plug_in', 'CarPlay connected (demo)'], arrive: ['arrival_call', 'arrival call triggered (demo)'], unplug: ['unplug', 'CarPlay disconnected (demo)'] }[action];
+  const id = mock.drive ? mock.drive.id : '?';
+  const msg = {
+    'plug-in': ['plug_in', `simulated plug-in (demo): drive #${id} opened`],
+    arrive: ['arrival_scheduled', `simulated arrival (demo): drive #${id} calls on the next tick`],
+    unplug: ['unplug', 'simulated unplug (demo)'],
+  }[action];
   if (msg) ev(mock, t, msg[0], msg[1]);
 }
 
 async function mockNext() {
   if (!fixture) {
-    const url = MOCK === 'empty' ? '../tests/fixtures/dashboard_state_empty.json' : '../tests/fixtures/dashboard_state.json';
-    const r = await fetch(url, { cache: 'no-store' });
+    const r = await fetch(`../tests/fixtures/${MOCK_FILES[MOCK] || MOCK_FILES[1]}`, { cache: 'no-store' });
     if (!r.ok) throw new Error(`fixture HTTP ${r.status}`);
     fixture = await r.json();
     mockReset();
   }
-  const script = MOCK === 'empty' ? [] : MOCK_SCRIPT;
+  const script = MOCK === '1' ? MOCK_SCRIPT : [];
   let el = (Date.now() - mockT0) / 1000;
   if (script.length && el > MOCK_LOOP_S) { mockReset(); el = 0; }
-  const base = ts(fixture.server.now);
+  const base = ts(fixture.server && fixture.server.now) ?? Date.now();
   const t = base + el * 1000;
+  if (!mock.server) mock.server = {};
   mock.server.now = iso(t);
-  mock.server.uptime_s = fixture.server.uptime_s + Math.floor(el);
-  if (mock.call && mock.call.status === 'active') mock.call.duration_s = fixture.call.duration_s + Math.floor(el);
-  mock.agents.forEach((a, i) => {
-    if (a.status !== 'offline') a.last_heartbeat = iso(t - ((Math.floor(el) + i * 3) % 12) * 1000);
-  });
-  fixture.services.forEach((fs, i) => {
-    const age = base - ts(fs.checked_at);
-    if (fs.checked_at && age < STALE_MS) {
+  mock.server.uptime_s = (fixture.server && fixture.server.uptime_s || 0) + Math.floor(el);
+  if (mock.call && mock.call.status === 'active') mock.call.duration_s = (fixture.call.duration_s || 0) + Math.floor(el);
+  for (const a of arr(mock.agents)) {
+    if (a && a.name !== 'voice' && a.status !== 'offline') a.last_heartbeat = iso(t);
+  }
+  arr(fixture.services).forEach((fs, i) => {
+    const age = base - ts(fs && fs.checked_at);
+    if (fs && fs.checked_at && age < STALE_MS && fs.name !== 'api_server') {
       mock.services[i].checked_at = iso(ts(fs.checked_at) + Math.floor((el + age / 1000) / 30) * 30000);
+    } else if (fs && fs.name === 'api_server') {
+      mock.services[i].checked_at = iso(t);
     }
   });
   while (mockStep < script.length && script[mockStep][0] <= el) script[mockStep++][1](mock, t);
   return structuredClone(mock);
 }
+
 
 // ── main loop ───────────────────────────────────────────────────
 async function poll() {
