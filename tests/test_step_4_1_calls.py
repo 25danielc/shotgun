@@ -7,71 +7,15 @@ plug-in goes through the real /events endpoint and dispatches through the real /
 """
 
 import time
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
 
-from app import calls, drives, jobs, telephony, voice_tools
-from app import db as app_db
+from app import calls, drives, jobs, telephony
 from app.config import settings
 from app.jobs import JobState, JobType
-from app.main import app
-
-EVENTS_SECRET = "e" * 32
-TOOLS_SECRET = "t" * 32
-DANIEL = "+15555550100"
-TESTS_YES = {"condition": "merge it if the tests pass", "require_tests_pass": True}
-
-
-class Rang(list):
-    """Every call placed, as its dynamic variables."""
-
-    busy = False
-    refuse = False
-
-
-@pytest.fixture
-def rang(monkeypatch):
-    placed = Rang()
-
-    async def fake_place_call(variables, **kwargs):
-        if placed.refuse:
-            raise telephony.CallError("HTTP 500")
-        placed.append(variables)
-        return telephony.PlacedCall(conversation_id=f"conv_{len(placed)}", call_sid="CA")
-
-    async def line_busy(**kwargs):
-        return placed.busy
-
-    monkeypatch.setattr(telephony, "place_call", fake_place_call)
-    monkeypatch.setattr(telephony, "call_in_progress", line_busy)
-    return placed
-
-
-@pytest.fixture
-async def http(db, monkeypatch, rang):
-    """The real app, with the test connection as its pool and the tools DB dependency."""
-
-    class Pool:
-        @asynccontextmanager
-        async def connection(self, timeout=None):
-            yield db
-
-    monkeypatch.setattr(app_db, "get_pool", lambda: Pool())
-    monkeypatch.setattr(settings, "events_shared_secret", EVENTS_SECRET)
-    monkeypatch.setattr(settings, "tools_shared_secret", TOOLS_SECRET)
-    monkeypatch.setattr(settings, "allowed_caller_number", DANIEL)
-
-    async def test_conn():
-        yield db
-
-    app.dependency_overrides[voice_tools.get_conn] = test_conn
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
-    app.dependency_overrides.clear()
+from tests.helpers import DANIEL, EVENTS_SECRET, TESTS_YES, TOOLS_SECRET, run, ticks
 
 
 async def plug_in(http):
@@ -94,19 +38,6 @@ async def dispatch(http, label, preapproval=None, job_type="coder"):
         "/tools/dispatch_task", json=body, headers={"X-Shotgun-Secret": TOOLS_SECRET}
     )
     return response.json()
-
-
-async def run(db, job_id, *steps, summary=None):
-    """Move a job through states as its worker would; the last step gets the summary."""
-    job = None
-    for i, step in enumerate(steps):
-        last = i == len(steps) - 1
-        job = await jobs.transition(db, job_id, step, summary=summary if last else None)
-    return job
-
-
-async def ticks(db, n=5, now=None):
-    return [await calls.tick(db, now) for _ in range(n)]
 
 
 # --- the pass check ---------------------------------------------------------------------------

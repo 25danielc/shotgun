@@ -48,8 +48,13 @@ class Settings(BaseSettings):
     tools_shared_secret: str = ""
     allowed_caller_number: str = ""
 
-    # Where callbacks ring
+    # Where calls ring
     my_phone_number: str = ""
+
+    # Departure call policy (step 4.3, D17). CALL_POLICY=always rings on every plug-in (rehearsals).
+    call_policy: str = "auto"  # auto | always
+    departure_min_drive_minutes: int = 10
+    departure_quiet_minutes: int = 30
 
     # Deploy
     public_base_url: str = ""

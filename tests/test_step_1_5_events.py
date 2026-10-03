@@ -96,7 +96,7 @@ async def test_call_failure_is_logged_not_raised(monkeypatch, caplog):
         raise telephony.CallError("missing ELEVENLABS_AGENT_ID")
 
     monkeypatch.setattr(telephony, "place_call", failing)
-    await events.ring_on_plug_in(events.Event(source="test", event="carplay_connected"))
+    await events.ring(events.departure_variables(None, []), None)
     assert "plug-in call failed" in caplog.text
 
 

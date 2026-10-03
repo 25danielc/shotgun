@@ -284,3 +284,8 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - The arrival call's question is one the driver hasn't been asked yet (exception before hold); one already asked is read out but not asked again first.
   - Nothing rings after the arrival call. Results that come later go in the unplug recap (4.4).
   - With no ETA, the arrival call can ring soon after the driver hangs up, as soon as everything is settled (e.g. a quick research job). Step 5.1's ETA moves it to ETA − 3 min.
+- 2026-10-03 18:10 (hour 7): **Step 4.3 Done.**
+  - `app/policy.py`: ring on plug-in if something is waiting on the driver (needs_approval or exception, any drive), or a known drive of 10+ min, or no call in 30 min. `CALL_POLICY=always` overrides. Thresholds are settings (`DEPARTURE_MIN_DRIVE_MINUTES`, `DEPARTURE_QUIET_MINUTES`).
+  - A silent plug-in still opens a drive. The decision is made in the request (a few queries), so `/events` returns an accurate `calling`. If the DB or the policy fails, it rings anyway (the never-cut ring).
+  - The departure greeting leads with what's waiting and asks its question. Otherwise "Hey, it's Shotgun, riding along."
+  - **For rehearsals and filming, set `CALL_POLICY=always` in Railway.**
