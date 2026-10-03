@@ -1,13 +1,17 @@
 """Job table on Neon Postgres and its state machine. Shared state for every agent.
 
-Build step 2.1: create job; legal transitions pass; illegal ones raise.
+Build step 2.1: create job; legal transitions pass; illegal ones raise. Step 4.2 (D17) adds
+pre-approval and the `exception` state.
 
 States:
-    queued -> running -> needs_approval -> approved -> done
+    queued -> running -> needs_approval -> approved -> done   (yes asked on the arrival call)
+                     \\-> approved -> done                    (pre-approved: yes given at dispatch)
+                     \\-> exception -> approved -> done       (result broke the pre-approval)
                      \\-> done        (read-only jobs, e.g. research)
     any non-terminal state -> failed (a spoken "no" also ends here, summary "Cancelled")
-done and failed are terminal. There is no path from needs_approval to done that skips approved:
-that edge is the "nothing irreversible without a spoken yes" rule.
+done and failed are terminal. Every path to an irreversible action goes through approved, and
+approved is reached only by a spoken yes: approve_action (from needs_approval or exception), or
+running -> approved, which transition() allows only for a job that carries a preapproval.
 
 Job types: the four worker types, plus `plan`, a raw spoken request stored by dispatch_task that
 the orchestrator (step 2.4) claims and turns into worker jobs.
@@ -44,6 +48,7 @@ class JobState(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     NEEDS_APPROVAL = "needs_approval"
+    EXCEPTION = "exception"  # the result broke its pre-approval; waiting for a spoken yes or no
     APPROVED = "approved"
     DONE = "done"
     FAILED = "failed"
@@ -62,14 +67,24 @@ WORKER_TYPES = frozenset(JobType) - {JobType.PLAN}
 
 TRANSITIONS: dict[JobState, frozenset[JobState]] = {
     JobState.QUEUED: frozenset({JobState.RUNNING, JobState.FAILED}),
-    JobState.RUNNING: frozenset({JobState.NEEDS_APPROVAL, JobState.DONE, JobState.FAILED}),
+    JobState.RUNNING: frozenset(
+        {
+            JobState.NEEDS_APPROVAL,
+            JobState.EXCEPTION,
+            JobState.APPROVED,  # pre-approved jobs only, enforced in transition()
+            JobState.DONE,
+            JobState.FAILED,
+        }
+    ),
     JobState.NEEDS_APPROVAL: frozenset({JobState.APPROVED, JobState.FAILED}),
+    JobState.EXCEPTION: frozenset({JobState.APPROVED, JobState.FAILED}),
     JobState.APPROVED: frozenset({JobState.DONE, JobState.FAILED}),
     JobState.DONE: frozenset(),
     JobState.FAILED: frozenset(),
 }
 TERMINAL = frozenset(state for state, nexts in TRANSITIONS.items() if not nexts)
 OPEN = frozenset(JobState) - TERMINAL
+WAITING = frozenset({JobState.NEEDS_APPROVAL, JobState.EXCEPTION})  # held for a spoken yes or no
 
 
 class IllegalTransition(ValueError):
@@ -232,25 +247,32 @@ async def transition(
     result: dict[str, Any] | None = None,
     error: str | None = None,
     note: str | None = None,
-    expect: JobState | str | None = None,
+    expect: JobState | str | Iterable[JobState | str] | None = None,
 ) -> Job:
     """Move a job to new_state if the state machine allows it; log the change.
 
-    `expect` additionally requires the job to be in that state right now (approve_action uses
-    it so a "no" can't cancel a job that was never waiting for approval).
+    `expect` additionally requires the job to be in that state (or one of those states) right
+    now: approve_action uses it so a "no" can't cancel a job that was never waiting for one.
+    running -> approved is allowed only when the job carries a preapproval.
     Raises JobNotFound or IllegalTransition (the row is left untouched). summary, result and
     error overwrite their columns only when given.
     """
     new_state = JobState(new_state)
     async with conn.transaction():
-        cur = await conn.execute("select state from jobs where id = %s for update", (job_id,))
+        cur = await conn.execute(
+            "select state, preapproval is not null from jobs where id = %s for update", (job_id,)
+        )
         row = await cur.fetchone()
         if row is None:
             raise JobNotFound(job_id)
-        current = JobState(row[0])
-        if expect is not None and current != JobState(expect):
-            raise IllegalTransition(current, new_state)
+        current, preapproved = JobState(row[0]), row[1]
+        if expect is not None:
+            wanted = {JobState(expect)} if isinstance(expect, str) else set(map(JobState, expect))
+            if current not in wanted:
+                raise IllegalTransition(current, new_state)
         check_transition(current, new_state)
+        if (current, new_state) == (JobState.RUNNING, JobState.APPROVED) and not preapproved:
+            raise IllegalTransition(current, new_state)  # a yes must come from the driver
         cur = conn.cursor(row_factory=class_row(Job))
         await cur.execute(
             """update jobs set state = %s,

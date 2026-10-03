@@ -11,13 +11,24 @@ Flow (docs/DECISIONS.md §9.3 and §9.4):
    the PR. When it finishes it edits its issue comment to add
    "[Create a PR](https://github.com/{owner}/{repo}/compare/{base}...{branch}?quick_pull=1&...)"
    (src/entrypoints/update-comment-link.ts, read 2026-10-03).
-3. POST /github/hook receives that `issue_comment` event (HMAC-checked), opens the PR through the
-   API and moves the job to `needs_approval`: "I opened a pull request: <label>. Merge it?"
-   A `pull_request` "opened" event for a claude/ branch does the same, if a PR appears another
-   way.
-4. A spoken "yes" (approve_action) sets `approved`; `run_coder()` squash-merges the PR and marks
-   the job `done`. Merging is the irreversible part, so it never happens before approval.
+3. POST /github/hook receives that `issue_comment` event (HMAC-checked) and opens the PR through
+   the API. A `pull_request` "opened" event for a claude/ branch does the same, if a PR appears
+   another way. Then, by pre-approval (step 4.2, D17, app/approvals.py):
+   - no preapproval: `needs_approval`, "I opened a pull request: <label>. Merge it?", held for
+     the arrival call;
+   - preapproval without require_tests_pass: `approved` at once;
+   - require_tests_pass ("merge it if the tests pass"): the job stays `running` with
+     result.tests = "pending" until the demo repo's Tests workflow reports. A `check_run`
+     "completed" event named TESTS_CHECK on the PR moves it to `approved` (success) or
+     `exception` ("The tests failed on the pull request for <label>. Merge it anyway?").
+     No result within TESTS_TIMEOUT_MINUTES -> `exception` too.
+4. `approved` (pre-approval or a spoken yes through approve_action): `run_coder()` squash-merges
+   the PR and marks the job `done`. Merging is the irreversible part, so it never happens before
+   a yes.
 5. No PR after PR_TIMEOUT_MINUTES -> `failed`, so the driver hears about it.
+
+Test results come by webhook (`check_run`, added to the demo repo hook in step 4.2) because the
+fine-grained GITHUB_TOKEN has no Checks or Actions read permission (403 on both, 2026-10-03).
 
 GitHub REST (api.github.com, X-GitHub-Api-Version 2022-11-28): POST /repos/{repo}/issues,
 POST /repos/{repo}/pulls, GET /repos/{repo}/pulls?head=owner:branch,
@@ -42,7 +53,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, 
 from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
-from app import db, jobs
+from app import approvals, db, jobs
 from app.config import settings
 from app.jobs import Job, JobState, JobType
 
@@ -53,6 +64,8 @@ API = "https://api.github.com"
 ISSUE_FOOTER = "@claude please fix this and open a pull request."
 BRANCH_PREFIX = "claude/"
 PR_TIMEOUT_MINUTES = 15
+TESTS_CHECK = "tests"  # job name in the demo repo's .github/workflows/tests.yml
+TESTS_TIMEOUT_MINUTES = 10
 POLL_SECONDS = 5.0
 TIMEOUT = 15.0
 
@@ -152,6 +165,12 @@ def ready_summary(job: Job) -> str:
     return f"I opened a pull request: {label_of(job)}. Merge it?"
 
 
+def tests_failed_summary(job: Job, reason: str) -> str:
+    return (
+        f"{reason[0].upper()}{reason[1:]} on the pull request for {label_of(job)}. Merge it anyway?"
+    )
+
+
 # --- finding the Action's branch ----------------------------------------------------------------
 
 
@@ -187,14 +206,50 @@ async def job_for_issue(conn: AsyncConnection, issue_number: int) -> Job | None:
     return await cur.fetchone()
 
 
+def needs_tests(job: Job) -> bool:
+    return bool((job.preapproval or {}).get("require_tests_pass"))
+
+
 async def pr_ready(conn: AsyncConnection, job: Job, pr: dict[str, Any]) -> Job:
-    await jobs.update_result(conn, job.id, {"pr_number": pr["number"], "pr_url": pr["html_url"]})
-    return await jobs.transition(
+    """The PR exists: hold it, approve it, or wait for the tests (see the module docstring)."""
+    patch = {
+        "pr_number": pr["number"],
+        "pr_url": pr["html_url"],
+        "head_sha": pr.get("head", {}).get("sha"),
+        "pr_opened_at": datetime.now(UTC).isoformat(),
+    }
+    if needs_tests(job):
+        log.info("coder job %s: PR #%s opened, waiting for the tests", job.id, pr["number"])
+        return await jobs.update_result(conn, job.id, patch | {"tests": "pending"})
+    job = await jobs.update_result(conn, job.id, patch)
+    return await approvals.settle(conn, job, question=ready_summary(job))
+
+
+async def job_waiting_for_tests(
+    conn: AsyncConnection, head_sha: str | None, pr_numbers: list[int]
+) -> Job | None:
+    """The running coder job whose PR (by number or head commit) is waiting for its tests."""
+    cur = conn.cursor(row_factory=class_row(Job))
+    await cur.execute(
+        """select * from jobs
+           where type = 'coder' and state = 'running' and result ->> 'tests' = 'pending'
+             and ((result ->> 'pr_number')::int = any(%s) or result ->> 'head_sha' = %s)
+           order by id limit 1 for update skip locked""",
+        (pr_numbers, head_sha),
+    )
+    return await cur.fetchone()
+
+
+async def tests_reported(conn: AsyncConnection, job: Job, conclusion: str | None) -> Job:
+    passed = conclusion == "success"
+    job = await jobs.update_result(conn, job.id, {"tests": conclusion or "unknown"})
+    reason = "the tests passed" if passed else "the tests failed"
+    return await approvals.settle(
         conn,
-        job.id,
-        JobState.NEEDS_APPROVAL,
-        summary=ready_summary(job),
-        note=f"PR #{pr['number']} opened",
+        job,
+        question=ready_summary(job),
+        exception_summary=None if passed else tests_failed_summary(job, reason),
+        tests_passed=passed,
     )
 
 
@@ -220,6 +275,17 @@ async def handle_event(
                 body=f"Fixes #{issue['number']}\n\nOpened by Shotgun for job {job.id}.",
             )
             return await pr_ready(conn, job, pr)
+
+    if event == "check_run" and payload.get("action") == "completed":
+        run = payload.get("check_run", {})
+        if run.get("name") != TESTS_CHECK:
+            return None
+        numbers = [pr["number"] for pr in run.get("pull_requests") or [] if "number" in pr]
+        async with conn.transaction():
+            job = await job_waiting_for_tests(conn, run.get("head_sha"), numbers)
+            if job is None:
+                return None
+            return await tests_reported(conn, job, run.get("conclusion"))
 
     if event == "pull_request" and payload.get("action") == "opened":
         pr = payload.get("pull_request", {})
@@ -284,9 +350,10 @@ async def merge_approved(conn: AsyncConnection, gh: GitHub) -> Job | None:
                 summary=f"I couldn't merge the pull request for {label_of(job)}. It's still open.",
                 error=str(exc),
             )
-        return await jobs.transition(
-            conn, job.id, JobState.DONE, summary=f"Merged: {label_of(job)}.", note="merged"
-        )
+        summary = f"Merged: {label_of(job)}."
+        if (job.result or {}).get("tests") == "success":
+            summary += " The tests passed."
+        return await jobs.transition(conn, job.id, JobState.DONE, summary=summary, note="merged")
 
 
 async def expire_stale(conn: AsyncConnection, now: datetime | None = None) -> list[Job]:
@@ -312,12 +379,38 @@ async def expire_stale(conn: AsyncConnection, now: datetime | None = None) -> li
     return expired
 
 
+async def expire_tests(conn: AsyncConnection, now: datetime | None = None) -> list[Job]:
+    """Pre-approved PRs whose tests haven't reported in TESTS_TIMEOUT_MINUTES: ask the driver."""
+    cutoff = (now or datetime.now(UTC)) - timedelta(minutes=TESTS_TIMEOUT_MINUTES)
+    cur = conn.cursor(row_factory=class_row(Job))
+    await cur.execute(
+        """select * from jobs where type = 'coder' and state = 'running'
+             and result ->> 'tests' = 'pending'
+             and (result ->> 'pr_opened_at')::timestamptz < %s""",
+        (cutoff,),
+    )
+    expired = []
+    for job in await cur.fetchall():
+        job = await jobs.update_result(conn, job.id, {"tests": "timed_out"})
+        expired.append(
+            await approvals.settle(
+                conn,
+                job,
+                question=ready_summary(job),
+                exception_summary=tests_failed_summary(job, "the tests never reported"),
+                tests_passed=None,
+            )
+        )
+    return expired
+
+
 async def tick(conn: AsyncConnection, gh: GitHub) -> None:
     job = await jobs.claim_next(conn, [JobType.CODER])
     if job is not None:
         await start_job(conn, gh, job)
     await merge_approved(conn, gh)
     await expire_stale(conn)
+    await expire_tests(conn)
 
 
 async def run_coder(pool) -> None:
@@ -386,8 +479,12 @@ async def github_hook(
 # --- step 3.1 by hand ----------------------------------------------------------------------------
 
 
-async def _demo(wait_minutes: float) -> Job:
-    """Insert a coder job for the planted bug, then watch it until it needs approval."""
+async def _demo(wait_minutes: float, preapproved: bool = False) -> Job:
+    """Insert a coder job for the planted bug, then watch it until it needs approval.
+
+    preapproved: the job carries "merge it if the tests pass" (step 4.2), so it should go
+    running -> approved -> done with no question once the demo repo's tests pass.
+    """
     pool = await db.open_pool()
     try:
         async with pool.connection() as conn:
@@ -406,6 +503,11 @@ async def _demo(wait_minutes: float) -> Job:
                 },
                 request="Fix the login bug Sarah filed.",
                 source="demo",
+                preapproval=(
+                    {"condition": "merge it if the tests pass", "require_tests_pass": True}
+                    if preapproved
+                    else None
+                ),
             )
         print(f"job {job.id} queued; the deployed app's coder loop picks it up")
         start = datetime.now(UTC)
@@ -422,7 +524,7 @@ async def _demo(wait_minutes: float) -> Job:
                 elapsed = (datetime.now(UTC) - start).total_seconds() / 60
                 print(f"{elapsed:4.1f} min  {job.state}  issue={seen[1]}  pr={seen[2]}")
                 last = seen
-            if job.state in (JobState.NEEDS_APPROVAL, JobState.DONE, JobState.FAILED):
+            if job.state in (*jobs.WAITING, JobState.DONE, JobState.FAILED):
                 print(f"summary: {job.summary}")
                 return job
             await asyncio.sleep(10)
@@ -439,4 +541,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Step 3.1: insert a coder job and watch it.")
     parser.add_argument("--demo", action="store_true", required=True)
     parser.add_argument("--wait", type=float, default=10.0, help="minutes to watch (default 10)")
-    asyncio.run(_demo(parser.parse_args().wait))
+    parser.add_argument(
+        "--preapproved", action="store_true", help='step 4.2: "merge it if the tests pass"'
+    )
+    args = parser.parse_args()
+    asyncio.run(_demo(args.wait, args.preapproved))

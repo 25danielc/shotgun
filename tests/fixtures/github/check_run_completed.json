@@ -1,0 +1,15 @@
+{
+  "action": "completed",
+  "check_run": {
+    "id": 31415926,
+    "name": "tests",
+    "head_sha": "7f3c2a9e1b8d4c6a0e5f2b1d9c8a7e6f5d4c3b2a",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/25danielc/shotgun-demo-app/actions/runs/1/job/31415926",
+    "pull_requests": [
+      {"number": 8, "head": {"ref": "claude/issue-7-20261003-1530", "sha": "7f3c2a9e1b8d4c6a0e5f2b1d9c8a7e6f5d4c3b2a"}, "base": {"ref": "main"}}
+    ]
+  },
+  "repository": {"full_name": "25danielc/shotgun-demo-app"}
+}

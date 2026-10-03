@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import settings  # noqa: E402
 
-EVENTS = ["issue_comment", "pull_request"]
+EVENTS = ["issue_comment", "pull_request", "check_run"]  # check_run: step 4.2 test results
 
 
 def main() -> int:

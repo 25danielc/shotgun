@@ -20,7 +20,8 @@ Background (answer in under 500 ms, never block on a worker):
   given up front, so the job can finish without a call (step 4.2).
 - get_status(drive_id?): one spoken sentence, plus the job list. With drive_id: that drive's
   jobs, finished ones included; without: every open job.
-- approve_action(job_id, approved): needs_approval -> approved, or -> failed ("Cancelled").
+- approve_action(job_id, approved): needs_approval or exception -> approved, or -> failed
+  ("Cancelled").
 
 Business problems (unknown job, nothing to approve) come back as 200 {"ok": false, "message"}
 so the agent can say something sensible. Auth problems are HTTP errors: 401 bad secret,
@@ -244,6 +245,7 @@ STATE_PHRASES = {
     JobState.QUEUED: "is queued",
     JobState.RUNNING: "is in progress",
     JobState.NEEDS_APPROVAL: "needs your OK",
+    JobState.EXCEPTION: "needs your OK",
     JobState.APPROVED: "is going through",
     JobState.DONE: "is done",
     JobState.FAILED: "didn't work out",
@@ -300,7 +302,7 @@ async def approve_action(body: ApproveBody, conn: Conn) -> Reply:
         new_state, summary, note = JobState.FAILED, "Cancelled", "driver said no"
     try:
         job = await jobs.transition(
-            conn, job_id, new_state, summary=summary, note=note, expect=JobState.NEEDS_APPROVAL
+            conn, job_id, new_state, summary=summary, note=note, expect=jobs.WAITING
         )
     except JobNotFound:
         return Reply(ok=False, message="I couldn't find that job.", job_id=job_id)

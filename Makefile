@@ -47,8 +47,8 @@ curl-tools:  ## Step 2.2: curl sample ElevenLabs payloads at BASE (default PUBLI
 callback-demo:  ## Step 4.1: flip a job to done in DATABASE_URL and ring with its summary
 	uv run python -m app.callbacks --demo "$(or $(MSG),I opened a pull request for the login bug.)"
 
-coder-demo:  ## Step 3.1: insert a coder job in DATABASE_URL and watch it for 10 min (deployed app does the work)
-	uv run python -m app.workers.coder --demo
+coder-demo:  ## Step 3.1: insert a coder job and watch it 10 min (PRE=1: pre-approved, step 4.2)
+	uv run python -m app.workers.coder --demo $(if $(PRE),--preapproved)
 
 github-hook:  ## Step 3.1: create/update the demo repo webhook -> PUBLIC_BASE_URL/github/hook
 	uv run python scripts/github_hook.py --gh

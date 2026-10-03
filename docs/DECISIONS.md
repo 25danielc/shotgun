@@ -266,3 +266,10 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Inline tools: timeout 15 s and `pre_tool_speech: "force"`. `preapproval` is a nested object (supported per the OpenAPI spec).
   - New call variables `drive_id` and `call_kind`. Greetings no longer ask "Anything you want handled?".
   - **The in-car pass check has to wait for 4.2 + 4.1:** the old per-job watcher still rings after the call until then.
+- 2026-10-03 18:25 (hour 6.4): **Step 4.2 (D17).**
+  - New state `exception` (→ approved or failed only) and the edge running → approved, which `transition()` allows only when the job carries a preapproval.
+  - `app/approvals.py` `settle()` decides at the irreversible step: approved (inside the pre-approval), exception (broken), or needs_approval (no pre-approval).
+  - A structured condition the worker can't check counts as broken: "merge if the tests pass" with no result → exception.
+  - Coder: "merge if the tests pass" waits for the demo repo's new `tests.yml` (job `tests`).
+  - **The result arrives by webhook (`check_run` added to hook 691695445)**, because the fine-grained GITHUB_TOKEN gets 403 on both check runs and Actions runs. The webhook needs no new permission.
+  - No result in 10 min → exception. `approve_action` accepts needs_approval or exception.

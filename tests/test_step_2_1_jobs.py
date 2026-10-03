@@ -17,6 +17,10 @@ LEGAL = {
     ("queued", "running"),
     ("queued", "failed"),
     ("running", "needs_approval"),
+    ("running", "exception"),  # D17
+    ("running", "approved"),  # D17: pre-approved jobs only (checked in transition())
+    ("exception", "approved"),
+    ("exception", "failed"),
     ("running", "done"),
     ("running", "failed"),
     ("needs_approval", "approved"),
