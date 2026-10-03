@@ -7,10 +7,14 @@ Routers (stubs until their build steps):
 - app.workers.coder POST /github/hook        (step 3.1)
 """
 
+import logging
+
 from fastapi import FastAPI
 
 from app import events, voice_tools
 from app.workers import coder
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 app = FastAPI(title="Shotgun")
 app.include_router(events.router)

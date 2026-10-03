@@ -56,10 +56,10 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | 0.2 | Create accounts and keys: Anthropic, ElevenLabs, Twilio, Railway, Neon, Composio, GitHub, Google Maps | — | check\_keys.py prints OK for every key | 0.75 | Core | Not started |
 | 0.3 | Notability: architecture sketch and wireframes | — | 2+ screenshots saved | 0.25 | Stretch | Not started |
 | 1.1 | ElevenLabs agent on a Twilio number; save the "Shotgun" contact | 0.2 | Calling it from the Civic: agent greets through the car speakers, contact name on screen | 0.5 | Core | Not started |
-| 1.2 | Outbound call through the ElevenLabs API | 1.1 | One curl makes the phone ring within 5 s | 0.25 | Core | Not started |
+| 1.2 | Outbound call through the ElevenLabs API | 1.1 | One curl makes the phone ring within 5 s | 0.25 | Core | Blocked: client + offline tests done; needs 1.1, then `make ring` and Daniel confirms the ring |
 | 1.3 | CarPlay-connect automation posting to webhook.site | — | 5 of 5 replugs logged with the phone locked; location present; latency noted | 0.5 | Core | Not started |
 | 1.4 | FastAPI skeleton deployed on Railway | 0.2 | GET /health on the public URL returns 200 | 0.5 | Core | Not started |
-| 1.5 | /events triggers an outbound call, shared-secret check | 1.2, 1.4 | curl /events rings the phone; wrong secret returns 401 | 0.5 | Core | Not started |
+| 1.5 | /events triggers an outbound call, shared-secret check | 1.2, 1.4 | curl /events rings the phone; wrong secret returns 401 | 0.5 | Core | Blocked: /events + offline tests done (401/202 checked locally); needs 1.2 + 1.4, then curl the Railway URL |
 | 1.6 | Milestone 1: plug in → car rings | 1.3, 1.5 | 3 of 3 in the Civic, ring within 10 s | 0.5 | Core | Not started |
 | 2.1 | Job table in Neon with state transitions | 0.2 | Tests: create job, legal transitions pass, illegal ones raise | 1 | Core | Blocked: code + tests pass offline; run `make test-neon` once DATABASE_URL is set |
 | 2.2 | Tool webhooks: dispatch\_task, get\_status, approve\_action | 2.1 | Sample ElevenLabs payloads via curl answer in under 500 ms and write rows | 1 | Core | Not started |

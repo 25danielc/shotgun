@@ -71,6 +71,7 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 | `make test-neon` / `make db-init` | Same suite with Neon as the DB (rolled back) / create the job tables in Neon |
 | `make lint` / `make fmt` | Ruff check + format check / auto-fix |
 | `make check-keys` | Step 0.2 pass check: one cheap read-only call per key |
+| `make ring` | Step 1.2: ring `MY_PHONE_NUMBER` via ElevenLabs. `scripts/apply_agent.py --stage greet\|full` pushes the agent config |
 | `make deploy` | `railway up --detach` (see the `deploy` skill) |
 | `make smoke` | GET /health on `PUBLIC_BASE_URL` (or `BASE_URL=...`) |
 
