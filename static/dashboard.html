@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shotgun · mission control</title>
+<!--
+  Shotgun mission control: the judging-table view of a drive. Read-only: it polls
+  GET /dashboard/state (docs/dashboard_state.schema.md) and never approves anything.
+  Design rules: .claude/skills/shotgun-dashboard-design/SKILL.md.
+
+  ?token=...    poll /dashboard/state every 1.5 s
+  ?mock=1       replay tests/fixtures/dashboard_state.json with a scripted story
+  ?mock=empty   tests/fixtures/dashboard_state_empty.json
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090c;
+  --panel: #0c1015;
+  --line: #1c2530;
+  --fg: #c9d4df;
+  --dim: #5c6b7a;
+  --accent: #39ff9c;
+  --amber: #ffb347;
+  --ok: #39ff9c;
+  --err: #ff5f6d;
+  --call: #5fd4ff;
+  --gap: 6px;
+  --band: 12px; /* title band; the window border runs through its middle */
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+body {
+  font: 13px/1.45 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--accent); }
+
+/* ── tiling grid ─────────────────────────────────────────────── */
+#grid {
+  height: 100vh;
+  display: grid;
+  column-gap: var(--gap);
+  row-gap: 0; /* the 6px title band above each border is the vertical gap */
+  padding: 0 var(--gap) var(--gap);
+  grid-template-columns: minmax(0, 26fr) minmax(0, 41fr) minmax(0, 33fr);
+  grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) 212px 30px;
+  grid-template-areas:
+    "drive  jobs  log"
+    "call   jobs  log"
+    "next   jobs  log"
+    "agents tools services"
+    "sys    sys   sys";
+}
+#w-drive { grid-area: drive; }
+#w-call { grid-area: call; }
+#w-next { grid-area: next; }
+#w-agents { grid-area: agents; }
+#w-jobs { grid-area: jobs; }
+#w-tools { grid-area: tools; }
+#w-log { grid-area: log; }
+#w-services { grid-area: services; }
+#w-sys { grid-area: sys; }
+
+/* ── windows ─────────────────────────────────────────────────── */
+.win { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.win::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--band) / 2) 0 0 0;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  transition: border-color .8s ease-out;
+}
+.win.pulse::before { border-color: var(--accent); transition: none; }
+.t {
+  position: relative;
+  flex: none;
+  height: var(--band);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 11px;
+  line-height: var(--band);
+}
+.t > b {
+  font-weight: 500;
+  padding: 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* cut the border line: page bg above it, panel below */
+  background: linear-gradient(var(--bg) 0 calc(var(--band) / 2), var(--panel) calc(var(--band) / 2));
+}
+.t .lbl { letter-spacing: .12em; color: var(--fg); transition: color .8s ease-out; }
+.win.pulse .t .lbl { color: var(--accent); transition: none; }
+.t .stat { color: var(--dim); font-weight: 400; max-width: 70%; }
+.t .stat:empty { display: none; }
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 10px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.body::-webkit-scrollbar { width: 6px; }
+.body::-webkit-scrollbar-thumb { background: var(--line); }
+
+/* ── text atoms ──────────────────────────────────────────────── */
+.dim, .k { color: var(--dim); }
+.k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.ok { color: var(--ok); }
+.err { color: var(--err); }
+.amb { color: var(--amber); }
+.call { color: var(--call); }
+.acc { color: var(--accent); }
+.s-fg { color: var(--fg); }
+.r { margin-left: auto; padding-left: 1ch; white-space: nowrap; }
+.empty { color: var(--dim); padding: 2px 0; }
+.nowrap { white-space: nowrap; }
+.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.line { display: flex; align-items: baseline; gap: 1ch; min-width: 0; }
+.bar .fill { color: currentColor; }
+.bar .rest { color: var(--dim); opacity: .45; }
+
+/* state tags: [RUNNING] */
+.tag { white-space: nowrap; }
+.s-queued, .s-expired, .s-parked, .s-idle, .s-ended, .s-declined, .s-not_needed { color: var(--dim); }
+.s-running, .s-needs_approval, .s-busy, .s-held, .s-pending { color: var(--amber); }
+.s-done, .s-approved, .s-preapproved { color: var(--ok); }
+.s-exception, .s-failed, .s-offline { color: var(--err); }
+.s-on_call, .s-ringing, .s-active { color: var(--call); }
+.s-plugged_in, .s-silent { color: var(--fg); }
+
+/* motion: new rows fade in, changed rows glow once */
+@keyframes fadein { from { opacity: 0; transform: translateY(3px); } }
+@keyframes glow { from { background: rgba(57, 255, 156, .07); } to { background: transparent; } }
+.new { animation: fadein 150ms ease-out; }
+.chg { animation: glow 1.2s ease-out; }
+@keyframes blink { 50% { opacity: 0; } }
+.cursor { color: var(--accent); animation: blink 1s steps(1) infinite; }
+
+/* ── DRIVE ───────────────────────────────────────────────────── */
+.kv { display: grid; grid-template-columns: 7ch 1fr; column-gap: 1ch; align-items: baseline; }
+.kv > .k { line-height: 19px; }
+.drive-top { display: flex; align-items: baseline; margin-bottom: 4px; }
+.hero-wrap { margin-top: 8px; }
+.hero {
+  font-size: clamp(28px, 2.9vw, 40px);
+  line-height: 1.1;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: .02em;
+  font-variant-ligatures: none;
+}
+.hero.off { color: var(--dim); }
+
+/* ── CALL ────────────────────────────────────────────────────── */
+#b-call { display: flex; flex-direction: column; overflow: hidden; }
+.tx { flex: 1; min-height: 0; overflow: hidden; margin-top: 4px; border-top: 1px dashed var(--line); padding-top: 4px; }
+.tx .turn { display: grid; grid-template-columns: 7ch 1fr; column-gap: 1ch; }
+.tx .who-agent { color: var(--call); }
+
+/* ── JOBS ────────────────────────────────────────────────────── */
+.job { padding: 6px 0 7px; border-top: 1px dashed var(--line); }
+.job:first-child { border-top: 0; padding-top: 0; }
+.jh { display: flex; align-items: baseline; gap: 1ch; white-space: nowrap; }
+.jid { color: var(--fg); font-weight: 700; }
+.jtype { color: var(--dim); min-width: 8ch; }
+.jtitle { color: var(--fg); }
+.steps { display: flex; flex-wrap: wrap; column-gap: 2ch; }
+.step { white-space: nowrap; }
+.step .g { display: inline-block; width: 1ch; text-align: center; }
+.st-pending { color: var(--dim); }
+.st-done .g { color: var(--ok); }
+.st-running { color: var(--amber); }
+.st-failed { color: var(--err); }
+.st-skipped { color: var(--dim); text-decoration: line-through; }
+.step .et { color: var(--dim); }
+.st-running .et { color: var(--amber); }
+.sum { color: var(--fg); }
+.sum::before { content: "→ "; color: var(--dim); }
+.job.js-done .jtitle, .job.js-failed .jtitle, .job.js-expired .jtitle { color: var(--dim); }
+/* Every job stays on screen: when JOBS overflows, d1 drops links and step details,
+   d2 folds each job to two lines (header + title · approval · current step). */
+.jc { display: none; }
+#b-jobs.d1 .job { padding: 4px 0 5px; }
+#b-jobs.d1 .link, #b-jobs.d1 .step .dim, #b-jobs.d1 .st-done .et { display: none; }
+#b-jobs.d2 .jfull { display: none; }
+#b-jobs.d2 .jc { display: block; }
+
+/* ── LOG ─────────────────────────────────────────────────────── */
+.ev { display: grid; grid-template-columns: 8ch 8ch 1fr; column-gap: 1ch; }
+.ev .ts { color: var(--dim); }
+.ev .ty { font-size: 11px; letter-spacing: .06em; line-height: 19px; }
+.ty-call { color: var(--call); }
+.ty-job { color: var(--amber); }
+.ty-tool { color: var(--dim); }
+.ty-drive { color: var(--fg); }
+.ty-err { color: var(--err); }
+
+/* ── TOOLS / SERVICES / UP NEXT rows ─────────────────────────── */
+.tool { display: grid; grid-template-columns: 8ch 15ch 7ch 3ch minmax(0, 1fr); column-gap: 1ch; }
+.tool .lat { text-align: right; }
+.svc { display: grid; grid-template-columns: 1ch 14ch 4ch 7ch minmax(0, 1fr); column-gap: 1ch; }
+.svc .lat, .svc .ago { text-align: right; }
+.svc .det { grid-column: 2 / -1; color: var(--err); }
+.svc.stale, .svc.stale .ok, .svc.stale .err { color: var(--dim); }
+.up { display: grid; grid-template-columns: 6ch minmax(0, 1fr); column-gap: 1ch; padding-bottom: 3px; }
+.up-arrival_call .cd { color: var(--accent); }
+.up-held_action .cd, .up-held_action .desc { color: var(--amber); }
+.up-exception_call .cd, .up-exception_call .desc { color: var(--err); }
+
+/* ── AGENTS ──────────────────────────────────────────────────── */
+.tree { margin: 0; font: inherit; line-height: 1.6; white-space: pre; }
+.tree .edge { color: var(--dim); }
+.tree .act { color: var(--accent); }
+
+/* ── SYSTEM strip ────────────────────────────────────────────── */
+#w-sys { padding-top: var(--gap); }
+#w-sys::before { inset: var(--gap) 0 0 0; }
+.sys {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2ch;
+  padding: 0 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sys .brand { color: var(--fg); font-weight: 700; letter-spacing: .12em; }
+.sys .sep { color: var(--line); }
+.btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+  letter-spacing: .04em;
+}
+.btn:hover, .btn:focus-visible { color: var(--accent); outline: none; }
+.btn:disabled { color: var(--dim); cursor: default; }
+
+/* ── narrow screens: stack ───────────────────────────────────── */
+@media (max-width: 899px) {
+  body { overflow: auto; }
+  #grid {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    grid-template-areas: "drive" "call" "next" "jobs" "log" "tools" "agents" "services" "sys";
+  }
+  .win .body { max-height: 420px; }
+  #w-log .body { height: 360px; }
+  #w-sys { height: auto; }
+  .sys { flex-wrap: wrap; white-space: normal; padding: 6px 10px; row-gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new, .chg, .cursor { animation: none; }
+  .win::before, .t .lbl { transition: none; }
+}
+</style>
+</head>
+<body>
+<main id="grid">
+  <section class="win" id="w-drive"><header class="t"><b class="lbl">DRIVE</b><b class="stat" id="st-drive"></b></header><div class="body" id="b-drive"><div class="empty">-- connecting --</div></div></section>
+  <section class="win" id="w-call"><header class="t"><b class="lbl">CALL</b><b class="stat" id="st-call"></b></header><div class="body" id="b-call"><div class="empty">-- connecting --</div></div></section>
+  <section class="win" id="w-next"><header class="t"><b class="lbl">UP NEXT</b><b class="stat" id="st-next"></b></header><div class="body" id="b-next"><div class="empty">-- connecting --</div></div></section>
+  <section class="win" id="w-agents"><header class="t"><b class="lbl">AGENTS</b><b class="stat" id="st-agents"></b></header><div class="body" id="b-agents"><div class="empty">-- connecting --</div></div></section>
+  <section class="win" id="w-jobs"><header class="t"><b class="lbl">JOBS</b><b class="stat" id="st-jobs"></b></header><div class="body" id="b-jobs"><div class="empty">-- connecting --</div></div></section>
+  <section class="win" id="w-tools"><header class="t"><b class="lbl">TOOLS</b><b class="stat" id="st-tools"></b></header><div class="body" id="b-tools"><div class="empty">-- connecting --</div></div></section>
+  <section class="win" id="w-log"><header class="t"><b class="lbl">LOG</b><b class="stat" id="st-log"></b></header><div class="body" id="b-log"><div id="log-lines"></div><div class="line"><span class="dim">$</span><span class="cursor">█</span></div></div></section>
+  <section class="win" id="w-services"><header class="t"><b class="lbl">SERVICES</b><b class="stat" id="st-services"></b></header><div class="body" id="b-services"><div class="empty">-- connecting --</div></div></section>
+  <footer class="win" id="w-sys"><div class="sys" id="b-sys"><span class="brand">SHOTGUN</span><span class="dim">mission control</span><span class="dim">connecting…</span></div></footer>
+</main>
+<script>
+'use strict';
+
+// ── config ──────────────────────────────────────────────────────
+const params = new URLSearchParams(location.search);
+const MOCK = params.get('mock'); // "1" | "empty" | null
+const TOKEN = params.get('token') || '';
+const POLL_MS = 1500;
+const STALE_MS = 90000;
+const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧';
+const INLINE_TOOLS = new Set(['search_web', 'draft_message', 'set_destination']);
+const BUDGET = (tool) => (INLINE_TOOLS.has(tool) ? 8000 : 500);
+const AGENT_ORDER = ['voice', 'orchestrator', 'coder', 'research', 'email'];
+const EV = {
+  plug_in: ['PLUG', 'drive'], unplug: ['UNPLUG', 'drive'], arrival_scheduled: ['SCHED', 'drive'],
+  push_sent: ['PUSH', 'drive'], call_started: ['CALL', 'call'], call_ended: ['CALL', 'call'],
+  arrival_call: ['ARRIVAL', 'call'], exception_call: ['EXCEPT', 'err'], tool_called: ['TOOL', 'tool'],
+  job_dispatched: ['DISPATCH', 'job'], job_state: ['JOB', 'job'],
+};
+
+// ── helpers ─────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const ts = (t) => (t == null ? null : Date.parse(t));
+const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+const pad = (n) => String(n).padStart(2, '0');
+let skew = 0; // server clock minus laptop clock; the server wins
+const now = () => Date.now() + skew;
+function hms(t) {
+  if (t == null) return '--:--:--';
+  const d = new Date(typeof t === 'number' ? t : ts(t));
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function dur(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+function ago(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m${pad(sec % 60)}s`;
+  return `${Math.floor(sec / 3600)}h${pad(Math.floor((sec % 3600) / 60))}m`;
+}
+function bar(p, width) {
+  const n = Math.round(Math.max(0, Math.min(1, p)) * width);
+  return `<span class="bar">[<span class="fill">${'█'.repeat(n)}</span><span class="rest">${'░'.repeat(width - n)}</span>]</span>`;
+}
+const tag = (s) => `<span class="tag s-${esc(s)}">[${esc(String(s).replace(/_/g, ' ').toUpperCase())}]</span>`;
+const sig = (v) => JSON.stringify(v);
+
+// ── window plumbing: diff, pulse, keyed rows ────────────────────
+let firstRender = true;
+const prevSig = {};
+function changed(key, value) {
+  const s = sig(value);
+  if (prevSig[key] === s) return false;
+  prevSig[key] = s;
+  return true;
+}
+function pulse(win) {
+  if (firstRender) return;
+  const el = $(`w-${win}`);
+  el.classList.remove('pulse');
+  void el.offsetWidth;
+  el.classList.add('pulse');
+  clearTimeout(el._pulse);
+  el._pulse = setTimeout(() => el.classList.remove('pulse'), 700);
+}
+function setStat(win, html) { $(`st-${win}`).innerHTML = html; }
+function flash(el, cls) {
+  el.classList.remove('new', 'chg');
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+// Render `items` into `box` as rows keyed by keyFn. Unchanged rows are left alone,
+// changed rows glow once, new rows fade in. Returns true if anything changed.
+function keyed(box, items, keyFn, htmlFn, cls, emptyText) {
+  let dirty = false;
+  const old = new Map();
+  for (const el of [...box.children]) {
+    if (el.dataset.key == null) { el.remove(); dirty = true; } else old.set(el.dataset.key, el);
+  }
+  const seen = new Set();
+  items.forEach((item, i) => {
+    const key = String(keyFn(item));
+    const html = htmlFn(item);
+    const rowCls = typeof cls === 'function' ? cls(item) : cls;
+    seen.add(key);
+    let el = old.get(key);
+    if (!el) {
+      el = document.createElement('div');
+      el.dataset.key = key;
+      if (!firstRender) el.classList.add('new');
+      dirty = true;
+    } else if (el._html !== html || el._cls !== rowCls) {
+      flash(el, 'chg');
+      dirty = true;
+    }
+    if (el._html !== html) el.innerHTML = html;
+    if (el._cls !== rowCls) {
+      const anim = ['new', 'chg'].filter((c) => el.classList.contains(c));
+      el.className = `${rowCls} ${anim.join(' ')}`.trim();
+    }
+    el._html = html;
+    el._cls = rowCls;
+    if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+  });
+  for (const [key, el] of old) if (!seen.has(key)) { el.remove(); dirty = true; }
+  if (!items.length && emptyText) {
+    box.innerHTML = `<div class="empty">${esc(emptyText)}</div>`;
+  }
+  return dirty;
+}
+
+// ── DRIVE ───────────────────────────────────────────────────────
+function renderDrive(s) {
+  const d = s.drive;
+  setStat('drive', d ? `drive #${d.id}` : '');
+  if (!changed('drive', d)) return;
+  pulse('drive');
+  const b = $('b-drive');
+  if (!d) {
+    b.innerHTML = '<div class="empty">-- no drive: waiting for CarPlay --</div>';
+    return;
+  }
+  const start = ts(d.started_at), eta = ts(d.eta), arr = ts(d.arrival_call_at);
+  let hero;
+  if (d.ended_at) {
+    hero = `<div class="k">PARKED</div><div class="hero off">${hms(d.ended_at)}</div>
+      <div class="dim">drive lasted ${dur((ts(d.ended_at) - start) / 1000)}</div>`;
+  } else if (d.arrival_called) {
+    hero = `<div class="k">ARRIVAL CALL</div><div class="hero">PLACED</div>
+      <div class="dim">batched summary sent at ${hms(arr)}</div>`;
+  } else if (arr) {
+    hero = `<div class="k">ARRIVAL CALL IN</div><div class="hero" data-cd="${arr}"></div>
+      <div class="nowrap" data-trip="${start},${eta || arr}"></div>`;
+  } else {
+    hero = `<div class="k">ARRIVAL CALL</div><div class="hero off">--:--</div>
+      <div class="dim">-- waiting for a destination --</div>`;
+  }
+  b.innerHTML = `
+    <div class="drive-top">${tag(d.status)}<span class="r dim">since ${hms(start)}</span></div>
+    <div class="kv">
+      <span class="k">dest</span><span class="ell">${d.destination ? esc(d.destination) : '<span class="dim">--</span>'}</span>
+      <span class="k">eta</span><span>${eta ? `${hms(eta)} <span class="dim">in <span data-cd="${eta}"></span></span>` : '<span class="dim">--</span>'}</span>
+      <span class="k">driving</span><span data-since="${start}"${d.ended_at ? ` data-until="${ts(d.ended_at)}"` : ''}></span>
+    </div>
+    <div class="hero-wrap">${hero}</div>`;
+}
+
+// ── CALL ────────────────────────────────────────────────────────
+// Keep the newest transcript turns that fit; the call header never scrolls away.
+function fitTranscript() {
+  const tx = document.querySelector('#b-call .tx');
+  if (!tx) return;
+  for (const el of tx.children) el.hidden = false;
+  for (const el of tx.children) {
+    if (tx.scrollHeight <= tx.clientHeight || el === tx.lastElementChild) break;
+    el.hidden = true;
+  }
+}
+addEventListener('resize', fitTranscript);
+function renderCall(s) {
+  const c = s.call;
+  const d = s.drive;
+  const live = c && c.status !== 'ended';
+  setStat('call', live ? `<span class="call">● ${esc(c.kind)}</span>` : 'idle');
+  // duration_s ticks every poll; diff on everything else
+  const view = c ? { ...c, duration_s: c.status === 'active' ? null : c.duration_s } : null;
+  const arr = d && !d.ended_at && !d.arrival_called ? d.arrival_call_at : null;
+  if (!changed('call', [view, arr])) return;
+  pulse('call');
+  const b = $('b-call');
+  if (!c) {
+    b.innerHTML = `<div class="empty">-- no call --</div>${arr
+      ? `<div class="dim">next: arrival call in <span data-cd="${ts(arr)}"></span></div>` : ''}`;
+    return;
+  }
+  const answered = ts(s.server.now) - c.duration_s * 1000;
+  const clock = c.status === 'active'
+    ? `<span class="call" data-since="${answered}"></span>`
+    : c.status === 'ringing' ? '<span class="spin call"></span>'
+    : `<span class="dim">${dur(c.duration_s)}</span>`;
+  const label = c.status === 'active' ? 'on_call' : c.status;
+  const turns = (c.transcript || []).slice(-6).map((t) =>
+    `<div class="turn"><span class="k who-${esc(t.role)}">${esc(t.role)}</span><span>${esc(t.text)}</span></div>`).join('');
+  b.innerHTML = `
+    <div class="line">${tag(label)}<span>${esc(c.kind)}</span><span class="r">${clock}</span></div>
+    <div class="kv"><span class="k">tool</span><span>${c.last_tool ? esc(c.last_tool) : '<span class="dim">--</span>'}</span></div>
+    ${turns ? `<div class="tx">${turns}</div>` : ''}`;
+  fitTranscript();
+}
+
+// ── UP NEXT ─────────────────────────────────────────────────────
+function renderNext(s) {
+  const items = [...(s.upcoming || [])].sort((a, b) => {
+    if (a.at == null) return b.at == null ? 0 : 1;
+    if (b.at == null) return -1;
+    return ts(a.at) - ts(b.at);
+  });
+  setStat('next', items.length ? `${items.length} pending` : '');
+  if (!changed('next', items)) return;
+  const dirty = keyed($('b-next'), items, (u) => `${u.kind}:${u.job_id ?? ''}`, (u) => `
+      ${u.at ? `<span class="cd" data-cd="${ts(u.at)}"></span>` : '<span class="cd dim">when</span>'}
+      <span><span class="desc">${esc(u.description)}</span>${u.job_id != null && !u.description.includes(`#${u.job_id}`) ? ` <span class="dim">#${u.job_id}</span>` : ''}</span>`,
+    (u) => `up up-${u.kind}`, '-- nothing scheduled --');
+  if (dirty) pulse('next');
+}
+
+// ── JOBS ────────────────────────────────────────────────────────
+const TERMINAL = new Set(['done', 'failed', 'expired']);
+function progressOf(j) {
+  if (j.progress != null) return j.progress;
+  if (!j.steps || !j.steps.length) return null;
+  return j.steps.filter((x) => x.state === 'done' || x.state === 'skipped').length / j.steps.length;
+}
+function approvalHtml(j) {
+  const a = j.approval || { status: 'not_needed' };
+  const p = j.preapproval;
+  switch (a.status) {
+    case 'preapproved': {
+      const short = p && p.require_tests_pass ? 'tests pass'
+        : p && p.max_usd != null ? `≤ $${p.max_usd}` : (p && p.condition) || 'yes';
+      const quote = p && p.condition && p.condition !== short ? ` <span class="dim">"${esc(p.condition)}"</span>` : '';
+      return `<span class="ok">pre-approved: ${esc(short)}</span>${quote}`;
+    }
+    case 'held': return '<span class="amb">held for arrival</span>';
+    case 'pending': return '<span class="amb">needs approval</span><span class="dim"> · voice only</span>';
+    case 'approved': return '<span class="ok">approved by voice</span>';
+    case 'declined': return '<span class="dim">declined</span>';
+    case 'exception': return `<span class="err">exception: ${esc(a.note || 'pre-approval broken')}</span>`;
+    default: return '';
+  }
+}
+function stepHtml(st) {
+  const glyph = { done: '✓', failed: '✗', skipped: '-', pending: ' ' }[st.state];
+  const g = st.state === 'running' ? '<span class="g spin"></span>' : `<span class="g">${glyph ?? ' '}</span>`;
+  let t = '';
+  if (st.state === 'running' && st.started_at) t = ` <span class="et" data-since="${ts(st.started_at)}"></span>`;
+  else if (st.started_at && st.finished_at) t = ` <span class="et">${dur((ts(st.finished_at) - ts(st.started_at)) / 1000)}</span>`;
+  const detail = st.detail && st.state !== 'pending' ? ` <span class="dim">${esc(st.detail)}</span>` : '';
+  return `<span class="step st-${esc(st.state)}">[${g}] ${esc(st.name)}${t}${detail}</span>`;
+}
+function jobHtml(j) {
+  const p = progressOf(j);
+  const done = TERMINAL.has(j.state);
+  const elapsed = done
+    ? `<span class="dim">${dur((ts(j.updated_at) - ts(j.created_at)) / 1000)}</span>`
+    : `${j.state === 'running' ? '<span class="spin amb"></span> ' : ''}<span data-since="${ts(j.created_at)}"></span>`;
+  const appr = approvalHtml(j);
+  const link = j.result_url
+    ? `<div class="ell link"><a href="${esc(j.result_url)}" target="_blank" rel="noopener"><span class="dim">↗</span> ${esc(j.result_url.replace(/^https?:\/\//, ''))}</a></div>` : '';
+  const summary = j.result_summary ? `<div class="sum">${esc(j.result_summary)}</div>` : '';
+  const steps = !done && j.steps && j.steps.length ? `<div class="steps">${j.steps.map(stepHtml).join('')}</div>` : '';
+  const cur = (j.steps || []).find((x) => x.state === 'running' || x.state === 'failed');
+  const compact = done
+    ? `<span class="dim">${esc(j.title)}</span>${j.result_summary ? ` <span class="dim">→</span> ${esc(j.result_summary)}` : ''}`
+    : [esc(j.title), appr, cur ? stepHtml(cur) : ''].filter(Boolean).join(' <span class="dim">·</span> ');
+  return `
+    <div class="jh"><span class="jid">#${j.id}</span><span class="jtype">${esc(j.type)}</span>${tag(j.state)}
+      <span class="s-${esc(j.state)}">${p != null ? `${bar(p, 12)} ${String(Math.round(p * 100)).padStart(3, ' ')}%` : ''}</span>
+      <span class="r">${elapsed}</span></div>
+    <div class="jfull">
+      <div class="jtitle ell">${esc(j.title)}</div>
+      ${appr ? `<div><span class="k">approval</span> ${appr}</div>` : ''}
+      ${steps}${summary}${link}
+    </div>
+    <div class="jc ell">${compact}</div>`;
+}
+function renderJobs(s) {
+  const jobs = s.jobs || [];
+  const counts = {};
+  for (const j of jobs) counts[j.state] = (counts[j.state] || 0) + 1;
+  const order = ['running', 'needs_approval', 'approved', 'exception', 'queued', 'done', 'failed', 'expired'];
+  setStat('jobs', jobs.length
+    ? order.filter((k) => counts[k]).map((k) => `<span class="s-${k}">${counts[k]} ${k.replace('_', ' ')}</span>`).join(' · ')
+    : 'idle');
+  if (!changed('jobs', jobs)) return;
+  if (keyed($('b-jobs'), jobs, (j) => j.id, jobHtml, (j) => `job js-${j.state}`, '-- no jobs this drive --')) pulse('jobs');
+  fitJobs();
+}
+function fitJobs() {
+  const b = $('b-jobs');
+  const over = () => b.scrollHeight > b.clientHeight + 1;
+  b.classList.remove('d1', 'd2');
+  if (over()) b.classList.add('d1');
+  if (over()) b.classList.add('d2');
+}
+addEventListener('resize', fitJobs);
+
+// ── TOOLS ───────────────────────────────────────────────────────
+function renderTools(s) {
+  const calls = s.tool_calls || [];
+  const inline = calls.filter((c) => INLINE_TOOLS.has(c.tool));
+  setStat('tools', calls.length
+    ? `${calls.length} calls${inline.length ? ` · inline max ${Math.max(...inline.map((c) => c.latency_ms))}ms` : ''}`
+    : '');
+  if (!changed('tools', calls)) return;
+  const dirty = keyed($('b-tools'), calls, (c) => `${c.at}|${c.tool}`, (c) => {
+    const over = c.latency_ms > BUDGET(c.tool);
+    return `<span class="dim">${hms(c.at)}</span><span>${esc(c.tool)}</span>
+      <span class="lat ${over ? 'err' : ''}">${c.latency_ms}ms</span>
+      <span class="${c.ok ? 'ok' : 'err'}">${c.ok ? 'ok' : 'ERR'}</span>
+      <span class="ell ${c.query ? '' : 'dim'}">${c.query ? `"${esc(c.query)}"` : '--'}</span>`;
+  }, 'tool', '-- no tool calls yet --');
+  if (dirty) pulse('tools');
+}
+
+// ── LOG ─────────────────────────────────────────────────────────
+let lastEventId = -Infinity;
+function renderLog(s) {
+  const events = s.events || [];
+  const box = $('log-lines');
+  const body = $('b-log');
+  setStat('log', `tail -f · ${events.length} events`);
+  const maxId = events.length ? events[events.length - 1].id : -Infinity;
+  if (maxId < lastEventId) { box.innerHTML = ''; lastEventId = -Infinity; } // server restarted / mock looped
+  const fresh = events.filter((e) => e.id > lastEventId);
+  if (!fresh.length) {
+    if (!events.length && !box.children.length) box.innerHTML = '<div class="empty">-- no events yet --</div>';
+    return;
+  }
+  const empty = box.querySelector('.empty');
+  if (empty) empty.remove();
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+  for (const e of fresh) {
+    const [short, kind] = EV[e.type] || [e.type.toUpperCase(), 'drive'];
+    const el = document.createElement('div');
+    el.className = `ev${firstRender ? '' : ' new'}`;
+    el.innerHTML = `<span class="ts">${hms(e.at)}</span><span class="ty ty-${kind}">${esc(short)}</span><span>${esc(e.message)}</span>`;
+    box.appendChild(el);
+  }
+  while (box.children.length > 100) box.firstChild.remove();
+  lastEventId = maxId;
+  if (atBottom || firstRender) body.scrollTop = body.scrollHeight;
+  pulse('log');
+}
+
+// ── AGENTS ──────────────────────────────────────────────────────
+function renderAgents(s) {
+  const byName = Object.fromEntries((s.agents || []).map((a) => [a.name, a]));
+  const agents = AGENT_ORDER.map((n) => byName[n]).filter(Boolean);
+  const up = agents.filter((a) => a.status !== 'offline').length;
+  const off = agents.length - up;
+  setStat('agents', `${up} up${off ? ` · <span class="err">${off} offline</span>` : ''}`);
+  const view = agents.map((a) => [a.name, a.status, a.current_job_id]);
+  const pulseNow = changed('agents-pulse', [view, s.active_agent]);
+  if (!changed('agents', [agents, s.active_agent])) return;
+  if (pulseNow) pulse('agents');
+  if (!agents.length) { $('b-agents').innerHTML = '<div class="empty">-- no heartbeats --</div>'; return; }
+  const workers = agents.filter((a) => !['voice', 'orchestrator'].includes(a.name));
+  const lines = agents.map((a) => {
+    let edge = '';
+    if (a.name === 'orchestrator') edge = '└─▶ ';
+    else if (a.name !== 'voice') edge = workers.indexOf(a) === workers.length - 1 ? '    └─▶ ' : '    ├─▶ ';
+    const active = s.active_agent === a.name;
+    const nameW = 16 - edge.length;
+    const nameCls = active ? 'act' : `s-${a.status === 'idle' ? 'fg' : a.status}`;
+    const job = a.current_job_id != null ? `#${a.current_job_id}` : a.name === 'voice' && a.status === 'busy' ? 'call' : '';
+    const hb = a.last_heartbeat
+      ? `<span class="${a.status === 'offline' ? 'err' : 'dim'}" data-ago="${ts(a.last_heartbeat)}" data-pad="5"></span>`
+      : '<span class="dim">   --</span>';
+    return `<span class="${active ? 'act' : 'dim'}">${active ? '▸' : ' '}</span> `
+      + `<span class="edge">${edge}</span><span class="${nameCls}">${esc(a.name.padEnd(nameW))}</span> `
+      + `<span class="s-${a.status}">● ${a.status.padEnd(7)}</span> `
+      + `<span class="${a.status === 'busy' ? 'amb' : 'dim'}">${esc(job.padEnd(4))}</span> ${hb}`;
+  });
+  $('b-agents').innerHTML = `<pre class="tree">${lines.join('\n')}</pre>`;
+}
+
+// ── SERVICES ────────────────────────────────────────────────────
+function renderServices(s) {
+  const svcs = s.services || [];
+  const ok = svcs.filter((x) => x.ok).length;
+  setStat('services', svcs.length ? `<span class="${ok === svcs.length ? '' : 'err'}">${ok}/${svcs.length} ok</span>` : '');
+  const pulseNow = changed('services-pulse', svcs.map((x) => [x.name, x.ok]));
+  if (!changed('services', svcs)) return;
+  keyed($('b-services'), svcs, (x) => x.name, (x) => {
+    const st = x.ok == null ? '<span class="dim">--</span>' : x.ok ? '<span class="ok">ok</span>' : '<span class="err">down</span>';
+    return `<span class="${x.ok == null ? 'dim' : x.ok ? 'ok' : 'err'}">●</span><span>${esc(x.name)}</span>${st}
+      <span class="lat">${x.latency_ms != null ? `${x.latency_ms}ms` : '<span class="dim">--</span>'}</span>
+      <span class="ago dim">${x.checked_at ? `<span data-ago="${ts(x.checked_at)}"></span> ago` : 'never'}</span>
+      ${!x.ok && x.detail ? `<span class="det ell">${esc(x.detail)}</span>` : ''}`;
+  }, (x) => `svc${x.checked_at ? '' : ' stale'}`, '-- no health checks yet --');
+  for (const el of $('b-services').children) {
+    const x = svcs.find((v) => v.name === el.dataset.key);
+    if (x) el.dataset.checked = x.checked_at ? ts(x.checked_at) : '';
+  }
+  if (pulseNow) pulse('services');
+}
+
+// ── SYSTEM strip ────────────────────────────────────────────────
+let offline = false, lastOk = null, lastError = '', demoNote = '';
+function renderSystem(s) {
+  const parts = ['<span class="brand">SHOTGUN</span><span class="dim">mission control</span>'];
+  if (s) parts.push(`<span><span class="k">up</span> <span data-up="${s.server.uptime_s},${ts(s.server.now)}"></span></span>`);
+  if (offline) {
+    parts.push(`<span class="err">[ OFFLINE ] retrying…</span><span class="dim">${esc(lastError)}${lastOk ? ` · last ok ${hms(lastOk)}` : ''}</span>`);
+  } else if (s) {
+    parts.push(`<span><span class="ok">●</span> ${MOCK ? `mock · ${esc(MOCK === 'empty' ? 'dashboard_state_empty.json' : 'dashboard_state.json')}` : `live · poll ${POLL_MS / 1000}s`}</span>`);
+  } else {
+    parts.push('<span class="dim">connecting…</span>');
+  }
+  if (s && s.server.demo_mode) {
+    parts.push('<span class="sep">│</span><span class="k">demo</span>');
+    parts.push('<button class="btn" data-demo="plug-in">[ SIMULATE PLUG-IN ]</button>');
+    parts.push('<button class="btn" data-demo="arrive">[ SIMULATE ARRIVAL ]</button>');
+    parts.push('<button class="btn" data-demo="unplug">[ SIMULATE UNPLUG ]</button>');
+    if (demoNote) parts.push(`<span class="dim">${esc(demoNote)}</span>`);
+  }
+  parts.push('<span class="r"><span class="k">server</span> <span id="clock"></span></span>');
+  const html = parts.join('');
+  const box = $('b-sys');
+  if (box._html !== html) { box.innerHTML = html; box._html = html; }
+}
+$('b-sys').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-demo]');
+  if (!btn) return;
+  const action = btn.dataset.demo;
+  btn.disabled = true;
+  try {
+    if (MOCK) {
+      mockDemo(action);
+      demoNote = `${action} → mock event`;
+      apply(await mockNext());
+    } else {
+      const r = await fetch(`/dashboard/demo/${action}?token=${encodeURIComponent(TOKEN)}`, { method: 'POST' });
+      demoNote = `${action} → ${r.status}`;
+    }
+  } catch (err) {
+    demoNote = `${action} → ${err.message}`;
+  }
+  renderSystem(state);
+  setTimeout(() => { demoNote = ''; renderSystem(state); }, 4000);
+});
+
+// ── tickers: countdowns, elapsed, ages, spinners ────────────────
+function tick() {
+  const t = now();
+  for (const el of document.querySelectorAll('[data-cd]')) {
+    const left = (+el.dataset.cd - t) / 1000;
+    el.textContent = left > 0 ? dur(left) : '00:00';
+  }
+  for (const el of document.querySelectorAll('[data-since]')) {
+    const end = el.dataset.until ? +el.dataset.until : t;
+    el.textContent = dur((end - +el.dataset.since) / 1000);
+  }
+  for (const el of document.querySelectorAll('[data-ago]')) {
+    const txt = ago((t - +el.dataset.ago) / 1000);
+    el.textContent = el.dataset.pad ? txt.padStart(+el.dataset.pad) : txt;
+  }
+  for (const el of document.querySelectorAll('[data-checked]')) {
+    el.classList.toggle('stale', !el.dataset.checked || t - +el.dataset.checked > STALE_MS);
+  }
+  for (const el of document.querySelectorAll('[data-trip]')) {
+    const [a, b] = el.dataset.trip.split(',').map(Number);
+    const p = b > a ? (t - a) / (b - a) : 0;
+    el.innerHTML = `${bar(p, 20)} <span class="dim">${Math.round(Math.max(0, Math.min(1, p)) * 100)}% of trip</span>`;
+  }
+  for (const el of document.querySelectorAll('[data-up]')) {
+    const [up, at] = el.dataset.up.split(',').map(Number);
+    el.textContent = ago(up + (t - at) / 1000);
+  }
+  const clock = $('clock');
+  if (clock) clock.textContent = hms(t);
+}
+let spinFrame = 0;
+setInterval(() => {
+  const ch = SPIN[spinFrame++ % SPIN.length];
+  for (const el of document.querySelectorAll('.spin')) el.textContent = ch;
+}, 100);
+setInterval(tick, 1000);
+
+// ── apply a state ───────────────────────────────────────────────
+let state = null;
+function apply(s) {
+  skew = ts(s.server.now) - Date.now();
+  state = s;
+  offline = false;
+  lastOk = now();
+  renderDrive(s);
+  renderCall(s);
+  renderNext(s);
+  renderJobs(s);
+  renderTools(s);
+  renderLog(s);
+  renderAgents(s);
+  renderServices(s);
+  renderSystem(s);
+  firstRender = false;
+  tick();
+  const ch = SPIN[spinFrame % SPIN.length];
+  for (const el of document.querySelectorAll('.spin')) el.textContent = ch;
+}
+
+// ── data source: live polling ───────────────────────────────────
+async function fetchState() {
+  if (!TOKEN) throw new Error('no ?token= in URL');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 4000);
+  try {
+    const r = await fetch(`/dashboard/state?token=${encodeURIComponent(TOKEN)}`, { cache: 'no-store', signal: ctl.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (err) {
+    throw new Error(err.name === 'AbortError' ? 'timeout' : err.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ── data source: mock replay ────────────────────────────────────
+// Loads a fixture, then plays a scripted story on top of it: the coder job finishes its
+// pipeline, an email job is dispatched and held for the arrival call, the call ends.
+// Times are fixture time + real elapsed time, so countdowns tick. Loops after MOCK_LOOP_S.
+const MOCK_LOOP_S = 75;
+let fixture = null, mock = null, mockT0 = 0, mockStep = 0;
+function mockReset() {
+  mock = structuredClone(fixture);
+  mockT0 = Date.now();
+  mockStep = 0;
+}
+const J = (s, id) => s.jobs.find((j) => j.id === id);
+const S = (j, name) => j.steps.find((x) => x.name === name);
+const A = (s, name) => s.agents.find((a) => a.name === name);
+function ev(s, t, type, message, jobId = null) {
+  const id = s.events.reduce((m, e) => Math.max(m, e.id), 0) + 1;
+  s.events.push({ id, at: iso(t), type, message, job_id: jobId });
+  while (s.events.length > 100) s.events.shift();
+}
+function useTool(s, t, tool, query, latency) {
+  s.tool_calls.unshift({ at: iso(t - latency), tool, query, latency_ms: latency, ok: true });
+  s.tool_calls.length = Math.min(s.tool_calls.length, 20);
+  if (s.call) s.call.last_tool = tool;
+  ev(s, t, 'tool_called', `${tool}${query ? ` "${query}"` : ''} ${latency}ms`);
+}
+function say(s, t, role, text) {
+  if (!s.call) return;
+  s.call.transcript = [...(s.call.transcript || []), { at: iso(t), role, text }].slice(-6);
+}
+function step(j, name, st, t, detail) {
+  const x = S(j, name);
+  x.state = st;
+  if (st === 'running') x.started_at = iso(t);
+  if (st === 'done' || st === 'failed') { x.finished_at = iso(t); x.started_at = x.started_at || iso(t); }
+  if (detail !== undefined) x.detail = detail;
+  j.updated_at = iso(t);
+  j.progress = Math.round((j.steps.filter((y) => y.state === 'done' || y.state === 'skipped').length / j.steps.length) * 100) / 100;
+}
+const dropUpcoming = (s, kind, jobId) => { s.upcoming = s.upcoming.filter((u) => !(u.kind === kind && u.job_id === jobId)); };
+const PR_URL = 'https://github.com/25danielc/shotgun-demo-app/pull/13';
+
+const MOCK_SCRIPT = [
+  [3, (s, t) => {
+    const j = J(s, 42);
+    step(j, 'tests', 'done', t, '3/3 checks');
+    step(j, 'pr_opened', 'running', t);
+    ev(s, t, 'job_state', '#42 tests: 3/3 checks passed', 42);
+  }],
+  [6, (s, t) => {
+    const j = J(s, 42);
+    step(j, 'pr_opened', 'done', t, 'PR #13');
+    step(j, 'approval_check', 'running', t);
+    j.result_url = PR_URL;
+    dropUpcoming(s, 'job_expiry', 42);
+    const u = s.upcoming.find((x) => x.kind === 'preapproved_action' && x.job_id === 42);
+    if (u) u.description = 'merge PR #13 now: tests passed (pre-approved)';
+    ev(s, t, 'job_state', '#42 PR #13 opened from claude/issue-12', 42);
+  }],
+  [8, (s, t) => {
+    const j = J(s, 42);
+    step(j, 'approval_check', 'done', t, 'tests pass');
+    step(j, 'merged', 'running', t);
+    j.state = 'approved';
+    ev(s, t, 'job_state', '#42 needs_approval -> approved: pre-approval held (tests pass)', 42);
+  }],
+  [11, (s, t) => {
+    const j = J(s, 42);
+    step(j, 'merged', 'done', t, 'squash');
+    j.state = 'done';
+    j.result_summary = 'Merged PR #13: the login redirect loop on /settings is fixed.';
+    Object.assign(A(s, 'coder'), { status: 'idle', current_job_id: null });
+    s.active_agent = 'orchestrator';
+    dropUpcoming(s, 'preapproved_action', 42);
+    ev(s, t, 'job_state', '#42 approved -> done: merged PR #13', 42);
+  }],
+  [15, (s, t) => {
+    say(s, t, 'driver', "Also tell Professor Kim I'll be late to office hours.");
+    useTool(s, t, 'dispatch_task', "tell Professor Kim I'll be late to office hours", 176);
+    s.jobs.push({
+      id: 43, type: 'email', title: "Tell Prof. Kim you'll be late to office hours",
+      details: { to: 'Prof. Kim' }, state: 'queued', progress: 0,
+      steps: ['drafting', 'approval_check', 'sent'].map((name) => ({ name, state: 'pending', started_at: null, finished_at: null, detail: null })),
+      preapproval: null, approval: { status: 'pending', note: null },
+      result_summary: null, result_url: null, created_at: iso(t), updated_at: iso(t),
+    });
+    s.upcoming.push({ at: iso(t + 10 * 60000), kind: 'job_expiry', description: 'email #43 expires if no worker claims it (email worker offline)', job_id: 43 });
+    ev(s, t, 'job_dispatched', "email #43: tell Prof. Kim you'll be late, needs a yes before sending", 43);
+    s.active_agent = 'voice';
+  }],
+  [17, (s, t) => say(s, t, 'agent', "Got it. I'll draft it and check with you before it sends.")],
+  [21, (s, t) => {
+    say(s, t, 'driver', 'Any gas on the way?');
+    useTool(s, t, 'search_web', 'gas station on the way to North Campus', 2891);
+    say(s, t, 'agent', "There's a Shell on Plymouth Road, right on your route.");
+  }],
+  [25, (s, t) => {
+    const j = J(s, 43);
+    j.state = 'running';
+    step(j, 'drafting', 'running', t);
+    Object.assign(A(s, 'email'), { status: 'busy', current_job_id: 43, last_heartbeat: iso(t) });
+    s.active_agent = 'email';
+    dropUpcoming(s, 'job_expiry', 43);
+    ev(s, t, 'job_state', '#43 queued -> running: email worker back online', 43);
+  }],
+  [31, (s, t) => {
+    const j = J(s, 43);
+    step(j, 'drafting', 'done', t, '2 lines');
+    step(j, 'approval_check', 'running', t);
+    j.state = 'needs_approval';
+    j.approval = { status: 'pending', note: 'draft ready' };
+    Object.assign(A(s, 'email'), { status: 'idle', current_job_id: null });
+    s.active_agent = 'voice';
+    ev(s, t, 'job_state', '#43 running -> needs_approval: draft ready', 43);
+    say(s, t, 'agent', 'Draft for Professor Kim: "Running about ten minutes late to office hours." Send it?');
+  }],
+  [35, (s, t) => {
+    say(s, t, 'driver', "Hold it, I'll decide when I park.");
+    J(s, 43).approval = { status: 'held', note: null };
+    s.upcoming.push({ at: s.drive.arrival_call_at, kind: 'held_action', description: 'held for arrival call: send the note to Prof. Kim', job_id: 43 });
+    const arr = s.upcoming.find((x) => x.kind === 'arrival_call');
+    if (arr) arr.description = 'arrival call: batched summary of 3 jobs';
+    ev(s, t, 'job_state', '#43 held for the arrival call', 43);
+  }],
+  [39, (s, t) => {
+    say(s, t, 'driver', "That's all, thanks.");
+    say(s, t, 'agent', 'Talk soon.');
+  }],
+  [41, (s, t) => {
+    s.call.status = 'ended';
+    s.drive.status = 'silent';
+    Object.assign(A(s, 'voice'), { status: 'idle', current_job_id: null });
+    s.active_agent = null;
+    ev(s, t, 'call_ended', `departure call ended after ${dur(s.call.duration_s)} (driver said goodbye)`);
+  }],
+];
+
+function mockDemo(action) {
+  const t = ts(mock.server.now);
+  const msg = { 'plug-in': ['plug_in', 'CarPlay connected (demo)'], arrive: ['arrival_call', 'arrival call triggered (demo)'], unplug: ['unplug', 'CarPlay disconnected (demo)'] }[action];
+  if (msg) ev(mock, t, msg[0], msg[1]);
+}
+
+async function mockNext() {
+  if (!fixture) {
+    const url = MOCK === 'empty' ? '../tests/fixtures/dashboard_state_empty.json' : '../tests/fixtures/dashboard_state.json';
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`fixture HTTP ${r.status}`);
+    fixture = await r.json();
+    mockReset();
+  }
+  const script = MOCK === 'empty' ? [] : MOCK_SCRIPT;
+  let el = (Date.now() - mockT0) / 1000;
+  if (script.length && el > MOCK_LOOP_S) { mockReset(); el = 0; }
+  const base = ts(fixture.server.now);
+  const t = base + el * 1000;
+  mock.server.now = iso(t);
+  mock.server.uptime_s = fixture.server.uptime_s + Math.floor(el);
+  if (mock.call && mock.call.status === 'active') mock.call.duration_s = fixture.call.duration_s + Math.floor(el);
+  mock.agents.forEach((a, i) => {
+    if (a.status !== 'offline') a.last_heartbeat = iso(t - ((Math.floor(el) + i * 3) % 12) * 1000);
+  });
+  fixture.services.forEach((fs, i) => {
+    const age = base - ts(fs.checked_at);
+    if (fs.checked_at && age < STALE_MS) {
+      mock.services[i].checked_at = iso(ts(fs.checked_at) + Math.floor((el + age / 1000) / 30) * 30000);
+    }
+  });
+  while (mockStep < script.length && script[mockStep][0] <= el) script[mockStep++][1](mock, t);
+  return structuredClone(mock);
+}
+
+// ── main loop ───────────────────────────────────────────────────
+async function poll() {
+  try {
+    apply(MOCK ? await mockNext() : await fetchState());
+  } catch (err) {
+    offline = true;
+    lastError = err.message;
+    renderSystem(state);
+  }
+  setTimeout(poll, POLL_MS);
+}
+renderSystem(null);
+poll();
+</script>
+</body>
+</html>

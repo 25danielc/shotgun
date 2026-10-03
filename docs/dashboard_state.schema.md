@@ -156,7 +156,7 @@ How `status` is derived:
 |---|---|---|
 | `not_needed` | Read-only job (research, plan). | nothing |
 | `preapproved` | A pre-approval exists and still holds. | `pre-approved: <preapproval.condition>` |
-| `pending` | `needs_approval`, a call is live, waiting on a spoken yes. | `needs approval` |
+| `pending` | No pre-approval: the job will need a spoken yes (not at `needs_approval` yet, or at `needs_approval` while a call is live). | `needs approval` |
 | `held` | `needs_approval`, waiting for the arrival call. | `held for arrival` |
 | `approved` | Spoken yes (at dispatch or `approve_action`). | `approved by voice` |
 | `declined` | Spoken no. | `declined` |
