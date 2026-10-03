@@ -1,0 +1,7 @@
+{
+  "caller_id": "+15555550100",
+  "agent_id": "agent_sample",
+  "called_number": "+15555550199",
+  "call_sid": "CA_sample",
+  "conversation_id": "conv_sample_inbound"
+}

@@ -16,13 +16,14 @@ Business problems (unknown job, nothing to approve) come back as 200 {"ok": fals
 so the agent can say something sensible. Auth problems are HTTP errors: 401 bad secret,
 403 caller not allowed, 503 not configured.
 
-Still to come in step 2.3:
-- init: the ElevenLabs "conversation initiation client data" webhook. It receives
-  {caller_id, agent_id, called_number, call_sid, conversation_id} and returns
-  {"type": "conversation_initiation_client_data", "dynamic_variables": {...}}. An unknown
-  caller_id gets a refusal greeting and the agent calls end_call. ElevenLabs has no built-in
-  caller allowlist (docs read 2026-10-03). TODO(verify) whether this webhook can reject a
-  call outright.
+Caller allowlist (step 2.3) - init: the ElevenLabs "conversation initiation client data" webhook.
+It runs for inbound Twilio calls, and for outbound calls only when the request carries no
+initiation data (ours always does), per the docs read 2026-10-03. It receives {caller_id,
+agent_id, called_number, call_sid, conversation_id} and must return every dynamic variable the
+agent defines. Daniel's number gets the normal greeting; anyone else gets caller_allowed "no"
+and a refusal greeting, and the prompt makes the agent hang up at once. ElevenLabs has no
+built-in caller allowlist, and the docs don't describe rejecting a call from this webhook, so
+the tools' 403 is the second layer.
 
 Hard rules: answer in < 500 ms; never block on a worker; check X-Shotgun-Secret
 (TOOLS_SHARED_SECRET) and the caller (ALLOWED_CALLER_NUMBER) on every request.
@@ -39,10 +40,10 @@ from psycopg import AsyncConnection
 from psycopg_pool import PoolTimeout
 from pydantic import BaseModel
 
-from app import db, jobs
+from app import db, jobs, telephony
 from app.config import settings
 from app.jobs import IllegalTransition, Job, JobNotFound, JobState, JobType
-from app.security import check_caller, check_secret
+from app.security import check_caller, check_secret, normalize_number
 
 log = logging.getLogger(__name__)
 POOL_TIMEOUT = 2.0  # seconds; the agent's own timeout is 5 s and our budget is 0.5 s
@@ -95,6 +96,32 @@ class Reply(BaseModel):
     message: str
     job_id: int | None = None
     jobs: list[dict[str, Any]] | None = None
+
+
+class InitBody(BaseModel):
+    caller_id: str | None = None
+    agent_id: str | None = None
+    called_number: str | None = None
+    call_sid: str | None = None
+    conversation_id: str | None = None
+
+
+INBOUND_GREETING = "Hey, it's Shotgun. Anything you want handled?"
+REFUSAL_GREETING = "Sorry, this line is private. Goodbye."
+
+
+@router.post("/init")
+async def init(body: InitBody) -> dict[str, Any]:
+    """Conversation initiation webhook: no database, answers instantly."""
+    allowed = normalize_number(settings.allowed_caller_number)
+    if not allowed:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "caller allowlist not configured")
+    is_daniel = normalize_number(body.caller_id) == allowed
+    variables = telephony.call_variables(INBOUND_GREETING if is_daniel else REFUSAL_GREETING)
+    variables["caller_allowed"] = "yes" if is_daniel else "no"
+    if not is_daniel:
+        log.warning("init: refused inbound call from an unknown number (%s)", body.call_sid)
+    return {"type": "conversation_initiation_client_data", "dynamic_variables": variables}
 
 
 @router.post("/dispatch_task")

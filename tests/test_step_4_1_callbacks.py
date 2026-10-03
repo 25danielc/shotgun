@@ -69,6 +69,7 @@ async def test_job_flipped_to_done_rings_with_its_summary(db, watcher, calls):
             "summary": "I opened a pull request for Sarah's login bug.",
             "eta_minutes": "",
             "pending_job_id": "",
+            "caller_allowed": "yes",
         }
     ]
 

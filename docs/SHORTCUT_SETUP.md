@@ -6,6 +6,9 @@ This is the only Apple dependency. The phone is just a sensor: it tells the serv
 
 - iPhone on iOS 26, the Shortcuts app, and the 2026 Civic with **wired** CarPlay.
 - For step 1.3: a webhook.site URL. For 1.6: `https://<railway-domain>/events` and `EVENTS_SHARED_SECRET` from `.env`.
+- **Getting the secret onto the phone without typing 48 characters:** with the Mac and iPhone on the same Apple ID and Handoff on, run this on the Mac, then long-press → Paste in the Shortcut's header field on the iPhone (Universal Clipboard). It copies without printing:
+  `grep '^EVENTS_SHARED_SECRET=' .env | cut -d= -f2- | tr -d '\n' | pbcopy`
+  The base URL works the same way: `grep '^PUBLIC_BASE_URL=' .env | cut -d= -f2- | tr -d '\n' | pbcopy`
 - Location permission for Shortcuts: Settings → Privacy & Security → Location Services → Shortcuts → **While Using the App** (or Always).
 
 ## 1. "CarPlay connects" automation
@@ -40,3 +43,18 @@ Same as above with **Disconnects** and `event` = `carplay_disconnected`. Locatio
 - For each replug, note the time you plugged in and the time the request landed on webhook.site, and check `location` has numbers.
 - Pass: 5 of 5 logged with the phone locked, location present, latency noted. Record the results in PLAN.md (Status) and anything surprising in the DECISIONS.md log.
 - Known risks (unverified reports): iOS 26 tightened background limits; wireless CarPlay adds a 5 to 15 s delay (we're wired); old iOS versions asked to unlock for "Open App" actions (we don't use that).
+
+## 5. Pre-flight before the car (milestone 1, step 1.6)
+
+Do these at the desk; each one is checkable without the car.
+
+- [ ] `make smoke`: the deployed `/health` returns 200.
+- [ ] `railway logs` shows `database ready` and no "not running" warnings, or only the ones you expect.
+- [ ] Desk test of `/events` (rings your phone, same as plugging in):
+  `curl -X POST "$URL/events" -H "X-Shotgun-Secret: $SECRET" -H 'Content-Type: application/json' -d '{"source":"desk","event":"carplay_connected","location":null}'`
+  should give 202 and ring within 10 s. With a wrong secret it gives 401.
+- [ ] Shortcut: run the "Connects" automation by hand (tap it in Shortcuts) and the phone rings.
+- [ ] Contact "Shotgun" saved with the Twilio number and in Favorites (the fallback trigger).
+- [ ] Phone: Do Not Disturb / Driving Focus off, or Shotgun allowed through, so the call actually rings.
+
+In the Civic (parked): plug in with the phone locked → the car rings with "Shotgun" on screen within 10 s → the agent greets you. Say "thanks, bye" and it should hang up by itself. Three of three times = step 1.6.

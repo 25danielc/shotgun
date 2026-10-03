@@ -6,6 +6,7 @@ Offline: the request matches the documented API shape and failures raise CallErr
 
 import json
 import time
+from pathlib import Path
 
 import httpx
 import pytest
@@ -56,18 +57,20 @@ async def test_request_shape(configured):
                 "summary": "",
                 "eta_minutes": "31",
                 "pending_job_id": "7",
+                "caller_allowed": "yes",
             }
         },
     }
 
 
-def test_call_variables_always_has_every_key():
-    assert set(telephony.call_variables("hi")) == {
-        "greeting",
-        "summary",
-        "eta_minutes",
-        "pending_job_id",
-    }
+def test_call_variables_match_the_agents_dynamic_variables():
+    """ElevenLabs needs every variable the agent defines; the config is the source of truth."""
+    config = json.loads(
+        (Path(__file__).parents[1] / "config" / "elevenlabs_agent.json").read_text()
+    )
+    agent = config["agent"]["conversation_config"]["agent"]
+    defined = agent["dynamic_variables"]["dynamic_variable_placeholders"]
+    assert set(telephony.call_variables("hi")) == set(defined)
 
 
 async def test_missing_config_raises_before_any_request(monkeypatch):

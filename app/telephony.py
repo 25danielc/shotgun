@@ -11,12 +11,15 @@ Per the ElevenLabs API docs (read 2026-10-03, see docs/DECISIONS.md section 11):
              "to_number": MY_PHONE_NUMBER,
              "conversation_initiation_client_data": {
                  "dynamic_variables": {"greeting": "...", "summary": "...",
-                                       "eta_minutes": "31", "pending_job_id": ""}}}
+                                       "eta_minutes": "31", "pending_job_id": "",
+                                       "caller_allowed": "yes"}}}
     Response: {"success": true, "conversation_id": "...", "callSid": "..."}
 
 Per-call text goes in dynamic variables, which the agent's first_message ({{greeting}}) and
 prompt reference. That needs no override permission, unlike conversation_config_override.
-Every call sends all four variables so none falls back to a stale placeholder.
+Every call sends all five variables so none falls back to a stale placeholder. Because the request
+includes conversation_initiation_client_data, ElevenLabs does not call our /tools/init webhook for
+these outbound calls (docs: "Conversation initiation webhooks", read 2026-10-03).
 """
 
 from __future__ import annotations
@@ -56,6 +59,7 @@ def call_variables(
         "summary": summary,
         "eta_minutes": "" if eta_minutes is None else str(eta_minutes),
         "pending_job_id": "" if pending_job_id is None else str(pending_job_id),
+        "caller_allowed": "yes",  # we only ever call MY_PHONE_NUMBER
     }
 
 
