@@ -9,6 +9,8 @@ Tools (schemas live in config/elevenlabs_agent.json; every body also carries `ca
 Inline (do the work during the call, under 8 s; logic in app/inline.py; no database):
 - search_web(query): a one- or two-sentence spoken answer (Haiku + Claude web search).
 - draft_message(to, intent): draft text for the agent to read back. Sends nothing.
+- set_destination(destination, drive_id?): Google Routes ETA from the plug-in location; stores
+  destination, eta and arrival_call_at on the drive (step 5.1, app/eta.py). Uses the database.
   A slow or failed answer is 200 {"ok": false} with a spoken fallback, never a hang.
 
 Background (answer in under 500 ms, never block on a worker):
@@ -52,7 +54,7 @@ from psycopg import AsyncConnection
 from psycopg_pool import PoolTimeout
 from pydantic import BaseModel
 
-from app import db, drives, inline, jobs, telephony
+from app import db, drives, eta, inline, jobs, telephony
 from app.config import settings
 from app.jobs import IllegalTransition, Job, JobNotFound, JobState, JobType
 from app.security import check_caller, check_secret, normalize_number
@@ -127,6 +129,11 @@ class DraftBody(CallContext):
     intent: str
 
 
+class DestinationBody(CallContext):
+    destination: str
+    drive_id: int | str | None = None
+
+
 class Reply(BaseModel):
     ok: bool
     message: str
@@ -191,6 +198,20 @@ async def draft_message(body: DraftBody) -> Reply:
         log.warning("draft_message failed: %s", exc)
         return Reply(ok=False, message="I couldn't write that one. Can you say it again?")
     return Reply(ok=True, message=draft)
+
+
+@router.post("/set_destination")
+async def set_destination(body: DestinationBody, conn: Conn) -> Reply:
+    body.authorize()
+    text = body.destination.strip()
+    if not text:
+        return Reply(ok=False, message="Where are you headed?")
+    drive = None
+    if str(body.drive_id or "").strip().isdigit():
+        drive = await drives.get_drive(conn, int(str(body.drive_id).strip()))
+    drive = drive or await drives.current_or_open(conn)
+    drive, message = await eta.set_destination(conn, drive, text)
+    return Reply(ok=True, message=message, drive_id=drive.id)
 
 
 def job_type_of(name: str | None) -> JobType:

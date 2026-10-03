@@ -114,6 +114,10 @@ def render(
         return "No drives yet. Plug in (make demo-call)."
     status = "open" if drive.ended_at is None else f"closed {_clock(drive.ended_at)}"
     lines = [f"Drive {drive.id}  {status}  started {_clock(drive.started_at)}"]
+    if drive.start_lat is not None:
+        lines[0] += f"  at {drive.start_lat:.4f},{drive.start_lng:.4f}"
+    else:
+        lines[0] += "  (no location from the Shortcut)"
     where = drive.destination or "destination unknown"
     eta = f"ETA {_clock(drive.eta)}" if drive.eta else "no ETA"
     if drive.arrival_called:

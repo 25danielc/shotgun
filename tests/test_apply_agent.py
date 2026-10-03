@@ -11,7 +11,7 @@ apply_agent = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(apply_agent)
 
 BASE = "https://shotgun.example.com"
-INLINE = ("search_web", "draft_message")
+INLINE = ("search_web", "draft_message", "set_destination")
 BACKGROUND = ("dispatch_task", "get_status", "approve_action")
 
 
@@ -76,13 +76,14 @@ def test_greet_stage_has_no_tools_or_server_webhook():
 
 def test_full_stage_wires_tools_and_caller_webhook():
     config = apply_agent.with_secret_id(apply_agent.load_config(BASE), "sec_123")
-    body = apply_agent.agent_body(config, "full", ["t1", "t2", "t3", "t4", "t5"])
+    body = apply_agent.agent_body(config, "full", ["t1", "t2", "t3", "t4", "t5", "t6"])
     assert body["conversation_config"]["agent"]["prompt"]["tool_ids"] == [
         "t1",
         "t2",
         "t3",
         "t4",
         "t5",
+        "t6",
     ]
     webhook = body["platform_settings"]["workspace_overrides"][
         "conversation_initiation_client_data_webhook"

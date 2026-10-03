@@ -85,7 +85,7 @@ async def test_first_plug_in_rings_a_quick_replug_stays_silent(http, db, rang):
     assert await plug_in(http) is True
     first = await drives.current_drive(db)
     assert (first.start_lat, first.start_lng) == (42.28, -83.74)
-    assert rang[0]["greeting"] == "Hey, it's Shotgun, riding along."
+    assert rang[0]["greeting"] == "Hey, it's Shotgun. Where are you headed?"
     assert rang[0]["call_kind"] == "departure"
     assert rang[0]["drive_id"] == str(first.id)
 

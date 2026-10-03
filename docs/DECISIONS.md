@@ -177,6 +177,7 @@ Not decisions, just a cache so later sessions don't re-research. Still re-check 
 - **ElevenLabs, checked in the OpenAPI spec (2026-10-03):** `POST /v1/convai/secrets {type:"new", name, value}` and `PATCH /v1/convai/secrets/{id} {type:"update", ...}`. `GET/PATCH/DELETE /v1/convai/tools/{id}` and `GET /v1/convai/tools?search=`. `GET/PATCH /v1/convai/phone-numbers/{id}` (PATCH `{agent_id}` assigns the agent); `GET /v1/convai/phone-numbers` returns `phone_number_id`. `conversation_config.agent.dynamic_variables.dynamic_variable_placeholders`. `built_in_tools.end_call = {type:"system", name:"end_call", params:{system_tool_type:"end_call"}}`. `platform_settings.workspace_overrides.conversation_initiation_client_data_webhook = {url, request_headers}`. `scripts/apply_agent.py` uses all of these.
 - **Twilio key check:** `GET https://api.twilio.com/2010-04-01/Accounts/{SID}.json` with basic auth. A2P 10DLC applies only to messaging.
 - **Google Routes:** `POST https://routes.googleapis.com/directions/v2:computeRoutes`, headers `X-Goog-Api-Key`, `X-Goog-FieldMask: routes.duration,routes.distanceMeters` (the field mask is required). Body `origin/destination.location.latLng`, `travelMode: DRIVE`, `routingPreference: TRAFFIC_AWARE` (Pro SKU, 5k free/month). `routes[0].duration` is a string like `"1234s"`.
+- **Google Routes destination as text (5.1, checked 2026-10-03, Waypoint reference):** `destination: {address: "<free text or plus code>"}` is a valid Waypoint, so no Geocoding API is needed and Maps stays Routes-only. Live: Michigan Union → Ann Arbor Amtrak, TRAFFIC_AWARE, 384 s, 1657 m, answered in 0.3 s.
 - **Google Places (New):** `POST https://places.googleapis.com/v1/places:searchText` / `:searchNearby`. Field mask `places.displayName,places.formattedAddress,places.currentOpeningHours.openNow` (opening hours are the Enterprise SKU, 1k free/month). The IDs-only mask `places.id` is free.
 - **Railway (as deployed):** project/service `shotgun`, URL https://shotgun-production-5f30.up.railway.app. Railpack 0.40.1 needs `railpack.json` → `deploy.startCommand` (our app is `app/main.py`, so auto-detection fails at build time). Railway sets `PORT=8080`. CLI 4.10 syntax: `railway variables --set`.
 - **Railway:** Railpack builder (reads `.python-version`). `railway.json` sets `startCommand` and `healthcheckPath`. Variables: `railway variable set K=V` (`railway variables --set` is deprecated). App sleeping is opt-in, so containers stay up.
@@ -299,3 +300,11 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - `make demo-arrive` sets the open drive's `arrival_call_at` to now in Neon; the deployed loop does the ringing. No new public endpoint.
   - `make watch` is read-only.
   - `make callback-demo` was removed with the watcher in 4.1.
+- 2026-10-03 18:16 (hour 6.6): **Step 5.1 built (D17).**
+  - The departure greeting asks "Where are you headed?". The agent sends the answer to the new inline tool `set_destination`.
+  - The server sends that text to Google Routes as a `Waypoint.address`, from the drive's plug-in location (no Geocoding API). It stores destination, eta and `arrival_call_at = eta − 3 min` (or now, for drives under 3 min).
+  - "home" / "my place" maps to `HOME_ADDRESS` and is spoken as "home", so D16's address survives as a shortcut.
+  - No location or no route → the destination is stored and the arrival call falls back to "all settled".
+  - The 4.3 long-drive rule still can't fire at plug-in, because the destination comes later on the call.
+  - `make watch` shows the plug-in location, to check the Shortcut fix.
+  - **Pass checks:** Daniel's message was cut off at "Pass checks:", so these are the ones proposed in PLAN.md, pending his list.

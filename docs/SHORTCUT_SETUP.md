@@ -27,6 +27,12 @@ This is the only Apple dependency. The phone is just a sensor: it tells the serv
         - `location` (Dictionary) with `lat` (Number) = *Current Location → Latitude* and `lng` (Number) = *Current Location → Longitude*. Tap the variable and pick the Latitude/Longitude property.
 4. If iOS asks to allow the URL action to run automatically, allow it. Apple notes some actions must each be set to run automatically.
 
+### Step 5.1 check: the plug-in must send its location (Daniel)
+
+The ETA (D17) is computed once, from where the phone was at plug-in. At step 1.5 the Shortcut sent `location` empty, so the Latitude/Longitude fields weren't mapped. In the **Connects** automation's Get Contents of URL, open the `location` dictionary. Tap `lat`, choose the *Current Location* variable, then tap it again and pick **Latitude**. Do the same for `lng` with **Longitude**. Both fields must be **Number**, not Text.
+
+Check: run the automation by hand, then `make watch`. The drive line should show `at 42.xxxx,-83.xxxx`, not "(no location from the Shortcut)". Without a location, the arrival call falls back to "once every job is done" instead of ETA − 3 min.
+
 ## 2. "CarPlay disconnects" automation
 
 Same as above with **Disconnects** and `event` = `carplay_disconnected`. Location is optional. Since D17 (step 4.4) this one matters: unplugging closes the drive, cancels the arrival call if it hasn't rung, and sends the recap push. Install the **ntfy** app on the iPhone and subscribe to the `NTFY_TOPIC` from `.env` (server ntfy.sh). Copy it without printing: `grep '^NTFY_TOPIC=' .env | cut -d= -f2- | tr -d '\n' | pbcopy`.

@@ -20,7 +20,9 @@ Rules:
 - carplay_disconnected (alias car_disconnected): close the drive, which cancels its arrival
   call, and push the recap via ntfy in the background (app/recap.py, step 4.4).
 - The departure greeting leads with facts, never "How can I help?": what's waiting on the
-  driver, if anything (and its question goes in pending_job_id).
+  driver, if anything (and its question goes in pending_job_id). Otherwise it asks "Where are
+  you headed?"; the agent sends the answer to set_destination for the ETA (step 5.1), and asks
+  it after the pending question when there is one.
 """
 
 from __future__ import annotations
@@ -42,7 +44,7 @@ router = APIRouter()
 
 CONNECTED = "carplay_connected"
 DISCONNECTED = {"carplay_disconnected", "car_disconnected"}  # the D17 spec's name is an alias
-GREETING = "Hey, it's Shotgun, riding along."
+GREETING = "Hey, it's Shotgun. Where are you headed?"  # step 5.1: the answer sets the ETA
 
 
 class Location(BaseModel):
