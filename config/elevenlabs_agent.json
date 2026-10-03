@@ -83,7 +83,7 @@
       "tool_config": {
         "type": "webhook",
         "name": "search_web",
-        "description": "Answer a quick question now (scores, weather, hours, prices, news, nearby places) with a web search. Takes a few seconds; say a short filler first. Returns one or two sentences to read back.",
+        "description": "Search the web now and answer: places near the driver, opening hours, scores, weather, prices, news, quick facts. Knows the driver's location and destination. Takes a few seconds; say a short filler first. Returns one or two sentences to read back.",
         "response_timeout_secs": 15,
         "pre_tool_speech": "force",
         "api_schema": {
@@ -108,6 +108,10 @@
               "called": {
                 "type": "string",
                 "dynamic_variable": "system__called_number"
+              },
+              "drive_id": {
+                "type": "string",
+                "dynamic_variable": "drive_id"
               }
             },
             "required": [

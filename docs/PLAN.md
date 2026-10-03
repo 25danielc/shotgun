@@ -19,7 +19,7 @@ What it must do on demo day:
 
 Demo script (target 60 seconds):
 
-> Plug in → ring → "Hey, it's Shotgun. Where are you headed?" → "Home." → "22 minutes. Anything you want handled?" → "What's the score of the Michigan game?" → "One sec, checking… Michigan's up 21 to 14 in the third." → "And fix the login bug Sarah filed." → "I'll have Claude open a PR. Merge it if the tests pass?" → "Yes." → "Got it: merge if the tests pass. You'll hear back before you park." → "That's all." → "Bye." → *(3 min before arrival)* ring → "Shotgun here. The login fix is merged; the tests passed." (D17: coding PR only, no email line)
+> Plug in → ring → "Hey, it's Shotgun. Where are you headed?" → "Home." → "22 minutes. Anything you want handled?" → "What's the score of the Michigan game?" → "One sec, checking… Michigan's up 21 to 14 in the third." → "And fix the login bug Sarah filed." → "I'll fix it and open a pull request. Merge it if the tests pass?" → "Yes." → "Got it: merge if the tests pass. You'll hear back before you park." → "That's all." → "Bye." → *(3 min before arrival)* ring → "Shotgun here. The login fix is merged; the tests passed." (D17: coding PR only, no email line)
 
 Out of scope: controlling the car, real-inbox Gmail, restaurant reservations, a native CarPlay app (needs Apple entitlement), Siri anywhere in the flow.
 

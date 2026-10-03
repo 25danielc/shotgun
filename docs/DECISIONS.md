@@ -308,3 +308,14 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - The 4.3 long-drive rule still can't fire at plug-in, because the destination comes later on the call.
   - `make watch` shows the plug-in location, to check the Shortcut fix.
   - **Pass checks:** Daniel's message was cut off at "Pass checks:", so these are the ones proposed in PLAN.md, pending his list.
+- 2026-10-03 18:30 (hour 6.7): **Daniel's test call: "can you find me 3 nearby ramen places" got "I can't search, but I could have someone research it".**
+  - Transcript `conv_3101m41y…`. Cause: the live agent is still the pre-D17 config (3 tools, no `search_web`), because the 2.3 push is waiting on his OK.
+  - Fixed before the push anyway:
+    - The prompt now says lookups are searched at once, with no asking first and no explaining.
+    - The agent speaks as itself and never mentions tasks, workers or "someone else", or says it can't search.
+    - A slow search is handed off silently ("Still digging, I'll tell you before you park").
+    - The server's fallback reply no longer offers a background lookup.
+  - `search_web` now gets the drive's plug-in location and destination (dynamic variable `drive_id`), so "nearby" means near the driver.
+  - The search prompt now requires places that match exactly, no repeats, and never reading out the home address.
+  - Live, the same query from Ann Arbor: Haiku 4.5 took 2.9–3.5 s but still counted a poke place as ramen in some runs; Sonnet 5.5 took 4.7–5.4 s and gave 3 real ramen shops. Kept Haiku as Daniel specified; `INLINE_MODEL=claude-sonnet-5-5` switches with no code change.
+

@@ -122,6 +122,7 @@ class ApproveBody(CallContext):
 
 class SearchBody(CallContext):
     query: str
+    drive_id: int | str | None = None
 
 
 class DraftBody(CallContext):
@@ -177,14 +178,38 @@ async def search_web(body: SearchBody) -> Reply:
     if not query:
         return Reply(ok=False, message="I didn't catch the question.")
     try:
-        answer = await inline.search_web(query)
+        answer = await inline.search_web(query, near=await drive_context(body.drive_id))
     except inline.InlineError as exc:
         log.warning("search_web failed: %s", exc)
-        return Reply(
-            ok=False,
-            message="I couldn't get that quickly. Want me to look it up in the background?",
-        )
+        return Reply(ok=False, message="I couldn't find that quickly.")
     return Reply(ok=True, message=answer)
+
+
+async def drive_context(drive_id: int | str | None) -> dict[str, str]:
+    """Where the driver is, for "nearby": the drive's plug-in location and destination.
+
+    Best effort: no database or no drive just means no location (a search still answers).
+    """
+    pool = db.get_pool()
+    if pool is None:
+        return {}
+    try:
+        async with pool.connection(timeout=POOL_TIMEOUT) as conn:
+            drive = None
+            if str(drive_id or "").strip().isdigit():
+                drive = await drives.get_drive(conn, int(str(drive_id).strip()))
+            drive = drive or await drives.current_drive(conn)
+    except Exception:
+        log.exception("search_web: no drive context")
+        return {}
+    if drive is None:
+        return {}
+    near = {}
+    if drive.start_lat is not None and drive.start_lng is not None:
+        near["location"] = f"{drive.start_lat:.4f}, {drive.start_lng:.4f}"
+    if drive.destination:
+        near["destination"] = drive.destination
+    return near
 
 
 @router.post("/draft_message")

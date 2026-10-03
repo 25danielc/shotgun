@@ -147,7 +147,7 @@ async def test_slow_search_gives_up_within_the_budget(client, monkeypatch):
     assert elapsed < 1
     assert response.json() == {
         "ok": False,
-        "message": "I couldn't get that quickly. Want me to look it up in the background?",
+        "message": "I couldn't find that quickly.",  # the agent decides what to say, not us
         "job_id": None,
         "drive_id": None,
         "jobs": None,
@@ -167,6 +167,37 @@ async def test_blank_query_makes_no_request(client, monkeypatch):
     response, _ = await call(client, "search_web", sample("search_web", query="  "))
     assert response.json()["ok"] is False
     assert fake.requests == []
+
+
+async def test_nearby_uses_the_drives_location_and_destination(http, db, monkeypatch):
+    """Daniel 18:30: "find me 3 nearby ramen places" must just search, near him."""
+    from app import drives
+
+    drive = await drives.open_drive(db, lat=42.2754, lng=-83.7417)
+    await db.execute("update drives set destination = 'home' where id = %s", (drive.id,))
+    fake = use_fake(monkeypatch, FakeClient(answered("Tomukun on Liberty is open until 10.")))
+    body = sample("search_web", query="find me 3 nearby ramen places", drive_id=str(drive.id))
+    response = await http.post(
+        "/tools/search_web", json=body, headers={"X-Shotgun-Secret": "t" * 32}
+    )
+    assert response.json() == {
+        "ok": True,
+        "message": "Tomukun on Liberty is open until 10.",
+        "job_id": None,
+        "drive_id": None,
+        "jobs": None,
+    }
+    question = fake.requests[0]["messages"][0]["content"]
+    assert "Driver's location when the drive started (lat, lng): 42.2754, -83.7417" in question
+    assert "Driver is heading to: home" in question
+    assert question.endswith("Question: find me 3 nearby ramen places")
+
+
+async def test_search_without_a_drive_still_answers(client, monkeypatch):
+    fake = use_fake(monkeypatch, FakeClient(answered(SCORE)))
+    response, _ = await call(client, "search_web", sample("search_web", drive_id=""))
+    assert response.json()["ok"] is True
+    assert "Driver's location" not in fake.requests[0]["messages"][0]["content"]
 
 
 # --- draft_message ----------------------------------------------------------------------------

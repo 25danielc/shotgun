@@ -165,3 +165,21 @@ def test_dispatch_takes_type_details_and_a_nested_preapproval():
 def test_get_status_is_scoped_to_the_drive():
     properties = tools()["get_status"]["api_schema"]["request_body_schema"]["properties"]
     assert properties["drive_id"]["dynamic_variable"] == "drive_id"
+
+
+def test_lookups_just_search_and_never_mention_helpers():
+    """Daniel 18:30: "find me 3 nearby ramen places" got "I can't do that, but I can open a
+    research task and have someone do it". Lookups go straight to search_web, and the agent
+    speaks as itself."""
+    prompt = prompt_text()
+    assert "don't ask first and don't explain, just say the filler, call search_web" in prompt
+    assert "places near them" in prompt
+    assert "never say you can't search" in prompt
+    assert 'Never mention tasks, background jobs, workers, agents or "someone else"' in prompt
+    for offer in ("offer to look it up", "in the background", "have someone"):
+        assert offer not in prompt
+    search = tools()["search_web"]
+    assert search["api_schema"]["request_body_schema"]["properties"]["drive_id"] == {
+        "type": "string",
+        "dynamic_variable": "drive_id",
+    }

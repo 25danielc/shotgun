@@ -41,8 +41,12 @@ WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search", "max_uses": M
 SEARCH_PROMPT = """You answer one question for Shotgun, an assistant a driver talks to on a phone \
 call. Search the web if the answer depends on anything current, then answer. Your answer is read \
 aloud while they drive, so:
-- One or two short sentences, under 35 words. The answer first, no preamble.
+- One or two short sentences, under 40 words. The answer first, no preamble.
 - Plain speech: no URLs, no markdown, no lists, no symbols. Round numbers, times like "10 PM".
+- Places: only places that are exactly what they asked for (asked for ramen: ramen shops, not \
+other restaurants). Each place once. Use the driver's location; give each place's street and \
+closing time if you found it. If you found fewer than they asked for, say how many.
+- Never read out the driver's home address or coordinates; say "near you" or "near home".
 - If you can't find a reliable answer, say so in one sentence. Never guess opening hours, scores \
 or prices."""
 
@@ -72,16 +76,25 @@ def _client(client: anthropic.AsyncAnthropic | None) -> anthropic.AsyncAnthropic
     return (client or default_client()).with_options(timeout=BUDGET_SECONDS, max_retries=0)
 
 
-def search_message(query: str, now: datetime) -> str:
+def search_message(query: str, now: datetime, near: dict[str, str] | None = None) -> str:
+    """The question plus where the driver is: `near` has optional "location" (plug-in lat,lng)
+    and "destination" (what they said), from the drive."""
+    near = near or {}
     lines = [f"Current time: {now.astimezone(settings.tz):%A %I:%M %p %Z}"]
+    if near.get("location"):
+        lines.append(f"Driver's location when the drive started (lat, lng): {near['location']}")
+    if near.get("destination"):
+        lines.append(f"Driver is heading to: {near['destination']}")
     if settings.home_address:
         lines.append(f"Driver's home: {settings.home_address}")
     lines.append(f"Question: {query}")
     return "\n".join(lines)
 
 
-async def _search(query: str, now: datetime, client: anthropic.AsyncAnthropic) -> str:
-    user = {"role": "user", "content": search_message(query, now)}
+async def _search(
+    query: str, now: datetime, near: dict[str, str] | None, client: anthropic.AsyncAnthropic
+) -> str:
+    user = {"role": "user", "content": search_message(query, now, near)}
     messages: list[dict[str, Any]] = [user]
     for _ in range(2):  # the first try, plus one continuation after pause_turn
         response = await client.messages.create(
@@ -107,6 +120,7 @@ async def search_web(
     query: str,
     *,
     now: datetime | None = None,
+    near: dict[str, str] | None = None,
     client: anthropic.AsyncAnthropic | None = None,
     budget: float | None = None,
 ) -> str:
@@ -114,7 +128,7 @@ async def search_web(
     budget = budget or BUDGET_SECONDS
     try:
         return await asyncio.wait_for(
-            _search(query, now or datetime.now(settings.tz), _client(client)), budget
+            _search(query, now or datetime.now(settings.tz), near, _client(client)), budget
         )
     except TimeoutError as exc:
         raise InlineError(f"no answer within {budget:.0f} s") from exc
