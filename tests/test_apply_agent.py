@@ -126,7 +126,7 @@ def test_silence_rule_asks_at_60_s_and_hangs_up_30_s_later():
     assert turn["turn_timeout"] + skip["params"]["wait_timeout_secs"] == 60
     prompt = prompt_text()
     assert "call skip_turn and say nothing" in prompt
-    assert 'check in, say only "Anything else?"' in prompt
+    assert 'check in, say exactly "Anything else?" and nothing more' in prompt
     assert 'still say nothing after "Anything else?"' in prompt and "call end_call" in prompt
     # The next silent turn comes turn_timeout (30 s) after "Anything else?".
     assert turn["turn_timeout"] == 30
@@ -204,3 +204,19 @@ def test_agent_is_honest_about_what_it_cant_do_yet():
     assert "Never call dispatch_task for a message, and never say it's sent." in prompt
     assert "You can't order food yet" in prompt
     assert "type email" not in prompt and "type food" not in prompt
+
+
+def test_voicemail_leaves_the_update_and_hangs_up():
+    """The 19:30 arrival call reached Daniel's voicemail and talked to the greeting for 112 s."""
+    vm = conversation()["agent"]["prompt"]["built_in_tools"]["voicemail_detection"]
+    assert vm["params"]["system_tool_type"] == "voicemail_detection"
+    assert "{{summary}}" in vm["params"]["voicemail_message"]
+    assert "call voicemail_detection right away" in prompt_text()
+    placeholders = conversation()["agent"]["dynamic_variables"]["dynamic_variable_placeholders"]
+    assert "summary" in placeholders
+
+
+def test_destination_is_only_asked_on_departure_calls():
+    """The same arrival call asked "Where are you headed?"."""
+    assert "Only on a departure call" in prompt_text()
+    assert "Never ask on an arrival or exception call" in prompt_text()

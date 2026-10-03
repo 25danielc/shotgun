@@ -6,7 +6,8 @@
     "{{BASE_URL}} is replaced with PUBLIC_BASE_URL at apply time. tools_secret is an ElevenLabs workspace secret holding TOOLS_SHARED_SECRET. Never put real secrets in this file.",
     "D17 fields, checked against https://api.elevenlabs.io/openapi.json on 2026-10-03: webhook response_timeout_secs is 5-300 (inline tools use 15); pre_tool_speech auto|force|off ('force' makes the agent say a filler before inline tools); ObjectJsonSchemaProperty supports nested properties + required (preapproval); built_in_tools.skip_turn params {system_tool_type: skip_turn, wait_timeout_secs} (the silence timer pauses during the wait, then the agent checks in).",
     "Silence (D17): turn.turn_timeout max is 30 s (docs, conversation-flow), so 60 s can't be one setting. 30 s of silence -> the agent calls skip_turn; after its 30 s wait it checks in with 'Anything else?' (~60 s); the next silent turn (~90 s) says goodbye and calls end_call. silence_end_call_timeout 90 is the backstop. TODO(verify) on a live call: the timer pause and that the check-in follows the prompt.",
-    "TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py)."
+    "TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py).",
+    "Voicemail (D17 follow-up, 19:35): built_in_tools.voicemail_detection {system_tool_type, voicemail_message} per the OpenAPI VoicemailDetectionToolConfig; the message supports dynamic variables. Added after the 19:30 arrival call talked to Daniel's voicemail greeting for 112 s."
   ],
   "agent": {
     "name": "Shotgun",
@@ -45,6 +46,15 @@
               "params": {
                 "system_tool_type": "skip_turn",
                 "wait_timeout_secs": 30
+              }
+            },
+            "voicemail_detection": {
+              "type": "system",
+              "name": "voicemail_detection",
+              "description": "Call this as soon as you hear a voicemail greeting or an automated message instead of the driver. It leaves the update and hangs up.",
+              "params": {
+                "system_tool_type": "voicemail_detection",
+                "voicemail_message": "Hey, it's Shotgun with your update. {{summary}} Call me back on this number if you want to say yes or no to anything."
               }
             }
           }
