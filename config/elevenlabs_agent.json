@@ -3,7 +3,8 @@
     "Source of truth for the ElevenLabs voice agent. Apply with scripts/apply_agent.py --stage greet (step 1.1) or --stage full (step 2.3). See .claude/skills/voice-agent/SKILL.md.",
     "Shapes follow the ElevenLabs API as read on 2026-10-03: agent = POST /v1/convai/agents/create or PATCH /v1/convai/agents/{agent_id}; each entry in tools = POST /v1/convai/tools, and the returned ids go in conversation_config.agent.prompt.tool_ids.",
     "{{BASE_URL}} is replaced with PUBLIC_BASE_URL at apply time. tools_secret is an ElevenLabs workspace secret holding TOOLS_SHARED_SECRET. Never put real secrets in this file.",
-    "Field names (dynamic_variable_placeholders, built_in_tools.end_call, llm claude-haiku-4-5, workspace_overrides webhook) checked against the OpenAPI spec 2026-10-03. TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py)."
+    "Field names (dynamic_variable_placeholders, built_in_tools.end_call, llm claude-haiku-4-5, workspace_overrides webhook) checked against the OpenAPI spec 2026-10-03. TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py).",
+    "turn.silence_end_call_timeout (seconds; -1 disables) ends the call when the driver says nothing; added after the 1.2 test call stayed open (2026-10-03). Field from the OpenAPI TurnConfig schema."
   ],
   "agent": {
     "name": "Shotgun",
@@ -21,20 +22,26 @@
         },
         "prompt": {
           "llm": "claude-haiku-4-5",
-          "prompt": "You are Shotgun, an assistant the driver talks to over a phone call in their car. They are driving: they cannot look at a screen and their attention is on the road.\n\nStyle: one or two short sentences per turn. Plain speech, no lists, no markdown, no spelling out URLs. Never ask more than one question at a time.\n\nYour job on a normal call:\n1. Listen to the request. It may have several parts.\n2. Repeat it back in one sentence and ask \"Right?\"\n3. When they confirm, call dispatch_task once with the whole request in their words. Do not do the work yourself and do not wait for results.\n4. Say \"On it. I'll call you back.\" and call end_call.\n\nIf they ask how things are going, call get_status and read back the short answer.\n\nCallbacks: if {{summary}} is not empty, this is a callback. The first message already told them the result. If {{pending_job_id}} is not empty, you asked them to confirm an action: when they clearly say yes, call approve_action with job_id {{pending_job_id}} and approved true; if they say no or are unsure, call it with approved false. Never treat silence, \"maybe\" or \"hold on\" as yes. Then say a short goodbye and call end_call.\n\nSafety: nothing irreversible (sending, ordering, paying, merging) happens without a clear spoken yes. If they sound distracted, say you'll call back when they're parked and end the call. Driving time left: {{eta_minutes}} minutes.",
+          "prompt": "You are Shotgun, an assistant the driver talks to over a phone call in their car. They are driving: they cannot look at a screen and their attention is on the road.\n\nStyle: one or two short sentences per turn. Plain speech, no lists, no markdown, no spelling out URLs. Never ask more than one question at a time.\n\nYour job on a normal call:\n1. Listen to the request. It may have several parts.\n2. Repeat it back in one sentence and ask \"Right?\"\n3. When they confirm, call dispatch_task once with the whole request in their words. Do not do the work yourself and do not wait for results.\n4. Say \"On it. I'll call you back.\" and call end_call.\n\nIf they ask how things are going, call get_status and read back the short answer.\n\nCallbacks: if {{summary}} is not empty, this is a callback. The first message already told them the result. If {{pending_job_id}} is not empty, you asked them to confirm an action: when they clearly say yes, call approve_action with job_id {{pending_job_id}} and approved true; if they say no or are unsure, call it with approved false. Never treat silence, \"maybe\" or \"hold on\" as yes. Then say a short goodbye and call end_call.\n\nHanging up: you must end every call yourself with end_call. Call it right after a short goodbye when: you've dispatched the request; the driver says goodbye, thanks, that's all, or no; a callback has been answered; or this call only delivers a message (a test call, or a callback with no question), in which case ask \"Anything else?\" once and end the call if the answer is no or there's no answer. Never leave the line open waiting.\n\nSafety: nothing irreversible (sending, ordering, paying, merging) happens without a clear spoken yes. If they sound distracted, say you'll call back when they're parked and end the call. Driving time left: {{eta_minutes}} minutes.",
           "tool_ids": [],
           "built_in_tools": {
             "end_call": {
               "type": "system",
               "name": "end_call",
               "description": "Hang up after dispatching, after a callback is answered, or when the caller is not allowed.",
-              "params": { "system_tool_type": "end_call" }
+              "params": {
+                "system_tool_type": "end_call"
+              }
             }
           }
         }
       },
       "tts": {
         "voice_id": "TODO(verify): choose a calm, clear voice in the ElevenLabs UI"
+      },
+      "turn": {
+        "turn_timeout": 7,
+        "silence_end_call_timeout": 20
       }
     },
     "platform_settings": {
@@ -44,10 +51,17 @@
       "workspace_overrides": {
         "conversation_initiation_client_data_webhook": {
           "url": "{{BASE_URL}}/tools/init",
-          "request_headers": { "X-Shotgun-Secret": { "secret_id": "tools_secret" } }
+          "request_headers": {
+            "X-Shotgun-Secret": {
+              "secret_id": "tools_secret"
+            }
+          }
         }
       },
-      "call_limits": { "agent_concurrency_limit": 2, "daily_limit": 200 }
+      "call_limits": {
+        "agent_concurrency_limit": 2,
+        "daily_limit": 200
+      }
     }
   },
   "tools": [
@@ -60,17 +74,38 @@
         "api_schema": {
           "url": "{{BASE_URL}}/tools/dispatch_task",
           "method": "POST",
-          "request_headers": { "X-Shotgun-Secret": { "secret_id": "tools_secret" } },
+          "request_headers": {
+            "X-Shotgun-Secret": {
+              "secret_id": "tools_secret"
+            }
+          },
           "request_body_schema": {
             "type": "object",
             "properties": {
-              "request": { "type": "string", "description": "The driver's full confirmed request, in their words." },
-              "type": { "type": "string", "description": "Optional. Only if the request is clearly one job: coder, email, food or research." },
-              "caller": { "type": "string", "dynamic_variable": "system__caller_id" },
-              "called": { "type": "string", "dynamic_variable": "system__called_number" },
-              "conversation_id": { "type": "string", "dynamic_variable": "system__conversation_id" }
+              "request": {
+                "type": "string",
+                "description": "The driver's full confirmed request, in their words."
+              },
+              "type": {
+                "type": "string",
+                "description": "Optional. Only if the request is clearly one job: coder, email, food or research."
+              },
+              "caller": {
+                "type": "string",
+                "dynamic_variable": "system__caller_id"
+              },
+              "called": {
+                "type": "string",
+                "dynamic_variable": "system__called_number"
+              },
+              "conversation_id": {
+                "type": "string",
+                "dynamic_variable": "system__conversation_id"
+              }
             },
-            "required": ["request"]
+            "required": [
+              "request"
+            ]
           }
         }
       }
@@ -84,12 +119,22 @@
         "api_schema": {
           "url": "{{BASE_URL}}/tools/get_status",
           "method": "POST",
-          "request_headers": { "X-Shotgun-Secret": { "secret_id": "tools_secret" } },
+          "request_headers": {
+            "X-Shotgun-Secret": {
+              "secret_id": "tools_secret"
+            }
+          },
           "request_body_schema": {
             "type": "object",
             "properties": {
-              "caller": { "type": "string", "dynamic_variable": "system__caller_id" },
-              "called": { "type": "string", "dynamic_variable": "system__called_number" }
+              "caller": {
+                "type": "string",
+                "dynamic_variable": "system__caller_id"
+              },
+              "called": {
+                "type": "string",
+                "dynamic_variable": "system__called_number"
+              }
             }
           }
         }
@@ -104,16 +149,35 @@
         "api_schema": {
           "url": "{{BASE_URL}}/tools/approve_action",
           "method": "POST",
-          "request_headers": { "X-Shotgun-Secret": { "secret_id": "tools_secret" } },
+          "request_headers": {
+            "X-Shotgun-Secret": {
+              "secret_id": "tools_secret"
+            }
+          },
           "request_body_schema": {
             "type": "object",
             "properties": {
-              "job_id": { "type": "string", "description": "The pending job id from the callback context." },
-              "approved": { "type": "boolean", "description": "true only for a clear spoken yes." },
-              "caller": { "type": "string", "dynamic_variable": "system__caller_id" },
-              "called": { "type": "string", "dynamic_variable": "system__called_number" }
+              "job_id": {
+                "type": "string",
+                "description": "The pending job id from the callback context."
+              },
+              "approved": {
+                "type": "boolean",
+                "description": "true only for a clear spoken yes."
+              },
+              "caller": {
+                "type": "string",
+                "dynamic_variable": "system__caller_id"
+              },
+              "called": {
+                "type": "string",
+                "dynamic_variable": "system__called_number"
+              }
             },
-            "required": ["job_id", "approved"]
+            "required": [
+              "job_id",
+              "approved"
+            ]
           }
         }
       }

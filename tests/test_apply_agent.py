@@ -61,3 +61,15 @@ def test_full_stage_wires_tools_and_caller_webhook():
     ]
     assert webhook["url"] == f"{BASE}/tools/init"
     assert webhook["request_headers"]["X-Shotgun-Secret"] == {"secret_id": "sec_123"}
+
+
+def test_agent_always_hangs_up():
+    """Regression: the 1.2 test call stayed open because nothing told the agent to end it."""
+    conversation = apply_agent.load_config(BASE)["agent"]["conversation_config"]
+    prompt = conversation["agent"]["prompt"]["prompt"]
+    assert "Never leave the line open" in prompt
+    assert "only delivers a message" in prompt
+    assert 0 < conversation["turn"]["silence_end_call_timeout"] <= 30
+    assert conversation["agent"]["prompt"]["built_in_tools"]["end_call"]["params"] == {
+        "system_tool_type": "end_call"
+    }

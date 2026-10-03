@@ -12,6 +12,7 @@ Config lives in `config/elevenlabs_agent.json` (agent body + tool definitions). 
 - **Confirm:** repeat the request back in one sentence, then "Right?"
 - **Dispatch:** one `dispatch_task` call with the whole request. Never do the work or wait for results.
 - **Hang up:** "On it. I'll call you back." then `end_call`.
+- **Always end the call yourself:** after a goodbye, "thanks", "that's all", an answered callback, or a one-way message (ask "Anything else?" once). Backstop: `conversation_config.turn.silence_end_call_timeout` = 20 s (it was `-1`, disabled, and the 1.2 test call stayed open until Daniel hung up).
 - **Callbacks:** the summary arrives in `{{summary}}`/`{{greeting}}`. If `{{pending_job_id}}` is set, ask for a clear yes. Only a clear yes calls `approve_action(approved=true)`; "maybe", "hold on" or silence never count.
 - **Safety:** nothing irreversible without a spoken yes; offer to call back when parked.
 
