@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "server": {
+    "now": "2026-10-03T22:29:14Z",
+    "uptime_s": 11182,
+    "demo_mode": true
+  },
+  "services": [
+    {"name": "api_server", "ok": true, "latency_ms": 3, "checked_at": "2026-10-03T22:29:14Z", "detail": null},
+    {"name": "neon", "ok": true, "latency_ms": 39, "checked_at": "2026-10-03T22:29:02Z", "detail": null},
+    {"name": "elevenlabs", "ok": true, "latency_ms": 176, "checked_at": "2026-10-03T22:29:00Z", "detail": null},
+    {"name": "twilio", "ok": true, "latency_ms": 118, "checked_at": "2026-10-03T22:29:01Z", "detail": null},
+    {"name": "anthropic", "ok": true, "latency_ms": 241, "checked_at": "2026-10-03T22:29:03Z", "detail": null},
+    {"name": "github", "ok": true, "latency_ms": 102, "checked_at": "2026-10-03T22:29:04Z", "detail": null},
+    {"name": "google_routes", "ok": false, "latency_ms": null, "checked_at": "2026-10-03T22:29:06Z", "detail": "timeout after 5000ms"},
+    {"name": "ntfy", "ok": true, "latency_ms": 61, "checked_at": "2026-10-03T22:27:20Z", "detail": null}
+  ],
+  "drive": {
+    "id": 17,
+    "status": "plugged_in",
+    "started_at": "2026-10-03T22:29:10Z",
+    "ended_at": null,
+    "destination": null,
+    "eta": null,
+    "arrival_call_at": null,
+    "arrival_called": false
+  },
+  "call": null,
+  "jobs": [],
+  "upcoming": [],
+  "tool_calls": [],
+  "events": [
+    {"id": 301, "at": "2026-10-03T22:29:10Z", "type": "plug_in", "message": "CarPlay connected, drive #17 opened", "job_id": null}
+  ],
+  "agents": [
+    {"name": "voice", "status": "idle", "last_heartbeat": "2026-10-03T22:29:00Z", "current_job_id": null},
+    {"name": "orchestrator", "status": "idle", "last_heartbeat": "2026-10-03T22:29:06Z", "current_job_id": null},
+    {"name": "coder", "status": "idle", "last_heartbeat": "2026-10-03T22:29:09Z", "current_job_id": null},
+    {"name": "research", "status": "idle", "last_heartbeat": "2026-10-03T22:29:03Z", "current_job_id": null},
+    {"name": "email", "status": "offline", "last_heartbeat": "2026-10-03T22:26:02Z", "current_job_id": null}
+  ],
+  "active_agent": null
+}

@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # Deploy
     public_base_url: str = ""
 
+    # Mission control (/dashboard). The token is a secret: it is in the dashboard URL.
+    dashboard_token: str = ""
+    demo_mode: bool = False  # enables POST /dashboard/demo/* (they ring the phone for real)
+
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
