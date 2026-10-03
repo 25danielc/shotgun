@@ -12,6 +12,9 @@ Rules:
   in pending_job_id), and no new question while an earlier one is still unanswered.
 - A job is marked announced only after ElevenLabs accepts the call; a failed call is retried on
   the next tick.
+- Unclaimed guard: a job still queued after UNCLAIMED_MINUTES has no worker running for its type
+  (e.g. a stub worker, or the Mac food worker is offline). It fails with a spoken reason so a
+  request never ends in silence. Deadline-scheduled jobs (step 5.2) must not wait in `queued`.
 - Collision guard: at least MIN_GAP_SECONDS between callbacks so a new call can't ring into one
   still in progress. Not the step 4.3 call policy (cooldown, drive length, pending items).
 
@@ -26,6 +29,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 from psycopg import AsyncConnection
 from psycopg.rows import class_row
@@ -38,6 +42,7 @@ log = logging.getLogger(__name__)
 POLL_SECONDS = 3.0
 MIN_GAP_SECONDS = 60.0
 MAX_UPDATES_PER_CALL = 3
+UNCLAIMED_MINUTES = 2
 ANNOUNCE_STATES = (JobState.DONE, JobState.NEEDS_APPROVAL, JobState.FAILED)
 
 
@@ -105,6 +110,32 @@ async def pick_batch(conn: AsyncConnection) -> list[Job]:
     return batch
 
 
+async def expire_unclaimed(conn: AsyncConnection, now: datetime | None = None) -> list[Job]:
+    """Fail jobs nobody claimed within UNCLAIMED_MINUTES, so the driver hears about them."""
+    cutoff = (now or datetime.now(UTC)) - timedelta(minutes=UNCLAIMED_MINUTES)
+    cur = conn.cursor(row_factory=class_row(Job))
+    await cur.execute(
+        "select * from jobs where state = 'queued' and updated_at < %s order by id", (cutoff,)
+    )
+    expired = []
+    for job in await cur.fetchall():
+        label = job.details.get("label") or job.request or f"job {job.id}"
+        try:
+            expired.append(
+                await jobs.transition(
+                    conn,
+                    job.id,
+                    JobState.FAILED,
+                    summary=f"Sorry, I can't handle this one yet: {label}.",
+                    error=f"no {job.type} worker claimed it within {UNCLAIMED_MINUTES} minutes",
+                    expect=JobState.QUEUED,
+                )
+            )
+        except jobs.IllegalTransition:
+            pass  # a worker claimed it just now
+    return expired
+
+
 def job_sentence(job: Job) -> str:
     if job.summary:
         return job.summary.strip()
@@ -141,6 +172,7 @@ async def run_callbacks(pool) -> None:
     while True:
         try:
             async with pool.connection() as conn:
+                await expire_unclaimed(conn)
                 await watcher.tick(conn)
         except asyncio.CancelledError:
             raise

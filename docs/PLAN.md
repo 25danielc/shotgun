@@ -43,7 +43,7 @@ No self-hosted models: every model is an API. You host one small Python server; 
 | Coding worker | Claude Code GitHub Action on a demo repo | — | We open an issue mentioning @claude; it opens the PR |
 | Email worker | Composio Gmail tools, throwaway Gmail account | — | Skips Google OAuth setup |
 | Food worker | DoorDash CLI on a Mac (waitlist) or browser agent that stops at cart | — | Mac-only CLI runs as a local worker polling the job table |
-| Maps | Google Routes API + Places API | — | ETA deadlines and restaurant lookup |
+| Maps | Google Routes API | — | ETA deadlines (research uses Claude web search, D15) |
 | Planning | Notability Pro | Notability | Sketches + 2 screenshots for Devpost |
 
 ## Build steps
@@ -68,7 +68,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | 3.1 | Coder worker plus demo repo with a planted bug | 2.1 | Job inserted by hand → PR opens and webhook marks job done within 10 min | 2 | Hero (pick one) | Done (2026-10-03 16:43): `make coder-demo` job 85 → issue #1 → Action → PR #2 → needs_approval in 1.7 min |
 | 3.2 | Email worker via Composio | 2.1 | Job → draft in Gmail, status needs\_approval; approve → sent | 1.5 | Stretch | Not started |
 | 3.4 | Food worker: DoorDash CLI, or browser agent stopping at cart | 0.1, 2.1 | Job → cart with the right items and total; order placed only after approval | 2.5 | Hero (pick one) | Not started |
-| 3.5 | Research worker via Places API | 2.1 | Job → 3 open restaurants near the destination with hours | 1 | Stretch | Not started |
+| 3.5 | Research worker via Claude web search (D15) | 2.1 | Job → 3 open restaurants near the destination with hours | 1 | Stretch | Not started |
 | 4.1 | Callback watcher places an outbound call with a summary | 1.2, 2.1 | Job flipped to done by hand → phone rings and reads the summary | 1 | Core | Done (2026-10-03 16:43): job 85 reached needs_approval → phone rang with "I opened a pull request: Fix the login bug. Merge it?" (conv_7001…); Daniel answered |
 | 4.2 | Spoken approval loop | 2.3, 4.1 | "Yes" runs the action, "no" cancels; both logged | 1 | Core | In progress: "yes" works live (job 85: approve_action → PR #2 merged 5 s later, logged in job_events). "No" → Cancelled still to check live |
 | 4.3 | Call policy: cooldown, drive of 10+ min or pending items | 1.5 | Unit test per rule passes | 0.5 | Stretch | Not started |
@@ -85,7 +85,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 - [x] Hour 1: read the Fetch.ai hackpack — is their own LLM or a specific chat protocol required? *Agent Chat Protocol required; ASI-1 LLM not required (DECISIONS §6a).*
 - [ ] Hour 10: hero worker. DoorDash approved and an Apple Silicon Mac on hand → food (3.4). Otherwise → coding PR (3.1).
 - [x] Check Devpost rules: how many sponsor prizes can one project enter? *As many as eligible; one main track. Winning several isn't stated (DECISIONS §6).*
-- [ ] Destination source for ETA: next calendar event, a fixed home/work address, or the agent asks.
+- [x] Destination source for ETA: next calendar event, a fixed home/work address, or the agent asks. *Fixed `HOME_ADDRESS` (D16).*
 
 ## Risks and fallbacks
 

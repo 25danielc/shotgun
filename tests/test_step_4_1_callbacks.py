@@ -5,6 +5,8 @@ summary (`uv run python -m app.callbacks --demo "..."`). Offline: what gets anno
 with which dynamic variables, with a fake telephony layer and a fake clock.
 """
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from app import callbacks, jobs, telephony, voice_tools
@@ -203,3 +205,36 @@ async def test_job_that_moved_on_during_the_call_is_announced_again(db, watcher,
     assert (await jobs.get_job(db, job.id)).state is JobState.APPROVED
     cur = await db.execute("select announced_state from jobs where id = %s", (job.id,))
     assert (await cur.fetchone())[0] is None
+
+
+# --- unclaimed guard: no request ends in silence ----------------------------------------------
+
+
+def later(minutes):
+    return datetime.now(UTC) + timedelta(minutes=minutes)
+
+
+async def test_job_nobody_claims_fails_and_rings(db, watcher, calls):
+    job = await jobs.create_job(
+        db, JobType.EMAIL, {"label": "Email Alex I'm running late"}, request="email Alex"
+    )
+    assert await callbacks.expire_unclaimed(db, later(1)) == []
+    [expired] = await callbacks.expire_unclaimed(db, later(callbacks.UNCLAIMED_MINUTES + 1))
+    assert (expired.id, expired.state) == (job.id, JobState.FAILED)
+    assert expired.summary == "Sorry, I can't handle this one yet: Email Alex I'm running late."
+    await watcher.tick(db)
+    assert calls[0]["greeting"] == (
+        "Shotgun here. Sorry, I can't handle this one yet: Email Alex I'm running late."
+    )
+
+
+async def test_unclaimed_guard_falls_back_to_the_request(db):
+    await jobs.create_job(db, JobType.RESEARCH, request="find ramen nearby")
+    [expired] = await callbacks.expire_unclaimed(db, later(callbacks.UNCLAIMED_MINUTES + 1))
+    assert expired.summary == "Sorry, I can't handle this one yet: find ramen nearby."
+
+
+@pytest.mark.parametrize("state", [JobState.RUNNING, JobState.NEEDS_APPROVAL, JobState.DONE])
+async def test_claimed_jobs_are_left_alone(db, state):
+    await job_in(db, state)
+    assert await callbacks.expire_unclaimed(db, later(60)) == []

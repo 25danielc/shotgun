@@ -34,7 +34,7 @@ Sending email, ordering or paying, merging a PR: **stop at `needs_approval`** wi
 | coder | issue → Action branch → our PR | merge |
 | email | `GMAIL_CREATE_EMAIL_DRAFT` | `GMAIL_SEND_DRAFT` |
 | food | cart with items and total | place order (at ETA minus prep time, step 5.2) |
-| research | Places lookup | none |
+| research | Claude web search | none |
 
 ## 5. Callback summary
 Callbacks are automatic: the watcher rings once when a job reaches `done`, `needs_approval` or `failed`, so workers don't call telephony themselves. `summary` is read aloud by the callback (`app/callbacks.py`), falling back to the label: at most 2 short sentences, numbers rounded, no URLs or IDs. Spell out what will happen on "yes".

@@ -129,12 +129,6 @@ def check_composio(env: dict) -> str:
 
 def check_google_maps(env: dict) -> str:
     key = env["GOOGLE_MAPS_API_KEY"]
-    # Places Text Search with an IDs-only field mask: the free "Essentials (IDs Only)" SKU.
-    places = _post(
-        "https://places.googleapis.com/v1/places:searchText",
-        headers={"X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.id"},
-        json={"textQuery": "ramen in Ann Arbor", "pageSize": 1},
-    ).json()
     # Routes with TRAFFIC_UNAWARE bills as Essentials (10k free/month); proves Routes is enabled.
     routes = _post(
         "https://routes.googleapis.com/directions/v2:computeRoutes",
@@ -146,11 +140,9 @@ def check_google_maps(env: dict) -> str:
             "routingPreference": "TRAFFIC_UNAWARE",
         },
     ).json()
-    if not places.get("places"):
-        raise CheckFailed("Places returned no results")
     if not routes.get("routes"):
         raise CheckFailed("Routes returned no route")
-    return f"Places OK, Routes OK ({routes['routes'][0]['duration']})"
+    return f"Routes OK ({routes['routes'][0]['duration']})"
 
 
 def check_railway(env: dict) -> str:

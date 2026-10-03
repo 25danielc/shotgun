@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     composio_api_key: str = ""
     composio_user_id: str = ""
 
-    # Google Maps Platform (Routes + Places)
+    # Google Maps Platform: Routes API only (ETA, step 5.1)
     google_maps_api_key: str = ""
+    home_address: str = ""  # ETA destination (D16)
 
     # Security
     events_shared_secret: str = ""

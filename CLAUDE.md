@@ -39,7 +39,7 @@ job done / needs_approval ─▶ callback watcher ─▶ outbound call with summ
 - Job table: Neon Postgres via psycopg 3. Shared by all agents; no agent-to-agent protocol.
 - Coder: GitHub issue with @claude → Claude Code GitHub Action on `shotgun-demo-app`.
 - Email: Composio Gmail on a throwaway account. Food: official DoorDash CLI or a cart-only browser agent.
-- Maps: Google Routes API + Places API (New). No other Google Cloud.
+- Maps: Google Routes API only (ETA to `HOME_ADDRESS`). Research uses Claude web search, not Places. No other Google Cloud.
 - Callbacks are phone calls, never SMS. Hero action is the coding PR unless switched at hour 10.
 
 ## How to work
@@ -81,7 +81,7 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 
 ## Env vars (see .env.example)
 
-`ANTHROPIC_API_KEY` · `ELEVENLABS_API_KEY` `ELEVENLABS_AGENT_ID` `ELEVENLABS_PHONE_NUMBER_ID` · `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_PHONE_NUMBER` · `DATABASE_URL` · `GITHUB_TOKEN` `GITHUB_DEMO_REPO` `GITHUB_WEBHOOK_SECRET` · `COMPOSIO_API_KEY` `COMPOSIO_USER_ID` · `GOOGLE_MAPS_API_KEY` · `EVENTS_SHARED_SECRET` `TOOLS_SHARED_SECRET` `ALLOWED_CALLER_NUMBER` · `MY_PHONE_NUMBER` · `PUBLIC_BASE_URL`
+`ANTHROPIC_API_KEY` · `ELEVENLABS_API_KEY` `ELEVENLABS_AGENT_ID` `ELEVENLABS_PHONE_NUMBER_ID` · `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_PHONE_NUMBER` · `DATABASE_URL` · `GITHUB_TOKEN` `GITHUB_DEMO_REPO` `GITHUB_WEBHOOK_SECRET` · `COMPOSIO_API_KEY` `COMPOSIO_USER_ID` · `GOOGLE_MAPS_API_KEY` `HOME_ADDRESS` · `EVENTS_SHARED_SECRET` `TOOLS_SHARED_SECRET` `ALLOWED_CALLER_NUMBER` · `MY_PHONE_NUMBER` · `PUBLIC_BASE_URL`
 
 ## Steps that need Daniel physically: stop and ask, never fake a pass
 

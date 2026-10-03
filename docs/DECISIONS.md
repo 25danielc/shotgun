@@ -86,6 +86,8 @@ Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and
 | D12 | **Shared job table, no agent-to-agent protocol** | Simplest way for the voice agent, orchestrator, workers and Fetch.ai agent to coordinate. | Message bus, A2A protocols |
 | D13 | **Orchestrator can be cut** | If time runs short, the voice agent calls `dispatch_task(type, details)` directly. | — |
 | D14 | **Voice-turn model: Claude Haiku 4.5 inside ElevenLabs** | Low latency. ElevenLabs' LLM list includes `claude-haiku-4-5` (checked 2026-10-03, still to confirm in the UI). Fallback: custom LLM pointed at our server. | GPT/Gemini in ElevenLabs |
+| D15 | **Research = Claude web search for everything** (Daniel, 16:55) | One worker, no extra key or API to wire up: Sonnet 5.5 with Anthropic's server-side web search tool answers place lookups and general questions alike. | Google Places API (New) for places plus a second path for other questions |
+| D16 | **ETA destination = fixed `HOME_ADDRESS`** (Daniel, 16:55); **"text X" = email** (Daniel says "email" in the demo) | Simplest, works without calendar access. The address lives only in `.env` and Railway, never in git. | Next calendar event; the agent asks |
 
 ## 5. Cut from scope (don't build)
 
@@ -137,7 +139,7 @@ Claude must stop and ask, never pretend to verify these:
 PLAN.md wins on build steps; these are flagged for Daniel.
 
 1. **Demo script vs default hero.** PLAN.md's script callback is the ramen order (food hero), but D9 makes the coding PR the default. If the PR is the hero, the callback line becomes something like "Sarah's login bug: I opened PR 4 with a fix. Merge it?" → "Yes."
-2. **"Text Alex" has no worker.** SMS is out (D6) and email is the only messaging worker. Say "email Alex" in the script, or drop that part. As built (2.4): the planner turns "text X" into an email job, pending Daniel's OK.
+2. **"Text Alex" has no worker.** SMS is out (D6) and email is the only messaging worker. Say "email Alex" in the script, or drop that part. As built (2.4): the planner turns "text X" into an email job. **Resolved (D16):** OK'd; Daniel says "email" in the demo.
 3. **Coder "done" vs the approval rule.** The context says the GitHub webhook marks the job done; PLAN.md lists *merge* as irreversible. Proposed flow: PR opened → `needs_approval` → spoken "yes" → merge → `done`. Step 3.1's pass check ("PR opens and webhook marks job done") stays as written; read "done" there as "the worker's part is done".
 4. **The Claude Code Action doesn't open the PR by itself.** Per its docs (capabilities-and-limitations.md, checked 2026-10-03), from an issue it pushes a `claude/...` branch and posts a link to a **prefilled PR creation page**. Fix in step 3.1: either our server opens the PR with the GitHub API when the `claude/*` branch appears (webhook `create`/`push`), or the workflow allows `gh pr create` (TODO(verify) the `claude_args`/allowed-tools syntax). The first option is simpler and fully under our control. **As built (3.1):** our webhook reads the Action's "[Create a PR](…/compare/base...claude/branch?quick_pull=1…)" link from its `issue_comment` (format from `src/entrypoints/update-comment-link.ts`), opens the PR through the API and moves the job to `needs_approval`.
 5. **ElevenLabs has no built-in caller allowlist.** *(As built: `/tools/init`; the webhook fires only on inbound calls, or on outbound calls that carry no initiation data, which ours always do.)* Use the *conversation initiation client data webhook* (it receives `caller_id`) to give unknown callers a refusal greeting and `end_call`, **and** check `system__caller_id` in every tool webhook. Whether that webhook can reject a call outright is unverified.
@@ -158,7 +160,7 @@ PLAN.md wins on build steps; these are flagged for Daniel.
 | Does ElevenLabs offer Claude for voice turns? | **Resolved:** the agent runs `claude-haiku-4-5` (pushed via API and read back, 14:14) | — |
 | Fetch.ai hackpack: own LLM or chat protocol required? | **Resolved:** Chat Protocol required; ASI-1 LLM **not** required (§6a) | — |
 | How many sponsor prizes can one project enter? | **Resolved:** as many as eligible. Whether it can *win* several isn't stated; ask an organizer | Before submitting |
-| Where does the ETA destination come from? | Open: fixed home/work address (simplest), next calendar event, or the agent asks | Step 5.1 |
+| Where does the ETA destination come from? | **Resolved (D16):** fixed `HOME_ADDRESS` in `.env` / Railway | — |
 | Can the ElevenLabs initiation webhook reject a caller outright? | Not described in the docs. Built instead: `/tools/init` returns `caller_allowed: "no"` and a refusal greeting, the prompt hangs up at once, and the tools return 403 | — |
 | Does the iOS 26 CarPlay automation fire reliably with the phone locked? | Open; step 1.3 measures it (5 of 5 replugs locked) | Hour 4 gate |
 
@@ -218,3 +220,9 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - a second callback "Merged: Fix the login bug." 60 s later
 
   3.1 and 4.1 Done; 4.2 "yes" path proven. **The demo repo's main is now fixed**, so every rehearsal needs the planted bug restored first (a reset script is a TODO for 7.1). Polish option: skip the "Merged" callback when the driver approved on the call less than 2 min earlier.
+- 2026-10-03 16:55 (hour 5): Daniel's decisions:
+  - **"Text X" → email** is OK, and he'll say "email" in the demo (D16).
+  - **The ETA destination is a fixed home address**, now `HOME_ADDRESS` in `.env` and Railway. It isn't in git, because the repo is public (D16).
+  - **Research uses Claude web search for everything**, so no Places API (D15). The Maps key now needs only the Routes API, and `check_keys` checks only Routes.
+
+  Shipped the **unclaimed guard** (`callbacks.expire_unclaimed`): a job still queued after 2 min fails with "Sorry, I can't handle this one yet: <label>.", which the watcher then rings about. Old stuck jobs 80, 81, 83 and 84 were failed silently first (marked announced), so the deploy didn't ring about them.
