@@ -364,4 +364,5 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **The token moved into a URL fragment:** open `/dashboard#token=…`; the page sends `X-Dashboard-Token`. Fragments never reach the server, so the token stays out of Railway's access logs.
   - **Background research now searches near the drive's destination** (D17), not HOME_ADDRESS, and is localized the same way as `search_web`.
   - `calls(drive_id)` index.
+- 2026-10-03 19:59 (hour 8): Pushed the agent with Daniel's OK. Read back: 6 tools, `voicemail_detection` with `{{summary}}` in its message, honest about email and food, destination asked on departure only, check-in exactly "Anything else?". The number is still on the agent; this time the phone-number PATCH succeeded.
 
