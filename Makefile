@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
+.PHONY: demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
 
 PORT ?= 8000
 
@@ -58,3 +58,13 @@ deploy:  ## Deploy to Railway (see .claude/skills/deploy)
 
 smoke:  ## GET /health on BASE_URL (default: PUBLIC_BASE_URL from .env)
 	uv run python scripts/smoke.py
+
+demo-call:  ## Step 4.5: simulate the plug-in (POST /events to BASE, default PUBLIC_BASE_URL)
+	uv run python scripts/demo.py call $(if $(BASE),--base $(BASE))
+
+demo-arrive:  ## Step 4.5: make the open drive's arrival call ring now (DATABASE_URL)
+	uv run python scripts/demo.py arrive
+
+watch:  ## Step 4.5: live terminal view of the drive, its jobs and calls (DATABASE_URL)
+	uv run python scripts/demo.py watch
+

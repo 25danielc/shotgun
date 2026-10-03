@@ -294,3 +294,8 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Then one ntfy push (`app/recap.py`) with lines grouped as Done / Waiting on you / Still running / Didn't work. A drive with no jobs pushes nothing.
   - Items still waiting come back on the next departure call (4.3's pending rule).
   - `NTFY_TOPIC` is a secret (ntfy.sh topics are public by name). It was generated into `.env` as `shotgun-<24 hex>`. `make check-keys` checks it locally only, because a request would publish the name.
+- 2026-10-03 18:13 (hour 6.5): **Step 4.5 Done.** `scripts/demo.py`:
+  - `make demo-call` goes through the real `/events`, so the call policy applies.
+  - `make demo-arrive` sets the open drive's `arrival_call_at` to now in Neon; the deployed loop does the ringing. No new public endpoint.
+  - `make watch` is read-only.
+  - `make callback-demo` was removed with the watcher in 4.1.
