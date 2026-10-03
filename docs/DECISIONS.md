@@ -346,4 +346,10 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **Honest about email and food:** the prompt says plainly that it can't send messages or order food yet. It never dispatches them and never says "sent".
   - **Tests can't reach Anthropic any more:** `conftest.py` blanks the API key unless RUN_LIVE=1. The new wording code had quietly called real Haiku from the suite (3 s → 10 s).
   - `.claude/worktrees/` is ignored by git and ruff.
+- 2026-10-03 19:34 (hour 7.6): **First live arrival call (4.1).** Drive 1's call rang at 23:30:16 UTC, exactly `arrival_call_at` (ETA − 3 min), covering jobs 182 + 183. It used the deploy made 9 minutes earlier, so the new natural wording.
+  - It reached Daniel's voicemail, and the agent talked to the greeting for 112 s ("I think there's been a mix-up…"), asked "Where are you headed?" (a departure question), and checked in with "You still there?".
+  - Fixes (in config, not pushed yet):
+    - ElevenLabs' built-in `voicemail_detection` with a `voicemail_message` that reads `{{summary}}` and how to answer, then hangs up.
+    - The destination question is limited to departure calls.
+    - The check-in is exactly "Anything else?".
 
