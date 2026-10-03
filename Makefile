@@ -39,7 +39,7 @@ check-keys:  ## Step 0.2 pass check: one cheap read-only call per key
 	uv run python scripts/check_keys.py
 
 ring:  ## Step 1.2: ring MY_PHONE_NUMBER through ElevenLabs (MSG="..." to set the greeting)
-	uv run python -m app.telephony $(MSG)
+	uv run python -m app.telephony "$(MSG)"
 
 curl-tools:  ## Step 2.2: curl sample ElevenLabs payloads at BASE (default PUBLIC_BASE_URL)
 	bash scripts/curl_tools.sh $(BASE)
