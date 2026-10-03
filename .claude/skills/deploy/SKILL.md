@@ -7,13 +7,15 @@ description: Use when deploying Shotgun to Railway, after changing env vars, or 
 
 Railway docs checked 2026-10-03: Railpack builder (reads `.python-version` = 3.12, `pyproject.toml` + `uv.lock`), config in `railway.json` (start command `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`, healthcheck `/health`). Containers stay running (app sleeping is opt-in), so background loops work.
 
+Live: project `shotgun`, service `shotgun`, https://shotgun-production-5f30.up.railway.app (created 2026-10-03 14:35).
+
 ## First time (step 1.4, ask Daniel before creating the project)
 1. `railway login` (Daniel; browser) **in this terminal** (`! railway login`): logging in on the website doesn't log the CLI in. Check with `railway whoami`.
-2. `railway init` (new project "shotgun") or `railway link` to an existing one.
+2. `railway init --name shotgun`, then `railway add --service shotgun` (empty service) and `railway service shotgun` to link it. Or `railway link` to an existing project. `railway up --ci` may say "Failed to stream build logs"; poll `railway deployment list` instead, and read a build log with `railway logs --build <deployment-id>` (it streams, so put a timeout on it).
 3. Set variables from `.env` without echoing them: `make railway-env` (scripts/railway_env.py, prints names only). The installed CLI is **4.10**: the syntax is `railway variables --service shotgun --set K=V --skip-deploys`. Newer CLIs prefer `railway variable set`. Never paste values into chat or commit them.
 4. `make deploy` (`railway up --detach`), then `railway logs` until the healthcheck passes.
 5. `railway domain` creates the public URL. Put it in `.env` as `PUBLIC_BASE_URL` and in Railway variables.
-6. TODO(verify): Railpack puts the venv's `uvicorn` on PATH for the start command. If the deploy fails with "uvicorn: not found", switch `startCommand` to `python -m uvicorn ...` and re-check the Railpack Python docs.
+6. Railpack needs **`railpack.json`** with `deploy.startCommand`. Without it the build fails at "railpack prepare" with "No start command detected", because it only auto-detects `main.py`/`app.py` in the root. `railway.json` repeats the command; `tests/test_deploy_config.py` keeps them equal. The venv's `uvicorn` is on PATH (verified: the first deploy started fine).
 
 ## Every deploy
 1. `make test && make lint` must pass first.
