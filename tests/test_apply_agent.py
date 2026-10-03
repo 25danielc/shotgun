@@ -183,3 +183,14 @@ def test_lookups_just_search_and_never_mention_helpers():
         "type": "string",
         "dynamic_variable": "drive_id",
     }
+
+
+def test_agent_talks_like_a_friend_not_a_screen_reader():
+    """Daniel 18:43: stiff, read every street number and closing time, said "Sent" for a job
+    that had only been dispatched."""
+    prompt = prompt_text()
+    assert "Talk like a friend riding along" in prompt
+    assert "is a note for you, not a script: say it in your own words, shorter" in prompt
+    assert "Never read out street numbers, full addresses, coordinates or exact times" in prompt
+    assert 'never "Sent" or "Done"' in prompt
+    assert "where they are right now" in prompt

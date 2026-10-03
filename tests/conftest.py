@@ -34,6 +34,12 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_live)
 
 
+@pytest.fixture(autouse=True)
+def default_call_policy(monkeypatch):
+    """Tests see the default departure policy, whatever CALL_POLICY the local .env sets."""
+    monkeypatch.setattr(settings, "call_policy", "auto")
+
+
 @pytest.fixture(scope="session")
 def pg_uri(tmp_path_factory):
     if os.environ.get("USE_NEON") == "1":

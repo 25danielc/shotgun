@@ -323,4 +323,16 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - `apply_agent.py --stage full`: created `search_web`, `draft_message` and `set_destination`, updated the other 3 tools, the agent and the number. Read back OK.
   - **Location:** Daniel's Shortcut already sends lat/lng (Railway logged `location True` at 18:26). The server deployed at 17:58 just didn't store it yet, so SHORTCUT_SETUP.md was corrected.
   - Not run: the curl check of `dispatch_task` against Railway. A dispatched job now earns a real arrival call.
+- 2026-10-03 18:49 (hour 6.9): **Daniel's 18:40 test call** (`conv_6901m41y…`, 157 s). It stayed on the line through a search, a coding task with pre-approval and a draft, and ended on "that's enough". Problems found and fixed:
+  - **"53 minutes to 333 East Jefferson" (should be ~10).** The plug-in location stored fine (42.2967, -83.7211, North Campus); the Shortcut works. The address had no city, and Routes resolved it to 333 E Jefferson in Detroit (76 km, 3154 s). With ", Ann Arbor, MI" it's 4 km, 559 s.
+    - Fix (`app/eta.py`): a street address with no city is also tried in HOME_ADDRESS's city and state, both requests in parallel, and the closer route wins. Bare place names are sent as said.
+    - Live: 10 min.
+  - **Stiff and robotic** (it read "six oh eight East Liberty, open until eleven PM"). Fixes:
+    - The search prompt now answers like a friend in the passenger seat: names plus a rough where, never street numbers, hours only if asked or closing within the hour.
+    - `without_house_numbers()` removes any house number the model still produces.
+    - The agent prompt treats tool replies as notes to say in its own words, never reads addresses, coordinates or exact times, and varies its fillers. Tool replies are shorter ("About 10 minutes. I'll ring you just before you get there.").
+  - **Location handling.** Haiku given raw coordinates asked the driver for their location and once placed Ann Arbor in Detroit. Search is now localized with `user_location` (city from HOME_ADDRESS). The home address is no longer in the search context, where it pulled answers toward home. "Where am I?" gets the part of town only; precise reverse geocoding would need the Geocoding API, outside the fixed stack ("Routes only").
+  - **It said "Sent." for an email it had only dispatched**, and there's no email worker (3.2 stretch), so that job will fail at the unclaimed guard and be reported on the arrival call. The prompt now says to claim "done" only when it is.
+  - **Tests now pin `CALL_POLICY` and `HOME_ADDRESS`** so a local `.env` can't change results (it did, once `CALL_POLICY=always` was set).
+  - **Live coder job 182** filed demo-repo issue #3, but the demo repo's main is already fixed, so expect no PR and a "didn't come back in time" failure after 15 min.
 

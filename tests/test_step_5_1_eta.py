@@ -96,6 +96,52 @@ def test_home_means_home_address_and_is_never_read_out(said, spoken, address):
     assert eta.resolve(said) == (spoken, address)
 
 
+# --- a street address with no city (Daniel's 18:40 call: 53 min to Detroit, not 9 in Ann Arbor) --
+
+
+def test_home_area_comes_from_home_address(monkeypatch):
+    assert eta.home_area() == "Ann Arbor, MI"
+    monkeypatch.setattr(settings, "home_address", "1780 Broadway St, Ann Arbor, MI 48105")
+    assert eta.home_area() == "Ann Arbor, MI"
+    monkeypatch.setattr(settings, "home_address", "")
+    assert eta.home_area() is None
+
+
+@pytest.mark.parametrize(
+    ("said", "tried"),
+    [
+        ("333 East Jefferson", ["333 East Jefferson", "333 East Jefferson, Ann Arbor, MI"]),
+        ("333 East Jefferson, Detroit", ["333 East Jefferson, Detroit"]),
+        ("Detroit", ["Detroit"]),
+        ("the Michigan Union", ["the Michigan Union"]),
+    ],
+)
+def test_only_street_addresses_without_a_city_get_a_second_try(said, tried):
+    assert eta.candidates(said) == tried
+
+
+async def test_the_closer_match_wins():
+    def handler(request):
+        address = json.loads(request.content)["destination"]["address"]
+        seconds = 559 if address.endswith("Ann Arbor, MI") else 3154  # live values, 2026-10-03
+        return httpx.Response(200, json={"routes": [{"duration": f"{seconds}s"}]})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    route = await eta.best_route(42.2967, -83.7211, "333 East Jefferson", client=client)
+    assert route.minutes == 10
+
+
+async def test_one_failed_version_doesnt_lose_the_other():
+    def handler(request):
+        address = json.loads(request.content)["destination"]["address"]
+        if address.endswith("Ann Arbor, MI"):
+            return httpx.Response(200, json={"routes": [{"duration": "559s"}]})
+        return httpx.Response(200, json={"routes": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    assert (await eta.best_route(42.3, -83.7, "333 East Jefferson", client=client)).seconds == 559
+
+
 # --- set_destination stores the ETA and the arrival time --------------------------------------
 
 
@@ -109,7 +155,7 @@ async def test_destination_sets_eta_and_arrival_call_3_min_before(db):
     assert drive.destination == "home"
     assert drive.eta == NOW + timedelta(minutes=22)
     assert drive.arrival_call_at == NOW + timedelta(minutes=19)
-    assert reply == "About 22 minutes home. I'll call about 3 minutes before you get there."
+    assert reply == "About 22 minutes. I'll ring you just before you get there."
 
 
 async def test_short_drive_arrival_call_is_due_at_once(db):
@@ -123,9 +169,7 @@ async def test_no_location_stores_the_destination_and_falls_back(db, rang):
     drive = await drives.open_drive(db, now=now)  # the Shortcut sent no location
     drive, reply = await eta.set_destination(db, drive, "home", now=now, client=routes())
     assert (drive.destination, drive.eta, drive.arrival_call_at) == ("home", None, None)
-    assert reply == (
-        "Got it, heading home. I don't have your location, so I'll call once everything's done."
-    )
+    assert reply == "Got it. I don't have your location, so I'll ring once everything's done."
     # Fallback: the arrival call rings once every job is settled.
     job = await jobs.create_job(db, JobType.RESEARCH, drive_id=drive.id)
     await run(db, job.id, "running")
@@ -138,7 +182,7 @@ async def test_routes_failure_falls_back_too(db):
     drive = await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=NOW)
     drive, reply = await eta.set_destination(db, drive, "home", now=NOW, client=routes(status=500))
     assert drive.arrival_call_at is None
-    assert reply.startswith("Got it, heading home. I couldn't get a route")
+    assert reply.startswith("Got it. I couldn't get a route")
 
 
 async def test_arrival_rings_at_eta_minus_3_not_when_work_finishes(db, rang):
@@ -181,8 +225,8 @@ async def test_set_destination_tool_answers_inline_on_the_plug_in_drive(
         "/tools/set_destination", json=payload, headers={"X-Shotgun-Secret": TOOLS_SECRET}
     )
     assert time.perf_counter() - start < 8
-    assert response.json()["message"] == (
-        "About 22 minutes home. I'll call about 3 minutes before you get there."
+    assert (
+        response.json()["message"] == "About 22 minutes. I'll ring you just before you get there."
     )
     assert (await drives.get_drive(db, drive.id)).arrival_call_at is not None
 

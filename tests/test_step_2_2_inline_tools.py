@@ -85,6 +85,12 @@ class FakeClient:
         return reply
 
 
+@pytest.fixture(autouse=True)
+def fake_home(monkeypatch):
+    """Never the real HOME_ADDRESS from .env in tests."""
+    monkeypatch.setattr(settings, "home_address", "500 Main St, Ann Arbor, MI 48104")
+
+
 @pytest.fixture
 async def client(monkeypatch):
     monkeypatch.setattr(settings, "tools_shared_secret", SECRET)
@@ -120,7 +126,18 @@ async def test_search_web_returns_a_spoken_answer_inline(client, monkeypatch):
     [request] = fake.requests
     assert request["model"] == "claude-haiku-4-5"
     assert request["tools"] == [
-        {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
+        {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 2,
+            "user_location": {
+                "type": "approximate",
+                "city": "Ann Arbor",
+                "region": "MI",
+                "country": "US",
+                "timezone": "America/Detroit",
+            },
+        }
     ]
     assert "output_config" not in request and "thinking" not in request  # Haiku 4.5 rejects effort
     assert "Michigan football game" in request["messages"][0]["content"]
@@ -188,8 +205,9 @@ async def test_nearby_uses_the_drives_location_and_destination(http, db, monkeyp
         "jobs": None,
     }
     question = fake.requests[0]["messages"][0]["content"]
-    assert "Driver's location when the drive started (lat, lng): 42.2754, -83.7417" in question
+    assert "Driver is in or near Ann Arbor, MI, at about (lat, lng) 42.2754, -83.7417" in question
     assert "Driver is heading to: home" in question
+    assert "500 Main St" not in question  # the home address pulled answers toward home
     assert question.endswith("Question: find me 3 nearby ramen places")
 
 
@@ -197,7 +215,21 @@ async def test_search_without_a_drive_still_answers(client, monkeypatch):
     fake = use_fake(monkeypatch, FakeClient(answered(SCORE)))
     response, _ = await call(client, "search_web", sample("search_web", drive_id=""))
     assert response.json()["ok"] is True
-    assert "Driver's location" not in fake.requests[0]["messages"][0]["content"]
+    assert "at about (lat, lng)" not in fake.requests[0]["messages"][0]["content"]
+
+
+@pytest.mark.parametrize(
+    ("said", "spoken"),
+    [
+        ("Tomukun Noodle Bar at 505 East Liberty.", "Tomukun Noodle Bar on East Liberty."),
+        ("Comet Coffee at 16 Nickels Arcade", "Comet Coffee on Nickels Arcade"),
+        ("Joe's at 300 Main Street", "Joe's on Main Street"),
+        ("Michigan lost 20-14 to Minnesota.", "Michigan lost 20-14 to Minnesota."),
+        ("It's 44 degrees with 3 Ramen places open", "It's 44 degrees with 3 Ramen places open"),
+    ],
+)
+def test_spoken_answers_never_carry_house_numbers(said, spoken):
+    assert inline.without_house_numbers(said) == spoken
 
 
 # --- draft_message ----------------------------------------------------------------------------

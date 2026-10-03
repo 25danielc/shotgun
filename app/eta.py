@@ -12,7 +12,14 @@ Fallback: no location or no destination (or Routes fails) leaves arrival_call_at
 arrival call rings once every job is terminal or held (step 4.1).
 
 "home" (or "my place", "the house") means HOME_ADDRESS (D16), and the agent says "home", never
-the address. Calendar and trip-history destinations are out of scope (later stretch).
+the address.
+
+A street address with no city ("333 East Jefferson") is ambiguous, and Routes picks its own
+city: on 2026-10-03 it routed Daniel from Ann Arbor to 333 E Jefferson in Detroit (76 km, 53 min)
+instead of Ann Arbor (4 km, 9 min). So such an address is also tried in the home area (the city
+and state of HOME_ADDRESS), both requests run in parallel, and the closer one wins. Only street
+addresses get this: a bare place name like "Detroit" is sent as said.
+Calendar and trip-history destinations are out of scope (later stretch).
 
 Routes API, checked 2026-10-03 against developers.google.com/maps/documentation/routes
 (computeRoutes, Waypoint):
@@ -27,6 +34,7 @@ TRAFFIC_AWARE is the Pro SKU (5k free a month); one request per drive.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import re
@@ -47,6 +55,7 @@ FIELD_MASK = "routes.duration,routes.distanceMeters"
 ARRIVAL_LEAD = timedelta(minutes=3)
 TIMEOUT = 6.0  # inside the 8 s inline budget
 HOME_WORDS = re.compile(r"^(?:my\s+)?(?:home|house|place|the house)[.!]?$", re.IGNORECASE)
+STREET_ADDRESS = re.compile(r"^\d+[A-Za-z]?\s+\S")
 
 
 class EtaError(RuntimeError):
@@ -69,6 +78,47 @@ def resolve(text: str) -> tuple[str, str]:
     if HOME_WORDS.match(text) and settings.home_address:
         return "home", settings.home_address
     return text, text
+
+
+def home_area() -> str | None:
+    """City and state of HOME_ADDRESS: "500 Main St, Ann Arbor, MI 48104" -> "Ann Arbor, MI"."""
+    parts = [part.strip() for part in settings.home_address.split(",") if part.strip()]
+    if len(parts) < 3:
+        return None
+    state = parts[2].split()[0] if parts[2].split() else ""
+    return f"{parts[1]}, {state}" if state else parts[1]
+
+
+def candidates(address: str) -> list[str]:
+    """What to send Routes: the address as said, plus the home-area version of a street address
+    that names no city."""
+    area = home_area()
+    if area and "," not in address and STREET_ADDRESS.match(address):
+        return [address, f"{address}, {area}"]
+    return [address]
+
+
+async def best_route(
+    lat: float, lng: float, address: str, *, client: httpx.AsyncClient | None = None
+) -> Route:
+    """The closest route among the candidates (see candidates()). Raises EtaError if none."""
+    tried = candidates(address)
+    results = await asyncio.gather(
+        *(drive_time(lat, lng, each, client=client) for each in tried), return_exceptions=True
+    )
+    routes = [r for r in results if isinstance(r, Route)]
+    if not routes:
+        raise next(r for r in results if isinstance(r, Exception))
+    best = min(routes, key=lambda r: r.seconds)
+    if len(tried) > 1:
+        minutes = [r.minutes if isinstance(r, Route) else None for r in results]
+        log.info(
+            "set_destination: tried %d versions, minutes %s, using %d",
+            len(tried),
+            minutes,
+            best.minutes,
+        )
+    return best
 
 
 def parse_duration(value: str) -> int:
@@ -122,7 +172,7 @@ async def set_destination(
     route = None
     if drive.start_lat is not None and drive.start_lng is not None:
         try:
-            route = await drive_time(drive.start_lat, drive.start_lng, address, client=client)
+            route = await best_route(drive.start_lat, drive.start_lng, address, client=client)
         except EtaError as exc:
             log.warning("set_destination: no ETA for drive %s: %s", drive.id, exc)
     eta = now + timedelta(seconds=route.seconds) if route else None
@@ -136,12 +186,5 @@ async def set_destination(
     drive = await cur.fetchone()
     if route is None:
         why = "I don't have your location" if drive.start_lat is None else "I couldn't get a route"
-        return drive, (f"Got it, heading {to(spoken)}. {why}, so I'll call once everything's done.")
-    return drive, (
-        f"About {route.minutes} minutes {to(spoken)}. "
-        "I'll call about 3 minutes before you get there."
-    )
-
-
-def to(place: str) -> str:
-    return "home" if place == "home" else f"to {place}"
+        return drive, f"Got it. {why}, so I'll ring once everything's done."
+    return drive, f"About {route.minutes} minutes. I'll ring you just before you get there."
