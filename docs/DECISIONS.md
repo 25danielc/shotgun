@@ -335,4 +335,5 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **It said "Sent." for an email it had only dispatched**, and there's no email worker (3.2 stretch), so that job will fail at the unclaimed guard and be reported on the arrival call. The prompt now says to claim "done" only when it is.
   - **Tests now pin `CALL_POLICY` and `HOME_ADDRESS`** so a local `.env` can't change results (it did, once `CALL_POLICY=always` was set).
   - **Live coder job 182** filed demo-repo issue #3, but the demo repo's main is already fixed, so expect no PR and a "didn't come back in time" failure after 15 min.
+- 2026-10-03 18:54 (hour 6.9): Pushed the conversational prompt with Daniel's OK; read back OK. The re-assign step `PATCH /phone-numbers/…` returned HTTP 500 (ElevenLabs internal error), but the number was already assigned to the agent and still is (checked). Harmless, since the step is idempotent. If it repeats, `apply_agent.py` could skip the PATCH when the assignment already matches.
 
