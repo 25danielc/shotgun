@@ -29,7 +29,7 @@ Live: project `shotgun`, service `shotgun`, https://shotgun-production-5f30.up.r
 Everything that points at the server must be updated:
 - ElevenLabs: update `PUBLIC_BASE_URL` in `.env`, then `uv run python scripts/apply_agent.py --stage full`. It PATCHes every tool URL (`PATCH /v1/convai/tools/{tool_id}`) and the conversation initiation webhook (`{{BASE_URL}}/tools/init`).
 - The iPhone Shortcut's URL (Daniel, on the phone).
-- The demo repo's GitHub webhook (`/github/hook`): `make github-hook` creates or updates it (events `issue_comment`, `pull_request`; secret `GITHUB_WEBHOOK_SECRET`).
+- The demo repo's GitHub webhook (`/github/hook`): `make github-hook` creates or updates it through the `gh` CLI login (`GITHUB_TOKEN` lacks the Webhooks permission). Events `issue_comment` and `pull_request`, secret `GITHUB_WEBHOOK_SECRET`. Check: `gh api repos/25danielc/shotgun-demo-app/hooks/<id>/deliveries` shows the ping → 202.
 - `.env` and Railway `PUBLIC_BASE_URL`.
 
 ## Fallback: ngrok from the laptop

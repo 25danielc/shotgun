@@ -51,7 +51,7 @@ coder-demo:  ## Step 3.1: insert a coder job in DATABASE_URL and watch it for 10
 	uv run python -m app.workers.coder --demo
 
 github-hook:  ## Step 3.1: create/update the demo repo webhook -> PUBLIC_BASE_URL/github/hook
-	uv run python scripts/github_hook.py
+	uv run python scripts/github_hook.py --gh
 
 railway-env:  ## Copy non-empty .env values into Railway variables (names printed, never values)
 	uv run python scripts/railway_env.py
