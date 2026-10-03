@@ -1,4 +1,5 @@
-"""Drives: one row per trip, from plug-in to unplug. Every job belongs to a drive (D17).
+"""Drives: one row per trip, from plug-in to unplug, and the calls placed during it (D17).
+Every job belongs to a drive.
 
 Build steps: 2.2 (table; dispatch_task attaches jobs to the current drive), 4.1 (arrival call),
 4.3 (departure call policy), 4.4 (unplug closes the drive), 5.1 (destination and ETA).
@@ -16,6 +17,10 @@ Rules:
 - A drive older than MAX_HOURS counts as closed even if no unplug arrived.
 - A dispatch with no open drive (e.g. the driver tapped the contact instead of plugging in)
   opens one, so every job has a drive.
+
+`calls` logs every outbound call we place (kind departure | arrival | exception), so the rules
+"at most one exception call per 10 min" and "not called in the last 30 min" (4.3) survive a
+restart, and tests can count calls per drive.
 
 Functions take an open psycopg AsyncConnection, like app/jobs.py.
 """
@@ -44,7 +49,17 @@ create table if not exists drives (
     arrival_called   boolean not null default false
 );
 create index if not exists drives_open_idx on drives (started_at desc) where ended_at is null;
+create table if not exists calls (
+    id               bigint generated always as identity primary key,
+    drive_id         bigint references drives (id),
+    kind             text not null check (kind in ('departure', 'arrival', 'exception')),
+    conversation_id  text,
+    job_ids          bigint[] not null default '{}',
+    at               timestamptz not null default now()
+);
+create index if not exists calls_at_idx on calls (at desc);
 """
+CALL_KINDS = ("departure", "arrival", "exception")
 
 
 class Drive(BaseModel):
@@ -106,3 +121,33 @@ async def current_or_open(
 ) -> Drive:
     """The open drive, or a new one (a call with no plug-in still gets a drive)."""
     return await current_drive(conn, now) or await open_drive(conn, source=source, now=now)
+
+
+async def record_call(
+    conn: AsyncConnection,
+    kind: str,
+    *,
+    drive_id: int | None,
+    conversation_id: str | None,
+    job_ids: list[int] | None = None,
+    now: datetime | None = None,
+) -> None:
+    await conn.execute(
+        "insert into calls (drive_id, kind, conversation_id, job_ids, at) "
+        "values (%s, %s, %s, %s, %s)",
+        (drive_id, kind, conversation_id, job_ids or [], now or datetime.now(UTC)),
+    )
+
+
+async def last_call_at(conn: AsyncConnection, kind: str | None = None) -> datetime | None:
+    """When we last rang the driver (of this kind, or any)."""
+    cur = await conn.execute(
+        "select max(at) from calls where %s::text is null or kind = %s", (kind, kind)
+    )
+    return (await cur.fetchone())[0]
+
+
+async def calls_for(conn: AsyncConnection, drive_id: int) -> list[str]:
+    """The kinds of call placed during a drive, in order."""
+    cur = await conn.execute("select kind from calls where drive_id = %s order by id", (drive_id,))
+    return [row[0] for row in await cur.fetchall()]

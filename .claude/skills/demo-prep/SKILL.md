@@ -12,7 +12,7 @@ Filmed **parked or with a second driver**. Never film Daniel driving while handl
 
 > Plug in → ring, "Shotgun" on the Civic screen → "Morning. 31-minute drive home. Anything you want handled?" → request → "On it." → later ring → result + "Confirm?" → "Yes."
 
-- **Coding hero (default):** "Fix the login bug Sarah filed, and email Alex to come over at 7." → callback: "I opened a pull request that fixes Sarah's login bug. Merge it?" → "Yes."
+- **Coding hero (D17, the demo script):** plug in → "What's the Michigan score?" (answered on the call) → "Fix the login bug Sarah filed." → "Merge it if the tests pass?" → "Yes." → "That's all." → arrival call: "The login fix is merged; the tests passed." No email line (3.2 is stretch).
 - **Food hero (if switched at hour 10):** "Order my usual ramen so it's there when I get home, email Alex to come over, and fix the login bug Sarah filed." → callback: "Ramen is $21.40 with tip, ordering in 6 minutes so it lands at 7:12. Confirm?" → "Yes."
 - PLAN.md's original line says "text Alex", but there's no SMS worker (DECISIONS.md §9.2), so say "email".
 - Pitch lines: "Everyone put a chatbot in the car. Shotgun is an agent built for the car." / "Your agent isn't an app. It's a contact."
@@ -21,12 +21,12 @@ Filmed **parked or with a second driver**. Never film Daniel driving while handl
 ## 7.1 Rehearsal checklist (Daniel in the Civic; pass = 3 clean runs back to back)
 - [ ] Phone charged, wired CarPlay cable, Do Not Disturb **off** for the Shotgun contact, volume up.
 - [ ] Railway healthy (`make smoke`); `railway logs` open on the laptop.
-- [ ] Job table clean: no stale `needs_approval` rows that would trigger surprise callbacks.
+- [ ] Job table clean: no stale `needs_approval`/`exception` rows or open drives that would land in the arrival call.
 - [ ] Demo repo reset: planted login bug present, no open Claude PRs or branches.
 - [ ] Both Shortcut automations on with Run Immediately; the Shotgun contact is in Favorites.
 - [ ] Fallback ready: tap the Shotgun contact if the plug-in ring fails.
 - [ ] Pre-recorded successful hero run on the laptop in case the live one fails.
-- [ ] Time each run: plug-in → ring (target ≤ 10 s), callback delay.
+- [ ] Time each run: plug-in → ring (target ≤ 10 s), arrival-call delay.
 
 ## 7.2 Filming
 - Main take plus a **backup take**, saved in two places (not in git).

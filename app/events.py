@@ -28,7 +28,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 from pydantic import BaseModel, ValidationError
 
-from app import telephony
+from app import db, drives, telephony
 from app.config import settings
 from app.security import check_secret
 
@@ -53,13 +53,54 @@ def greeting_for(event: Event) -> str:
     return "Hey, it's Shotgun, riding along."  # D17: no "How can I help?"; 4.3 adds the facts
 
 
-async def ring_on_plug_in(event: Event) -> None:
-    """Background task: ring the car. Errors are logged, never raised to the Shortcut."""
+async def start_drive(event: Event) -> drives.Drive | None:
+    """Open a drive for this plug-in (closing any still open). None without a database."""
+    pool = db.get_pool()
+    if pool is None:
+        return None
+    loc = event.location
     try:
-        placed = await telephony.place_call(telephony.call_variables(greeting_for(event)))
-        log.info("plug-in call placed: conversation %s", placed.conversation_id)
+        async with pool.connection() as conn:
+            return await drives.open_drive(
+                conn,
+                lat=loc.lat if loc else None,
+                lng=loc.lng if loc else None,
+                source=event.source,
+            )
+    except Exception:
+        log.exception("plug-in: could not open a drive")
+        return None
+
+
+async def log_call(drive: drives.Drive | None, conversation_id: str | None) -> None:
+    pool = db.get_pool()
+    if pool is None or drive is None:
+        return
+    try:
+        async with pool.connection() as conn:
+            await drives.record_call(
+                conn, "departure", drive_id=drive.id, conversation_id=conversation_id
+            )
+    except Exception:
+        log.exception("plug-in: could not log the departure call")
+
+
+async def ring_on_plug_in(event: Event) -> None:
+    """Background task: open a drive, then ring the car (the departure call).
+
+    Errors are logged, never raised to the Shortcut.
+    """
+    drive = await start_drive(event)
+    variables = telephony.call_variables(
+        greeting_for(event), drive_id=drive.id if drive else None, call_kind="departure"
+    )
+    try:
+        placed = await telephony.place_call(variables)
     except telephony.CallError as exc:
         log.error("plug-in call failed: %s", exc)
+        return
+    log.info("plug-in call placed: conversation %s", placed.conversation_id)
+    await log_call(drive, placed.conversation_id)
 
 
 @router.post("/events", status_code=status.HTTP_202_ACCEPTED)

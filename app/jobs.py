@@ -121,6 +121,7 @@ class Job(BaseModel):
     updated_at: datetime
     drive_id: int | None = None
     preapproval: dict[str, Any] | None = None
+    announced_state: JobState | None = None  # what the driver has heard (app/calls.py)
 
 
 def _sql_list(values: Iterable[str]) -> str:
@@ -143,7 +144,7 @@ create table if not exists jobs (
     updated_at  timestamptz not null default now()
 );
 -- Columns added by later steps (idempotent).
-alter table jobs add column if not exists announced_state text;  -- step 4.1 callbacks
+alter table jobs add column if not exists announced_state text;  -- step 4.1 calls
 alter table jobs add column if not exists drive_id bigint references drives (id);  -- D17
 alter table jobs add column if not exists preapproval jsonb;  -- D17
 create index if not exists jobs_drive_idx on jobs (drive_id, id);

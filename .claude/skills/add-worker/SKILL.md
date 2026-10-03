@@ -27,7 +27,11 @@ any non-terminal -> failed           (with a speakable summary of why)
 Use `jobs.transition()` (pass `summary=` on the state the driver should hear about); never write `state` directly. Workers claim work with `jobs.claim_next(conn, [JobType.X])`. Planner-made jobs carry `details["label"]` (short, speakable) and `details["plan_id"]`, and `deadline` when the user set one.
 
 ## 4. Approval gate (irreversible actions)
-Sending email, ordering or paying, merging a PR: **stop at `needs_approval`** with a summary that ends in a question ("Ramen is $21.40 with tip, lands at 7:12. Confirm?"). The irreversible call runs only in the `approved` handler, which is triggered by `approve_action`. A "no" sets `failed` with summary "Cancelled".
+Sending email, ordering or paying, merging a PR: at the irreversible step, call **`approvals.settle(conn, job, question=..., tests_passed=..., total_usd=...)`** (D17, step 4.2). It moves the job to:
+- `approved` if the job's `preapproval` covers the facts (the driver said yes at dispatch);
+- `exception` if a structured field is broken (tests failed, over `max_usd`, or a fact you couldn't get);
+- `needs_approval` if there's no preapproval, held for the arrival call.
+The question ends in a question ("Ramen is $21.40 with tip, lands at 7:12. Confirm?"). The irreversible call runs only in the `approved` handler, reached by a pre-approval or `approve_action`. A "no" sets `failed` with summary "Cancelled". Report every fact a preapproval can name: a missing fact counts as broken.
 
 | Worker | Reversible part | Gated part |
 |---|---|---|
@@ -36,8 +40,8 @@ Sending email, ordering or paying, merging a PR: **stop at `needs_approval`** wi
 | food | cart with items and total | place order (at ETA minus prep time, step 5.2) |
 | research | Claude web search | none |
 
-## 5. Callback summary
-Callbacks are automatic: the watcher rings once when a job reaches `done`, `needs_approval` or `failed`, so workers don't call telephony themselves. `summary` is read aloud by the callback (`app/callbacks.py`), falling back to the label: at most 2 short sentences, numbers rounded, no URLs or IDs. Spell out what will happen on "yes".
+## 5. Summary (read on the arrival call)
+Workers never call telephony. `app/calls.py` rings once per drive at arrival with every job's `summary` (falling back to the label), plus rare exception calls for `exception` jobs (D17). Keep `summary` to at most 2 short sentences, numbers rounded, no URLs or IDs. Spell out what will happen on "yes".
 
 ## 6. Tests (`tests/test_step_X_Y_<type>_worker.py`)
 - Offline: mock the third-party client; assert the transitions (queued → running → needs_approval, approved → done, a "no" → failed) and that the gated call is **not** made before approval.

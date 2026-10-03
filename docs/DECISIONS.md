@@ -273,3 +273,14 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Coder: "merge if the tests pass" waits for the demo repo's new `tests.yml` (job `tests`).
   - **The result arrives by webhook (`check_run` added to hook 691695445)**, because the fine-grained GITHUB_TOKEN gets 403 on both check runs and Actions runs. The webhook needs no new permission.
   - No result in 10 min → exception. `approve_action` accepts needs_approval or exception.
+- 2026-10-03 18:45 (hour 6.7): **Step 4.1 (D17).** `app/callbacks.py` deleted and `app/calls.py` added. Each tick, in order:
+  - The unclaimed guard (moved over unchanged).
+  - The busy-line check.
+  - At most one call: the arrival call for a due drive, or else one exception call.
+
+  Details:
+  - New `calls` table (in `app/drives.py`) logs every outbound call, so the 10-minute exception gap and 4.3's "not called in 30 min" survive restarts.
+  - Plug-in now opens a drive and logs its departure call.
+  - The arrival call's question is one the driver hasn't been asked yet (exception before hold); one already asked is read out but not asked again first.
+  - Nothing rings after the arrival call. Results that come later go in the unplug recap (4.4).
+  - With no ETA, the arrival call can ring soon after the driver hangs up, as soon as everything is settled (e.g. a quick research job). Step 5.1's ETA moves it to ETA − 3 min.

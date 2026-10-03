@@ -9,8 +9,8 @@ Routers:
 On startup, if DATABASE_URL is set, the Postgres pool opens and the job tables are created or
 updated (idempotent). A database outage doesn't stop the app: /health stays up and the tools
 answer 503 until the pool is back. Background loops, cancelled on shutdown: the planner
-(app/orchestrator.py, needs ANTHROPIC_API_KEY), the callback watcher (app/callbacks.py, needs
-the ElevenLabs agent, phone number id and MY_PHONE_NUMBER), the coder worker
+(app/orchestrator.py, needs ANTHROPIC_API_KEY), the arrival and exception calls (app/calls.py,
+needs the ElevenLabs agent, phone number id and MY_PHONE_NUMBER), the coder worker
 (app/workers/coder.py, needs GITHUB_TOKEN and GITHUB_DEMO_REPO) and the research worker
 (app/workers/research.py, needs ANTHROPIC_API_KEY).
 """
@@ -23,7 +23,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import callbacks, db, events, jobs, orchestrator, voice_tools
+from app import calls, db, events, jobs, orchestrator, voice_tools
 from app.config import settings
 from app.workers import coder, research
 
@@ -59,9 +59,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ]
     )
     if pool is not None and calls_configured:
-        background.append(asyncio.create_task(callbacks.run_callbacks(pool), name="callbacks"))
+        background.append(asyncio.create_task(calls.run_calls(pool), name="calls"))
     else:
-        log.warning("callbacks not running (needs DATABASE_URL and the ElevenLabs/phone settings)")
+        log.warning("calls not running (needs DATABASE_URL and the ElevenLabs/phone settings)")
     if pool is not None and settings.github_token and settings.github_demo_repo:
         background.append(asyncio.create_task(coder.run_coder(pool), name="coder"))
     else:
