@@ -20,7 +20,7 @@ Rule: don't reopen a decision below without asking Daniel. Add new decisions to 
 
 ## 2. The product
 
-Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and, within about 10 seconds, the car rings with "Shotgun" on the screen. You speak a multi-part request; the voice agent confirms it, dispatches jobs and hangs up. Worker agents do the jobs in the background. When a job finishes or needs approval, the car rings again with a short summary, and **nothing irreversible happens without a spoken "yes"**.
+Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and, within about 10 seconds, the car rings with "Shotgun" on the screen. You speak a multi-part request; the voice agent answers quick questions on the spot, dispatches longer jobs (asking for any "yes" up front) and stays on the line until you say goodbye. Worker agents do the jobs in the background. About 3 minutes before you arrive, the car rings once with a batched summary. **Nothing irreversible happens without a spoken "yes"**, given up front or on that call (D17: at most two calls per drive).
 
 - Pitch lines: **"Everyone put a chatbot in the car. Shotgun is an agent built for the car."** / **"Your agent isn't an app. It's a contact."**
 - What makes it car-specific:
@@ -28,7 +28,7 @@ Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and
   2. Arrival time is the deadline ("You're 31 minutes out, so I'll order in 6").
   3. No screen forces short answers, spoken confirmation and background work.
 - **Main track: Actually Intelligent (AI).** Finance and food are examples, not the category. (The track description was announced at the opening ceremony and isn't online yet; check that the pitch fits it.)
-- **Demo (about 60 s, filmed parked or with a second driver):** plug in → ring → "Morning. 31-minute drive home. Anything you want handled?" → request → "On it." → later ring → result + "Confirm?" → "Yes." The full script is in PLAN.md and `.claude/skills/demo-prep`.
+- **Demo (about 60 s, filmed parked or with a second driver):** plug in → ring → "Where are you headed?" → request → pre-approval ("merge it if the tests pass?" → "Yes") → goodbye → arrival ring → batched summary. Coding PR only (D17). The full script is in PLAN.md and `.claude/skills/demo-prep`.
 - **Safety story for judges:** voice only; spoken confirmation for every irreversible action; long items wait until parked; the demo is filmed parked or with a second driver.
 
 ## 3. Architecture
@@ -53,9 +53,9 @@ Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and
 (PLAN.md's embedded diagram, "3 entry points, 1 server, 4 workers", didn't survive export. This is the text version.)
 
 - **Trigger.** An iOS Shortcuts personal automation, "When CarPlay **connects**", set to Run Immediately: Get Current Location → Get Contents of URL (POST to `/events` with a shared secret). A matching "disconnects" automation. **This is the only Apple dependency.** The phone is "just a sensor": `/events` accepts `{source, event, location}` from any source so other triggers can be added later. Setup: [SHORTCUT_SETUP.md](SHORTCUT_SETUP.md).
-- **Call trigger (server).** Rings the car on plug-in, when a job is done, or when a "yes" is needed. Call rules (cooldown, drive ≥ 10 min, pending items) are stretch (4.3); **for the demo, always call.**
+- **Call trigger (server).** *(Superseded by D17.)* At most a departure call on plug-in (call policy 4.3, now core, with a `CALL_POLICY=always` demo override), an arrival call at ETA − 3 min with a batched summary, and rare exception calls.
 - **Voice agent.** ElevenLabs Agents on a Twilio voice number, inbound and outbound through ElevenLabs' API. Voice-turn LLM is Claude Haiku 4.5, or failing that ElevenLabs' custom-LLM option pointed at our server. **The voice agent never waits on work**: it calls tools that return instantly.
-- **Voice tools** (webhooks to our server): `dispatch_task`, `get_status`, `approve_action`. Must answer in **under 500 ms**.
+- **Voice tools** (webhooks to our server). *(D17)* Background tools `dispatch_task`, `get_status`, `approve_action` answer in **under 500 ms**. Inline tools `search_web`, `draft_message`, `set_destination` do the work during the call in under 8 s.
 - **Orchestrator.** Claude Sonnet (PLAN.md: **Sonnet 5.5**, `claude-sonnet-5-5`) via the Anthropic API with tool use. Plans a request into jobs with deadlines from the ETA. *Allowed time-saving fallback:* cut the separate planner and let the voice agent call `dispatch_task(type, details)` directly.
 - **Job table.** Neon Postgres. States `queued → running → needs_approval → approved → done`, or `failed`. All agents share it; **no agent-to-agent protocol is needed.** As built: types are the four workers plus `plan` (a raw spoken request the orchestrator splits), every transition is logged in `job_events`, and `announced_state` records what the driver has heard (callbacks).
 - **Workers.**
@@ -88,10 +88,11 @@ Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and
 | D14 | **Voice-turn model: Claude Haiku 4.5 inside ElevenLabs** | Low latency. ElevenLabs' LLM list includes `claude-haiku-4-5` (checked 2026-10-03, still to confirm in the UI). Fallback: custom LLM pointed at our server. | GPT/Gemini in ElevenLabs |
 | D15 | **Research = Claude web search for everything** (Daniel, 16:55) | One worker, no extra key or API to wire up: Sonnet 5.5 with Anthropic's server-side web search tool answers place lookups and general questions alike. | Google Places API (New) for places plus a second path for other questions |
 | D16 | **ETA destination = fixed `HOME_ADDRESS`** (Daniel, 16:55); **"text X" = email** (Daniel says "email" in the demo) | Simplest, works without calendar access. The address lives only in `.env` and Railway, never in git. | Next calendar event; the agent asks |
+| D17 | **"Two calls per drive" passenger** (Daniel, 17:43). At most a DEPARTURE call (on plug-in, only if the call policy says so) and an ARRIVAL call (ETA − 3 min, batched summary), plus rare EXCEPTION calls. The agent stays on the call until the driver says goodbye; searches and drafts finish inline; a "yes" can be given up front as a pre-approval. Supersedes the per-job callback watcher (4.1), the "always hang up" rule (log 14:25), D11's "never waits on work" (now: never waits on *workers*) and D16's fixed destination (the agent asks). Details in the decision log, 17:43 | A ring per finished job is a phone that keeps interrupting a driver; hanging up to "call back later" turned a 5 s answer into two calls. Batching to arrival matches when the driver can act | Callback per job (the 4.1 design); hang up and call back for every search; a third-party search API; SMS or push as the main channel; removing `end_call` entirely |
 
 ## 5. Cut from scope (don't build)
 
-Capital One Nessie money worker · the receipt page and the .tech domain · Photon / Relay / Spacetime · any hardware (OBD-II, ESP32 button) · a native CarPlay app · Gemini · the Figma prize · real restaurant reservations · real-inbox Gmail · controlling the car · Siri anywhere in the flow.
+Fetch.ai / Agentverse (6.1, cut at hour 5.7, D17) · Capital One Nessie money worker · the receipt page and the .tech domain · Photon / Relay / Spacetime · any hardware (OBD-II, ESP32 button) · a native CarPlay app · Gemini · the Figma prize · real restaurant reservations · real-inbox Gmail · controlling the car · Siri anywhere in the flow.
 
 ## 6. Sponsor prizes being targeted
 
@@ -116,11 +117,11 @@ Devpost rules: *"You may submit to only one main MHacks track, but you may enter
 
 ## 7. Stretch order and fallback gates
 
-- **Stretch order (only after milestone 1 works):** Fetch.ai (6.1) → email worker (3.2) → research worker (3.5) → call rules (4.3). Cut in reverse.
+- **Stretch order (only after milestone 1 works):** email worker (3.2). Fetch.ai (6.1) is cut and 4.3 is core (D17); research (3.5) is done.
 - **Gate, hour 4 (~4 PM Sat):** if plug-in → ring isn't working, make **tapping the contact** the trigger and move on.
 - **Gate, hour 10 (~10 PM Sat):** pick the hero (D9).
 - **Gate, hour 12 (~midnight):** if voice dispatch → callback isn't working end to end, **cut Fetch.ai**.
-- **Never cut:** plug-in ring, callback, one real completed action.
+- **Never cut:** plug-in ring, the arrival call (was "callback"), one real completed action.
 - PLAN.md's "Risks and fallbacks" table lists the other fallbacks.
 
 ## 8. Steps that need Daniel in person
@@ -237,3 +238,18 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Benchmark on one lookup: Sonnet 5.5 + `web_search_20260209` took 13.6 s and found 1 place (4 code-execution rounds from dynamic filtering). Sonnet 5.5 + `web_search_20250305` took 3.5 s and found 3 places with hours. Haiku 4.5 + 20250305 took 3.7 s and was wordier; Haiku can't use 20260209 at all.
   - Switched to 20250305 with max_uses 3.
   - **Busy-line guard:** the callback watcher first asks ElevenLabs (`GET /v1/convai/conversations?agent_id=…`, about 300 ms) whether a conversation is `initiated` or `in-progress`, and waits if so. It fails open, and ignores "live" calls older than 15 min. Needed because a research answer can now be ready before the driver hangs up.
+- 2026-10-03 17:43 (hour 5.7): **D17, "two calls per drive".** Daniel's design change, approved with these details:
+  - **Calls.** At most two outbound calls per drive: DEPARTURE (on plug-in, only if the 4.3 policy allows) and ARRIVAL (at ETA − 3 min, one batched summary of every job in the drive: done, held for approval, failed). EXCEPTION calls are the only others: for `exception` jobs with an irreversible action pending, at most one per 10 min; anything else waits for arrival. No ETA → arrival rings once every job in the drive is terminal or held. A drive with no jobs gets no arrival call. The per-job callback watcher is deleted; its unclaimed-job guard and busy-line check are kept and moved.
+  - **The agent never ends a call to "continue later".** `end_call` is kept, allowed for exactly three reasons: (1) the driver says goodbye or "that's all"; (2) a refused caller (the allowlist needs it, which is why `end_call` isn't removed); (3) silence: after 60 s of silence the agent asks "Anything else?", and after 30 s more with no reply it hangs up. This reverses the 14:25 "always hang up" fix.
+  - **Inline vs background tools.** Inline tools do the work during the call, target < 8 s, ElevenLabs timeout about 15 s: `search_web` (Haiku 4.5 + Anthropic `web_search_20250305`, so D15 holds and no new search vendor), `draft_message`, and later `set_destination` (5.1). Background tools keep the < 500 ms rule: `dispatch_task(type, details, preapproval?)`, `get_status(drive_id?)`, `approve_action`. The CLAUDE.md hard rule now says so.
+  - **Pre-approval.** `preapproval = {condition, require_tests_pass?, max_usd?}`, asked for at dispatch with the condition repeated back. Only the structured fields are checked by code; `condition` is stored and read back, never judged by a model (Daniel, a). Pre-approved jobs go queued → running → approved → done with no call. A result that breaks its pre-approval goes to `exception`. A job without one that reaches an irreversible step goes to `needs_approval` and is held for the arrival call.
+  - **Typed dispatch is the voice path.** The agent dispatches one typed job per part, each with its own pre-approval (D13's fallback becomes the main path). `type: "plan"` stays for multi-part requests the agent can't split and for other front doors; the Sonnet orchestrator stays in the stack.
+  - **Drives.** New `drives` table (id, started_at, ended_at, start lat/lng, eta, destination, arrival_call_at, arrival_called); `jobs.drive_id` references it. A plug-in opens a drive and closes any still open (the disconnect Shortcut can miss). A dispatch with no open drive (the tap-the-contact fallback) opens one. Unplug (`carplay_disconnected`, `car_disconnected` accepted as an alias) closes the drive, cancels the pending arrival call and sends an ntfy push with the recap (new env `NTFY_TOPIC`, kept out of git: anyone who knows an ntfy.sh topic name can read it).
+  - **Call policy 4.3 promoted to core.** Departure call only with pending items, a known drive of 10+ min, or no call in the last 30 min. Thresholds are config values. `CALL_POLICY=always` overrides it for rehearsals, because the plug-in ring is never-cut and would go silent on a quick replug (Daniel, e).
+  - **Coder pre-approval "merge if tests pass".** The demo repo gets a `tests.yml` workflow (Daniel, f) and the coder checks it before merging.
+  - **Config stays in `config/`** (`config/elevenlabs_agent.json` + `scripts/apply_agent.py`, which already pushes via the API); the prompt moves to `config/elevenlabs_prompt.md` (Daniel, c).
+  - **Build order:** 2.2 → 2.3 → 4.2 → 4.1 → 4.3 → 4.4 → 4.5 → 5.1. 4.2 comes before 4.1 because the arrival scheduler needs the `exception` state and pre-approvals (Daniel, d).
+  - **Fetch.ai (6.1) is cut.** Time: the redesign is about 8 h at hour 5.7, which lands past the hour-12 gate, and the core car demo comes first.
+  - **Email (3.2) stays stretch.** The demo script is the coding PR only: no "reply to Sarah" line, and the in-car pass check has no draft-then-send. `draft_message` still returns text to read back.
+  - **5.1 ETA is core, built after 4.5.** The plug-in Shortcut sends lat/lng (Daniel edits it). The departure call asks "Where are you headed?" unless the destination is already known; inline `set_destination(text)` sends the address to Google Routes (traffic-aware) from the plug-in location and stores destination, eta and `arrival_call_at = now + duration − 3 min`. The ETA is computed once, at departure; there is no in-drive location. No destination or no location → the "all terminal or held" trigger. Calendar and trip-history destinations are out of scope (later stretch). Supersedes D16's fixed `HOME_ADDRESS`.
+  - Rejected: a ring per finished job; hanging up after every dispatch; Brave/Tavily-style search APIs (new key, breaks D15); SMS or push as the main channel (D6; ntfy is only the unplug recap); disabling `end_call` (strangers couldn't be hung up on); an LLM judging free-text pre-approval conditions (slow and unpredictable).

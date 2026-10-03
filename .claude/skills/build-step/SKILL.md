@@ -13,7 +13,7 @@ Say "Step X.Y: <title>" first. If the user didn't give an ID, pick the first `No
 ## 2. Read and check dependencies
 - Read the step's row in `docs/PLAN.md`: Needs, Pass when, Hrs, Priority.
 - Every step in "Needs" must have Status `Done`. If not, stop and say which one is missing. Exception: if Daniel says to build ahead, build and test offline, then set Status to `Blocked: <what's left>`. Never Done until the real check passes.
-- Skim `docs/DECISIONS.md` sections that touch this step (decisions, cut list §5, conflicts §9, API notes §11) and the stub module's docstring (see the CLAUDE.md module table).
+- Skim `docs/DECISIONS.md` sections that touch this step (decisions, cut list §5, conflicts §9, API notes §11) and the stub module's docstring (`ls app/ app/workers/`).
 - Check the clock against the time gates (CLAUDE.md). If a gate has passed, raise it before starting.
 
 ## 3. Does it need Daniel?
@@ -25,7 +25,7 @@ Write a short plan: files to touch, the data shapes, the test that proves the pa
 
 ## 5. Implement
 - Keep to the stub's module boundary; match the surrounding style.
-- Config only through `app/config.py` settings; new env vars go in `.env.example`, `app/config.py`, the CLAUDE.md env list and, if they're keys, `scripts/check_keys.py`.
+- Config only through `app/config.py` settings; new env vars go in `.env.example`, `app/config.py` and, if they're keys, `scripts/check_keys.py`.
 - Hard rules: tool webhooks < 500 ms and never block on workers; nothing irreversible without `approve_action`; secrets checks stay on; no secrets in code.
 
 ## 6. Write the pass-check test
