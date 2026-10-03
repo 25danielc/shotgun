@@ -69,7 +69,7 @@ GET /dashboard/state?token=<DASHBOARD_TOKEN>
 | Field | Type | Notes |
 |---|---|---|
 | `name` | enum | `api_server \| neon \| elevenlabs \| twilio \| anthropic \| github \| google_routes \| ntfy` |
-| `ok` | bool or null | `null` = never checked yet. |
+| `ok` | bool or null | `null` = never checked yet, or deliberately not probed (see `detail`). |
 | `latency_ms` | int or null | Round trip of the last check. `null` if it failed before any response. |
 | `checked_at` | timestamp or null | When the last check finished. The page dims a row when this is > 90 s old. |
 | `detail` | string or null | Short reason when not ok, e.g. `"HTTP 403 API not enabled"`. Never a key or a URL with a key. |
@@ -85,7 +85,7 @@ cheap, read-only, no-side-effect probe per service:
 | `twilio` | `GET /2010-04-01/Accounts/{sid}.json` (TODO(verify)). |
 | `anthropic` | `GET /v1/models` (no tokens spent). |
 | `github` | `GET /repos/{GITHUB_DEMO_REPO}`. |
-| `google_routes` | The cheapest Routes call that proves the key works, or the last real ETA call's result if one is under 30 s old. Avoid spending quota every 30 s. TODO(verify). |
+| `google_routes` | Not probed: every Routes call is billed. `ok: null`, detail `"not probed: billed per request"` (`ok: false` if the key is missing). |
 | `ntfy` | `GET https://ntfy.sh/v1/health` (TODO(verify)). Never publish to `NTFY_TOPIC` to check. |
 
 ### Drive
@@ -181,7 +181,7 @@ Steps per job type. Always send the full list, with not-yet-reached steps as `pe
 
 | type | steps |
 |---|---|
-| `coder` | `issue_filed → action_running → tests → pr_opened → approval_check → merged` |
+| `coder` | `issue_filed → action_running → pr_opened → tests → approval_check → merged` (tests run on the PR; `skipped` without `require_tests_pass`) |
 | `research` | `searching → summarizing` |
 | `email` | `drafting → approval_check → sent` |
 | `food` | `cart_built → approval_check → ordered` |
@@ -235,7 +235,7 @@ Sources:
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | int | Monotonic. The page appends events whose id is greater than the last one it saw. |
+| `id` | int | Monotonic, derived from the time (`epoch_ms × 16 + source rank`). The page appends ids it hasn't seen. |
 | `at` | timestamp | |
 | `type` | enum | `plug_in \| unplug \| call_started \| call_ended \| tool_called \| job_dispatched \| job_state \| arrival_scheduled \| arrival_call \| exception_call \| push_sent`. `job_state` covers both state changes and step changes. |
 | `message` | string | One line, written for a judge reading over a shoulder. |
@@ -284,18 +284,18 @@ Shortened. See `tests/fixtures/dashboard_state.json` for a full payload.
            "duration_s": 334, "last_tool": "get_status"},
   "jobs": [
     {"id": 42, "type": "coder", "title": "Fix the login redirect loop", "details": {"repo": "shotgun-demo-app"},
-     "state": "running", "progress": 0.33,
+     "state": "running", "progress": 0.5,
      "steps": [
        {"name": "issue_filed", "state": "done", "started_at": "2026-10-03T22:30:51Z", "finished_at": "2026-10-03T22:30:58Z", "detail": "issue #12"},
        {"name": "action_running", "state": "done", "started_at": "2026-10-03T22:30:58Z", "finished_at": "2026-10-03T22:33:40Z", "detail": null},
-       {"name": "tests", "state": "running", "started_at": "2026-10-03T22:33:40Z", "finished_at": null, "detail": "3 checks"},
-       {"name": "pr_opened", "state": "pending", "started_at": null, "finished_at": null, "detail": null},
+       {"name": "pr_opened", "state": "done", "started_at": null, "finished_at": "2026-10-03T22:33:40Z", "detail": "PR #13"},
+       {"name": "tests", "state": "running", "started_at": "2026-10-03T22:33:40Z", "finished_at": null, "detail": "waiting for checks"},
        {"name": "approval_check", "state": "pending", "started_at": null, "finished_at": null, "detail": null},
        {"name": "merged", "state": "pending", "started_at": null, "finished_at": null, "detail": null}
      ],
      "preapproval": {"condition": "merge it if the tests pass", "require_tests_pass": true, "max_usd": null},
      "approval": {"status": "preapproved", "note": null},
-     "result_summary": null, "result_url": "https://github.com/OWNER/shotgun-demo-app/issues/12",
+     "result_summary": null, "result_url": "https://github.com/OWNER/shotgun-demo-app/pull/13",
      "created_at": "2026-10-03T22:30:50Z", "updated_at": "2026-10-03T22:33:40Z"}
   ],
   "upcoming": [
@@ -339,40 +339,26 @@ Every endpoint returns immediately and does its work in the background, like `/e
 one also writes an event (`plug_in` / `arrival_call` / `unplug`) whose message ends in
 `(demo)`, so the log shows what was simulated. None of them approves anything.
 
-## Backend requirements
+## Implementation status
 
-What the features session must build so the page works against the real server. None of it
-exists yet.
+Built in `app/dashboard.py` (tests: `tests/test_dashboard_state.py`). Everything comes from
+real rows or live checks; nothing is invented.
 
-1. **Routes:** `GET /dashboard` (serves `static/dashboard.html`), `GET /dashboard/state`,
-   and the three `POST /dashboard/demo/*` routes. Config: `DASHBOARD_TOKEN` (new secret,
-   Railway and `.env` only) and `DEMO_MODE` (bool, default false).
-2. **Service health cache:** a background task probes the 8 services every ~30 s
-   (read-only probes, table above) and keeps `{name, ok, latency_ms, checked_at, detail}` in
-   memory. `/dashboard/state` only reads the cache.
-3. **Agent heartbeats:** every worker loop (orchestrator, coder, research, email) writes
-   `{name, at, job_id}` every ≤ 20 s. Status is `offline` past 60 s. The voice agent's status
-   comes from call state plus the ElevenLabs health check.
-4. **An `events` log table** (or a view over `job_events` plus a new `drive_events` table) with
-   a monotonic `id` and the 11 types. Write sites: `/events` (plug_in, unplug), telephony
-   (call_started, call_ended, arrival_call, exception_call), `/tools/*` (tool_called),
-   `dispatch_task` (job_dispatched), `jobs.transition` (job_state), the arrival scheduler
-   (arrival_scheduled) and ntfy (push_sent).
-5. **A `tool_calls` record:** `/tools/*` logs `{at, tool, query, latency_ms, ok}`. A ring buffer
-   of the last 20 in memory is enough.
-6. **Call tracking:** current call `{status, kind, started_at, answered_at, last_tool}`, set
-   when a call is placed (telephony) and closed by the ElevenLabs post-call webhook or status
-   callback. `transcript` is optional.
-7. **New job states `exception` and `expired`.** They aren't in `JobState` / the check
-   constraint yet. Today an expired coder job goes to `failed`; the dashboard wants `expired`
-   when it timed out and `exception` when a result broke its pre-approval (D17).
-8. **Job steps:** each worker records its step list (e.g. a `steps jsonb` column on `jobs`,
-   updated with the state). The coder worker maps its flow onto
-   `issue_filed → action_running → tests → pr_opened → approval_check → merged`. `tests` needs
-   the PR's check-run status (a `check_suite` / `check_run` webhook, or a poll).
-9. **Derived fields:** `drive.status`, `job.title`, `job.approval {status, note}` (held vs
-   pending depends on whether a call is live), `job.progress`, `job.result_url`
-   (`result.pr_url` or `result.issue_url`), `upcoming[]` (sources above), and `active_agent`.
-10. **Payload hygiene:** no phone numbers, email addresses or keys. Cap `events` at 100,
-    `tool_calls` at 20, transcript turns at 6. Keep `/dashboard/state` under ~100 ms; it's
-    polled every 1.5 s.
+| Field | Source |
+|---|---|
+| `drive` | Latest `drives` row (open < 3 h, or parked < 30 min). |
+| `drive.status` | `parked` if ended; `on_call` if a call is live; `plugged_in` if no call yet and < 60 s old; else `silent`. |
+| `call` | `LIVE_CALL`: the agent's live ElevenLabs conversation, polled every 5 s while a drive is open (`GET /v1/convai/conversations`, as `telephony.call_in_progress`), and set immediately by `/tools/init`. `kind` comes from the matching `calls` row (no match = `inbound`). No `transcript`. |
+| `jobs` | `jobs` for the drive, plus `job_events` for timing. Plan jobs only while open. `steps` are derived from the state history and `result` (coder: issue/PR numbers, `tests`, `pr_opened_at`). |
+| `upcoming` | Arrival call, pre-approved actions, held jobs, exception calls (10-min gap), and the real timeouts (`UNCLAIMED_MINUTES`, coder `PR_TIMEOUT_MINUTES`, `TESTS_TIMEOUT_MINUTES`). |
+| `tool_calls` | `ToolCallRecorder` ASGI middleware on `/tools/*`. Refused callers are not recorded. In memory (last 20), so it resets on deploy. |
+| `events` | `drives` (plug_in, unplug), `calls` (call_started, arrival_call, exception_call), `job_events` (job_dispatched, job_state) and in-memory tool, call and demo events. |
+| `services` | `run_monitor()` every 30 s, read-only probes as above. |
+| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`) is alive → idle or busy (a `running` job of its type); no task → offline. `email` has no worker yet, so it is always offline. |
+
+Not built yet:
+- **No `expired` state.** Timed-out jobs are `failed` in the jobs table.
+- **No `push_sent` event.** The unplug recap isn't logged.
+- **`arrival_scheduled` appears only for the demo arrive.**
+- **In-memory records reset on restart.** Tool calls, call status and health live in process memory, so a redeploy clears them.
+- **`DASHBOARD_TOKEN` and `DEMO_MODE` are Railway variables.** They must be set there for the deployed page.

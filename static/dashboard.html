@@ -216,6 +216,7 @@ a:hover { color: var(--accent); }
 .svc { display: grid; grid-template-columns: 1ch 14ch 4ch 7ch minmax(0, 1fr); column-gap: 1ch; }
 .svc .lat, .svc .ago { text-align: right; }
 .svc .det { grid-column: 2 / -1; color: var(--err); }
+.svc .det.dim { color: var(--dim); }
 .svc.stale, .svc.stale .ok, .svc.stale .err { color: var(--dim); }
 .up { display: grid; grid-template-columns: 6ch minmax(0, 1fr); column-gap: 1ch; padding-bottom: 3px; }
 .up-arrival_call .cd { color: var(--accent); }
@@ -600,14 +601,19 @@ function renderTools(s) {
 
 // ── LOG ─────────────────────────────────────────────────────────
 let lastEventId = -Infinity;
+let seenEvents = new Set();
 function renderLog(s) {
   const events = s.events || [];
   const box = $('log-lines');
   const body = $('b-log');
   setStat('log', `tail -f · ${events.length} events`);
   const maxId = events.length ? events[events.length - 1].id : -Infinity;
-  if (maxId < lastEventId) { box.innerHTML = ''; lastEventId = -Infinity; } // server restarted / mock looped
-  const fresh = events.filter((e) => e.id > lastEventId);
+  if (maxId < lastEventId) { // server restarted / mock looped
+    box.innerHTML = '';
+    lastEventId = -Infinity;
+    seenEvents = new Set();
+  }
+  const fresh = events.filter((e) => !seenEvents.has(e.id));
   if (!fresh.length) {
     if (!events.length && !box.children.length) box.innerHTML = '<div class="empty">-- no events yet --</div>';
     return;
@@ -616,6 +622,7 @@ function renderLog(s) {
   if (empty) empty.remove();
   const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
   for (const e of fresh) {
+    seenEvents.add(e.id);
     const [short, kind] = EV[e.type] || [e.type.toUpperCase(), 'drive'];
     const el = document.createElement('div');
     el.className = `ev${firstRender ? '' : ' new'}`;
@@ -623,7 +630,8 @@ function renderLog(s) {
     box.appendChild(el);
   }
   while (box.children.length > 100) box.firstChild.remove();
-  lastEventId = maxId;
+  lastEventId = Math.max(lastEventId, maxId);
+  if (seenEvents.size > 1000) seenEvents = new Set(events.map((e) => e.id));
   if (atBottom || firstRender) body.scrollTop = body.scrollHeight;
   pulse('log');
 }
@@ -672,7 +680,7 @@ function renderServices(s) {
     return `<span class="${x.ok == null ? 'dim' : x.ok ? 'ok' : 'err'}">●</span><span>${esc(x.name)}</span>${st}
       <span class="lat">${x.latency_ms != null ? `${x.latency_ms}ms` : '<span class="dim">--</span>'}</span>
       <span class="ago dim">${x.checked_at ? `<span data-ago="${ts(x.checked_at)}"></span> ago` : 'never'}</span>
-      ${!x.ok && x.detail ? `<span class="det ell">${esc(x.detail)}</span>` : ''}`;
+      ${x.ok !== true && x.detail ? `<span class="det ell${x.ok == null ? ' dim' : ''}">${esc(x.detail)}</span>` : ''}`;
   }, (x) => `svc${x.checked_at ? '' : ' stale'}`, '-- no health checks yet --');
   for (const el of $('b-services').children) {
     const x = svcs.find((v) => v.name === el.dataset.key);
@@ -840,31 +848,21 @@ function step(j, name, st, t, detail) {
   j.progress = Math.round((j.steps.filter((y) => y.state === 'done' || y.state === 'skipped').length / j.steps.length) * 100) / 100;
 }
 const dropUpcoming = (s, kind, jobId) => { s.upcoming = s.upcoming.filter((u) => !(u.kind === kind && u.job_id === jobId)); };
-const PR_URL = 'https://github.com/25danielc/shotgun-demo-app/pull/13';
 
 const MOCK_SCRIPT = [
   [3, (s, t) => {
     const j = J(s, 42);
     step(j, 'tests', 'done', t, '3/3 checks');
-    step(j, 'pr_opened', 'running', t);
+    step(j, 'approval_check', 'running', t);
+    dropUpcoming(s, 'job_expiry', 42);
     ev(s, t, 'job_state', '#42 tests: 3/3 checks passed', 42);
   }],
   [6, (s, t) => {
     const j = J(s, 42);
-    step(j, 'pr_opened', 'done', t, 'PR #13');
-    step(j, 'approval_check', 'running', t);
-    j.result_url = PR_URL;
-    dropUpcoming(s, 'job_expiry', 42);
-    const u = s.upcoming.find((x) => x.kind === 'preapproved_action' && x.job_id === 42);
-    if (u) u.description = 'merge PR #13 now: tests passed (pre-approved)';
-    ev(s, t, 'job_state', '#42 PR #13 opened from claude/issue-12', 42);
-  }],
-  [8, (s, t) => {
-    const j = J(s, 42);
-    step(j, 'approval_check', 'done', t, 'tests pass');
+    step(j, 'approval_check', 'done', t, 'pre-approved');
     step(j, 'merged', 'running', t);
     j.state = 'approved';
-    ev(s, t, 'job_state', '#42 needs_approval -> approved: pre-approval held (tests pass)', 42);
+    ev(s, t, 'job_state', '#42 running -> approved: pre-approved: merge it if the tests pass', 42);
   }],
   [11, (s, t) => {
     const j = J(s, 42);

@@ -5,6 +5,7 @@ Routers:
 - app.events        POST /events             (step 1.5)
 - app.voice_tools   POST /tools/*            (step 2.2)
 - app.workers.coder POST /github/hook        (step 3.1)
+- app.dashboard     GET /dashboard, /dashboard/state, POST /dashboard/demo/* (mission control)
 
 On startup, if DATABASE_URL is set, the Postgres pool opens and the job tables are created or
 updated (idempotent). A database outage doesn't stop the app: /health stays up and the tools
@@ -12,7 +13,8 @@ answer 503 until the pool is back. Background loops, cancelled on shutdown: the 
 (app/orchestrator.py, needs ANTHROPIC_API_KEY), the arrival and exception calls (app/calls.py,
 needs the ElevenLabs agent, phone number id and MY_PHONE_NUMBER), the coder worker
 (app/workers/coder.py, needs GITHUB_TOKEN and GITHUB_DEMO_REPO) and the research worker
-(app/workers/research.py, needs ANTHROPIC_API_KEY).
+(app/workers/research.py, needs ANTHROPIC_API_KEY) and the dashboard monitor (app/dashboard.py:
+ service health every 30 s, the live call every 5 s while a drive is open).
 """
 
 import asyncio
@@ -23,7 +25,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import calls, db, events, jobs, orchestrator, voice_tools
+from app import calls, dashboard, db, events, jobs, orchestrator, voice_tools
 from app.config import settings
 from app.workers import coder, research
 
@@ -66,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         background.append(asyncio.create_task(coder.run_coder(pool), name="coder"))
     else:
         log.warning("coder worker not running (needs DATABASE_URL, GITHUB_TOKEN, GITHUB_DEMO_REPO)")
+    background.append(asyncio.create_task(dashboard.run_monitor(pool), name="dashboard"))
     yield
     for task in background:
         task.cancel()
@@ -78,6 +81,8 @@ app = FastAPI(title="Shotgun", lifespan=lifespan)
 app.include_router(events.router)
 app.include_router(voice_tools.router)
 app.include_router(coder.router)
+app.include_router(dashboard.router)
+app.add_middleware(dashboard.ToolCallRecorder)
 
 
 @app.get("/health")
