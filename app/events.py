@@ -17,6 +17,8 @@ Rules:
 - Demo policy: always call. Cooldown, drive >= 10 min and pending items are step 4.3 (stretch).
 - The greeting gets the drive time once ETA (step 5.1) exists:
   "Morning. 31-minute drive home. Anything you want handled?"
+- TODO(step 5.1): store the latest trip (location, time) so the ETA and the planner can use it.
+  Today the location is validated and logged, then dropped (docs/DECISIONS.md section 9.12).
 """
 
 from __future__ import annotations

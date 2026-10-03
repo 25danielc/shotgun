@@ -53,7 +53,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | ID | Step | Needs | Pass when | Hrs | Priority | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.1 | Join the DoorDash CLI waitlist | — | Confirmation email received | 0.1 | Core | Not started |
-| 0.2 | Create accounts and keys: Anthropic, ElevenLabs, Twilio, Railway, Neon, Composio, GitHub, Google Maps | — | check\_keys.py prints OK for every key | 0.75 | Core | Not started |
+| 0.2 | Create accounts and keys: Anthropic, ElevenLabs, Twilio, Railway, Neon, Composio, GitHub, Google Maps | — | check\_keys.py prints OK for every key | 0.75 | Core | In progress: ElevenLabs OK; Anthropic key must be workspace-scoped (400 otherwise); others pending. Check: `make check-keys` |
 | 0.3 | Notability: architecture sketch and wireframes | — | 2+ screenshots saved | 0.25 | Stretch | Not started |
 | 1.1 | ElevenLabs agent on a Twilio number; save the "Shotgun" contact | 0.2 | Calling it from the Civic: agent greets through the car speakers, contact name on screen | 0.5 | Core | Not started |
 | 1.2 | Outbound call through the ElevenLabs API | 1.1 | One curl makes the phone ring within 5 s | 0.25 | Core | Blocked: client + offline tests done; needs 1.1, then `make ring` and Daniel confirms the ring |
@@ -64,7 +64,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | 2.1 | Job table in Neon with state transitions | 0.2 | Tests: create job, legal transitions pass, illegal ones raise | 1 | Core | Blocked: code + tests pass offline; run `make test-neon` once DATABASE_URL is set |
 | 2.2 | Tool webhooks: dispatch\_task, get\_status, approve\_action | 2.1 | Sample ElevenLabs payloads via curl answer in under 500 ms and write rows | 1 | Core | Blocked: done offline; local curl samples 200 in ≤ 3 ms and write rows. Needs Neon (2.1) + deploy, then `make curl-tools` |
 | 2.3 | Voice prompt and tools wired in ElevenLabs; caller allowlist | 1.1, 2.2 | Live 3-part request: agent confirms, says "on it", 3 rows appear; unknown number refused | 1 | Core | Not started |
-| 2.4 | Orchestrator planner (Sonnet): request → job list with deadlines | 2.1 | 5 fixture utterances produce the expected job types and deadlines | 1.5 | Core | Blocked: done offline (11 tests). Live check (`make test-live`, 5 utterances) needs a workspace-scoped Anthropic key |
+| 2.4 | Orchestrator planner (Sonnet): request → job list with deadlines | 2.1 | 5 fixture utterances produce the expected job types and deadlines | 1.5 | Core | Blocked: done offline (11 tests). Live check: `make test-live T=tests/test_step_2_4_orchestrator.py` (5 utterances) once the Anthropic key is workspace-scoped |
 | 3.1 | Coder worker plus demo repo with a planted bug | 2.1 | Job inserted by hand → PR opens and webhook marks job done within 10 min | 2 | Hero (pick one) | Not started |
 | 3.2 | Email worker via Composio | 2.1 | Job → draft in Gmail, status needs\_approval; approve → sent | 1.5 | Stretch | Not started |
 | 3.4 | Food worker: DoorDash CLI, or browser agent stopping at cart | 0.1, 2.1 | Job → cart with the right items and total; order placed only after approval | 2.5 | Hero (pick one) | Not started |
@@ -81,10 +81,10 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 
 ## Decision points and open questions
 
-- [ ] Hour 1: does Claude appear as a model choice in ElevenLabs Agents? If not, use its custom-LLM endpoint pointed at our server.
-- [ ] Hour 1: read the Fetch.ai hackpack — is their own LLM or a specific chat protocol required?
+- [ ] Hour 1: does Claude appear as a model choice in ElevenLabs Agents? If not, use its custom-LLM endpoint pointed at our server. *(2026-10-03: the API's LLM list includes `claude-haiku-4-5`; confirm in the agent UI during 1.1.)*
+- [x] Hour 1: read the Fetch.ai hackpack — is their own LLM or a specific chat protocol required? *Agent Chat Protocol required; ASI-1 LLM not required (DECISIONS §6a).*
 - [ ] Hour 10: hero worker. DoorDash approved and an Apple Silicon Mac on hand → food (3.4). Otherwise → coding PR (3.1).
-- [ ] Check Devpost rules: how many sponsor prizes can one project enter?
+- [x] Check Devpost rules: how many sponsor prizes can one project enter? *As many as eligible; one main track. Winning several isn't stated (DECISIONS §6).*
 - [ ] Destination source for ETA: next calendar event, a fixed home/work address, or the agent asks.
 
 ## Risks and fallbacks

@@ -12,7 +12,7 @@ Say "Step X.Y: <title>" first. If the user didn't give an ID, pick the first `No
 
 ## 2. Read and check dependencies
 - Read the step's row in `docs/PLAN.md`: Needs, Pass when, Hrs, Priority.
-- Every step in "Needs" must have Status `Done`. If not, stop and say which one is missing.
+- Every step in "Needs" must have Status `Done`. If not, stop and say which one is missing. Exception: if Daniel says to build ahead, build and test offline, then set Status to `Blocked: <what's left>`. Never Done until the real check passes.
 - Skim `docs/DECISIONS.md` sections that touch this step (decisions, cut list §5, conflicts §9, API notes §11) and the stub module's docstring (see the CLAUDE.md module table).
 - Check the clock against the time gates (CLAUDE.md). If a gate has passed, raise it before starting.
 
@@ -30,12 +30,13 @@ Write a short plan: files to touch, the data shapes, the test that proves the pa
 
 ## 6. Write the pass-check test
 `tests/test_step_X_Y_<slug>.py`. The test should encode the PLAN.md "Pass when" as literally as possible.
-- Offline by default: fake HTTP with `httpx.MockTransport`, a fake clock for deadlines, and a throwaway Neon branch or schema for DB tests.
-- Anything that calls real APIs or rings a phone: `@pytest.mark.live` (runs only with `make test-live`).
+- Offline by default: fake HTTP with `httpx.MockTransport`, a fake clock for deadlines, fake Claude/telephony clients via monkeypatch. DB tests take the `db` fixture (tests/conftest.py): a connection inside a transaction that's always rolled back, on embedded Postgres by default or on Neon with `make test-neon`.
+- Sample third-party payloads live in `tests/fixtures/` (e.g. `elevenlabs/`, `planner_utterances.json`).
+- Anything that calls real APIs or rings a phone: `@pytest.mark.live`. Run one step's with `make test-live T=tests/test_step_X_Y_*.py`; a bare `make test-live` rings the phone.
 - Latency rules get a test: time the handler and assert < 0.5 s.
 
 ## 7. Run it
-`make test && make lint`, plus `make test-live` when the step's check is live. Use the `verify-step` skill to report pass or fail with evidence.
+`make test && make lint`, plus `make test-live T=<the step's test file>` when the step's check is live. Use the `verify-step` skill to report pass or fail with evidence.
 
 ## 8. Record and commit
 - Set the step's Status in `docs/PLAN.md` to `Done (YYYY-MM-DD HH:MM)`, or `Blocked: <reason>`.

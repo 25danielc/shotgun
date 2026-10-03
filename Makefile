@@ -18,8 +18,8 @@ dev:  ## Run the API locally with reload on :$(PORT)
 test:  ## Run offline tests (live tests skipped)
 	uv run pytest -q
 
-test-live:  ## Run tests that hit real APIs / ring the phone (needs .env)
-	RUN_LIVE=1 uv run pytest -q -m live
+test-live:  ## Run live tests (real APIs, may ring the phone). Narrow it: T=tests/test_step_2_4_orchestrator.py
+	RUN_LIVE=1 uv run pytest -q -m live $(T)
 
 test-neon:  ## Run the suite with Neon (DATABASE_URL) as the test DB; rolled back, no data left
 	USE_NEON=1 uv run pytest -q

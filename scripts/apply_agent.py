@@ -8,7 +8,8 @@ Steps 1.1 and 2.3. Idempotent: re-run after any change to the config or the base
 
 Stage "greet" leaves out tools and the conversation-initiation webhook, because both point at
 our server and would break calls before it's deployed. Stage "full" needs PUBLIC_BASE_URL and
-TOOLS_SHARED_SECRET.
+TOOLS_SHARED_SECRET, and must not run until /tools/init is built and deployed (step 2.3): with the
+webhook enabled and no endpoint behind it, every call to the agent fails.
 
 Endpoints checked against https://api.elevenlabs.io/openapi.json on 2026-10-03:
   POST/PATCH /v1/convai/agents/create, /v1/convai/agents/{id}

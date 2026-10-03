@@ -27,7 +27,7 @@ Config lives in `config/elevenlabs_agent.json` (agent body + tool definitions). 
 - Tools are separate resources: `POST /v1/convai/tools` with each `tools[]` entry from the config, then put the returned ids in `conversation_config.agent.prompt.tool_ids` (inline `prompt.tools` is deprecated).
 - Webhook tools: `tool_config.type = "webhook"`, `api_schema {url, method, request_headers, request_body_schema}`. `response_timeout_secs` minimum is 5, but **our endpoints answer in < 500 ms anyway**.
 - Auth header: `X-Shotgun-Secret` whose value is an ElevenLabs workspace secret (`{"secret_id": ...}`) holding `TOOLS_SHARED_SECRET`. Created by `POST /v1/convai/secrets {type: "new", name, value}`, updated by `PATCH /v1/convai/secrets/{id} {type: "update", ...}`, both handled by the script.
-- The caller number goes into each body via `"dynamic_variable": "system__caller_id"`. Other system vars: `system__conversation_id`, `system__call_sid`, `system__called_number`. TODO(verify) that `system__caller_id` is filled on **outbound** calls (it may be our Twilio number or the callee there).
+- The caller number goes into each body via `"dynamic_variable": "system__caller_id"`. Other system vars: `system__conversation_id`, `system__call_sid`, `system__called_number`. Each tool also binds `called` to `system__called_number`. Which of the two holds Daniel's number on **outbound** callbacks is unverified, so the server accepts the allowed number in either field (`app/security.py`).
 - `end_call` is a built-in system tool: `prompt.built_in_tools.end_call = {type: "system", name: "end_call", params: {system_tool_type: "end_call"}}` (OpenAPI, 2026-10-03). The prompt must tell the agent when to call it.
 
 ## Caller allowlist

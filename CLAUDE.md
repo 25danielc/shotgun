@@ -68,8 +68,8 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 |---|---|
 | `make setup` | Install Python 3.12 + deps via uv, enable the git hook, create `.env` |
 | `make dev` | Run locally on :8000 with reload (`ngrok http 8000` to expose) |
-| `make test` | Offline tests (DB tests use embedded Postgres via pgserver). `make test-live` runs `@live` tests (real APIs, rings phone) |
-| `make test-neon` / `make db-init` | Same suite with Neon as the DB (rolled back) / create the job tables in Neon |
+| `make test` | Offline tests (DB tests use embedded Postgres via pgserver). `make test-live T=<file>` runs one file's `@live` tests; without `T` it runs all of them and **rings the phone** |
+| `make test-neon` / `make db-init` | Same suite with Neon as the DB (rolled back, but briefly locks `jobs`: not during a live demo) / create the job tables in Neon |
 | `make lint` / `make fmt` | Ruff check + format check / auto-fix |
 | `make check-keys` | Step 0.2 pass check: one cheap read-only call per key |
 | `make ring` | Step 1.2: ring `MY_PHONE_NUMBER` via ElevenLabs. `scripts/apply_agent.py --stage greet\|full` pushes the agent config |
