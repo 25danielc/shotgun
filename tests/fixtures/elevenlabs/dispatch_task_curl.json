@@ -1,0 +1,8 @@
+{
+  "type": "research",
+  "details": "What time does the Michigan game start next Saturday?",
+  "label": "Michigan kickoff time",
+  "caller": "+15555550100",
+  "called": "+15555550199",
+  "conversation_id": "conv_sample_curl"
+}

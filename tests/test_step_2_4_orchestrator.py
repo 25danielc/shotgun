@@ -210,6 +210,22 @@ async def test_plan_job_creates_worker_jobs_with_deadlines(db):
     )
 
 
+async def test_worker_jobs_inherit_the_drive_and_preapproval(db):
+    """D17: a plan dispatched with a yes up front passes both on to every part."""
+    from app import drives
+
+    drive = await drives.open_drive(db)
+    yes = {"condition": "merge it if the tests pass", "require_tests_pass": True}
+    await jobs.create_job(db, JobType.PLAN, request=THREE_PART, drive_id=drive.id, preapproval=yes)
+    plan_job = await jobs.claim_next(db, [JobType.PLAN])
+    created = await orchestrator.process_plan_job(
+        db, plan_job, now=NOW, client=FakeClient(THREE_JOBS)
+    )
+    assert {(j.drive_id, json.dumps(j.preapproval)) for j in created} == {
+        (drive.id, json.dumps(yes))
+    }
+
+
 async def test_failed_plan_marks_plan_job_failed(db):
     await jobs.create_job(db, JobType.PLAN, request="x")
     plan_job = await jobs.claim_next(db, [JobType.PLAN])

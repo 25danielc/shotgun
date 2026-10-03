@@ -1,4 +1,5 @@
-"""Step 2.2 pass check: sample ElevenLabs payloads answer in under 500 ms and write rows.
+"""Step 2.2 pass check, background tools: sample payloads answer in under 500 ms and write a
+row with its drive and pre-approval (D17). The inline tools are tests/test_step_2_2_inline_tools.py.
 
 The sample bodies in tests/fixtures/elevenlabs/ go through the real app (ASGI, same event loop)
 against Postgres: embedded by default, Neon with `make test-neon`. Each request is timed.
@@ -13,7 +14,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from app import jobs, voice_tools
+from app import drives, jobs, voice_tools
 from app.config import settings
 from app.jobs import JobState
 from app.main import app
@@ -73,12 +74,66 @@ async def test_dispatch_task_sample_is_fast_and_writes_a_plan_row(client, db):
     assert job.details == {"conversation_id": "conv_sample_inbound"}
 
 
-async def test_typed_dispatch_writes_a_worker_row(client, db):
+async def test_typed_dispatch_writes_a_worker_row_with_drive_and_preapproval(client, db):
     response, elapsed = await call(client, "dispatch_task", sample("dispatch_task_typed"))
+    assert response.status_code == 200
     assert elapsed < BUDGET
-    job = await jobs.get_job(db, response.json()["job_id"])
+    reply = response.json()
+    assert reply["message"] == "On it. Pre-approved: merge it if the tests pass"
+    job = await jobs.get_job(db, reply["job_id"])
     assert job.type == "coder"
     assert job.request == "Fix the login bug Sarah filed."
+    assert job.details["label"] == "Fix Sarah's login bug"
+    assert job.preapproval == {
+        "condition": "merge it if the tests pass",
+        "require_tests_pass": True,
+    }
+    assert job.drive_id == reply["drive_id"]
+    assert (await drives.get_drive(db, job.drive_id)).ended_at is None
+
+
+async def test_dispatch_without_preapproval_stores_none(client, db):
+    body = sample("dispatch_task_typed")
+    del body["preapproval"]
+    job = await jobs.get_job(db, (await call(client, "dispatch_task", body))[0].json()["job_id"])
+    assert job.preapproval is None
+
+
+async def test_dispatch_joins_the_open_drive(client, db):
+    drive = await drives.open_drive(db, lat=42.28, lng=-83.74)
+    reply = (await call(client, "dispatch_task", sample("dispatch_task_typed")))[0].json()
+    assert reply["drive_id"] == drive.id
+    again = (await call(client, "dispatch_task", sample("dispatch_task")))[0].json()
+    assert again["drive_id"] == drive.id
+
+
+async def test_dispatch_with_no_drive_opens_one(client, db):
+    reply = (await call(client, "dispatch_task", sample("dispatch_task_typed")))[0].json()
+    drive = await drives.get_drive(db, reply["drive_id"])
+    assert drive.source == "call"
+    assert (await drives.current_drive(db)).id == drive.id
+
+
+async def test_old_request_field_still_dispatches(client, db):
+    """Agents pushed before D17 send `request`, not `details`."""
+    body = {"request": "Fix the login bug.", "type": "coder", **sample("get_status")}
+    job = await jobs.get_job(db, (await call(client, "dispatch_task", body))[0].json()["job_id"])
+    assert (job.type, job.request) == ("coder", "Fix the login bug.")
+
+
+async def test_get_status_for_a_drive_includes_finished_jobs(client, db):
+    drive = await drives.open_drive(db)
+    other = await jobs.create_job(db, "research", request="elsewhere")
+    done = await jobs.create_job(db, "research", request="score", drive_id=drive.id)
+    await jobs.transition(db, done.id, "running")
+    await jobs.transition(db, done.id, "done", summary="Michigan won.")
+    coder = await jobs.create_job(db, "coder", request="fix", drive_id=drive.id)
+    response, elapsed = await call(client, "get_status", sample("get_status", drive_id=drive.id))
+    assert elapsed < BUDGET
+    reply = response.json()
+    assert [j["id"] for j in reply["jobs"]] == [done.id, coder.id]
+    assert other.id not in [j["id"] for j in reply["jobs"]]
+    assert reply["message"] == "The research is done and the code fix is queued."
 
 
 async def test_get_status_sample_is_fast_and_speakable(client, db):
@@ -103,6 +158,7 @@ async def test_approve_action_sample_approves_and_logs(client, db):
         "ok": True,
         "message": "Done, going ahead.",
         "job_id": job.id,
+        "drive_id": None,
         "jobs": None,
     }
     assert (await jobs.get_job(db, job.id)).state is JobState.APPROVED
@@ -139,6 +195,7 @@ async def test_approve_unknown_job(client, job_id):
         "ok": False,
         "message": "I couldn't find that job.",
         "job_id": reply["job_id"],
+        "drive_id": None,
         "jobs": None,
     }
 
@@ -176,7 +233,9 @@ async def test_status_sentence_for_none_and_three_jobs(db):
 
 
 @pytest.mark.parametrize("secret", ["wrong", None])
-@pytest.mark.parametrize("tool", ["dispatch_task", "get_status", "approve_action"])
+@pytest.mark.parametrize(
+    "tool", ["dispatch_task", "get_status", "approve_action", "search_web", "draft_message"]
+)
 async def test_bad_secret_is_401_and_writes_nothing(client, db, tool, secret):
     response, _ = await call(client, tool, sample(tool), secret=secret)
     assert response.status_code == 401
@@ -200,6 +259,12 @@ async def test_stranger_is_403_and_writes_nothing(client, db):
 async def test_missing_caller_is_403(client):
     body = {"request": "fix the bug"}
     assert (await call(client, "dispatch_task", body))[0].status_code == 403
+
+
+@pytest.mark.parametrize("tool", ["search_web", "draft_message"])
+async def test_inline_tools_refuse_strangers(client, tool):
+    body = sample(tool, caller="+12025550123", called="+15555550199")
+    assert (await call(client, tool, body))[0].status_code == 403
 
 
 async def test_caller_number_formatting_is_normalised(client):
@@ -233,3 +298,24 @@ def test_live_curl_samples_against_deployed_server():
     )
     print(result.stdout, result.stderr)
     assert result.returncode == 0
+
+
+# --- drives -------------------------------------------------------------------------------------
+
+
+async def test_opening_a_drive_closes_the_open_one(db):
+    first = await drives.open_drive(db, lat=42.28, lng=-83.74)
+    second = await drives.open_drive(db)
+    assert (await drives.get_drive(db, first.id)).ended_at == second.started_at
+    assert (await drives.current_drive(db)).id == second.id
+    assert (first.start_lat, first.start_lng, first.arrival_called) == (42.28, -83.74, False)
+
+
+async def test_a_drive_older_than_max_hours_is_not_current(db):
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    old = await drives.open_drive(db, now=now - timedelta(hours=drives.MAX_HOURS, minutes=1))
+    assert await drives.current_drive(db, now) is None
+    fresh = await drives.current_or_open(db, now=now)
+    assert fresh.id != old.id

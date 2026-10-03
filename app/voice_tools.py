@@ -1,16 +1,26 @@
 """POST /tools/*: webhook tools the ElevenLabs voice agent calls mid-conversation.
 
-Build steps: 2.2 (webhooks answer < 500 ms and write rows), 2.3 (wired into ElevenLabs,
-caller allowlist), 4.2 (spoken approval loop).
+Build steps: 2.2 (inline and background tools, D17), 2.3 (wired into ElevenLabs, caller
+allowlist), 4.2 (approval: pre-approval at dispatch, spoken yes/no).
 
 Tools (schemas live in config/elevenlabs_agent.json; every body also carries `caller` and
-`called`, bound to system__caller_id and system__called_number):
-- dispatch_task(request, type?): one insert, then return. Without `type` (the normal path) the
-  request is stored as a queued `plan` job for the orchestrator (app/orchestrator.py, step 2.4).
-  With a worker `type` (the D13 fallback) that worker job is created directly.
-- get_status(): one spoken sentence about open jobs, plus the job list.
+`called`, bound to system__caller_id and system__called_number).
+
+Inline (do the work during the call, under 8 s; logic in app/inline.py; no database):
+- search_web(query): a one- or two-sentence spoken answer (Haiku + Claude web search).
+- draft_message(to, intent): draft text for the agent to read back. Sends nothing.
+  A slow or failed answer is 200 {"ok": false} with a spoken fallback, never a hang.
+
+Background (answer in under 500 ms, never block on a worker):
+- dispatch_task(type, details, label?, preapproval?): one job in the current drive (a drive is
+  opened if none is), then return. The voice agent sends one typed job per part (D17; D13's
+  fallback is now the main path). Without a worker `type` the text is stored as a `plan` job
+  for the orchestrator (step 2.4), which splits it. `request` is the old name of `details`,
+  still accepted. `preapproval` = {condition, require_tests_pass?, max_usd?}: the driver's yes
+  given up front, so the job can finish without a call (step 4.2).
+- get_status(drive_id?): one spoken sentence, plus the job list. With drive_id: that drive's
+  jobs, finished ones included; without: every open job.
 - approve_action(job_id, approved): needs_approval -> approved, or -> failed ("Cancelled").
-  The only path to an irreversible action; the worker acts on `approved` (step 4.2).
 
 Business problems (unknown job, nothing to approve) come back as 200 {"ok": false, "message"}
 so the agent can say something sensible. Auth problems are HTTP errors: 401 bad secret,
@@ -25,8 +35,9 @@ and a refusal greeting, and the prompt makes the agent hang up at once. ElevenLa
 built-in caller allowlist, and the docs don't describe rejecting a call from this webhook, so
 the tools' 403 is the second layer.
 
-Hard rules: answer in < 500 ms; never block on a worker; check X-Shotgun-Secret
-(TOOLS_SHARED_SECRET) and the caller (ALLOWED_CALLER_NUMBER) on every request.
+Hard rules: background tools answer in < 500 ms and never block on a worker; inline tools
+answer in < 8 s; every request checks X-Shotgun-Secret (TOOLS_SHARED_SECRET) and the caller
+(ALLOWED_CALLER_NUMBER).
 """
 
 from __future__ import annotations
@@ -40,7 +51,7 @@ from psycopg import AsyncConnection
 from psycopg_pool import PoolTimeout
 from pydantic import BaseModel
 
-from app import db, jobs, telephony
+from app import db, drives, inline, jobs, telephony
 from app.config import settings
 from app.jobs import IllegalTransition, Job, JobNotFound, JobState, JobType
 from app.security import check_caller, check_secret, normalize_number
@@ -81,9 +92,24 @@ class CallContext(BaseModel):
         check_caller(self.caller, self.called, settings.allowed_caller_number)
 
 
+class Preapproval(BaseModel):
+    """A yes given at dispatch time. Code enforces only the structured fields (D17)."""
+
+    condition: str
+    require_tests_pass: bool | None = None
+    max_usd: float | None = None
+
+
 class DispatchBody(CallContext):
-    request: str
     type: str | None = None
+    details: str | None = None
+    request: str | None = None  # the old name of `details`, sent by agents pushed before D17
+    label: str | None = None
+    preapproval: Preapproval | None = None
+
+
+class StatusBody(CallContext):
+    drive_id: int | str | None = None
 
 
 class ApproveBody(CallContext):
@@ -91,10 +117,20 @@ class ApproveBody(CallContext):
     approved: bool
 
 
+class SearchBody(CallContext):
+    query: str
+
+
+class DraftBody(CallContext):
+    to: str
+    intent: str
+
+
 class Reply(BaseModel):
     ok: bool
     message: str
     job_id: int | None = None
+    drive_id: int | None = None
     jobs: list[dict[str, Any]] | None = None
 
 
@@ -124,29 +160,76 @@ async def init(body: InitBody) -> dict[str, Any]:
     return {"type": "conversation_initiation_client_data", "dynamic_variables": variables}
 
 
+@router.post("/search_web")
+async def search_web(body: SearchBody) -> Reply:
+    body.authorize()
+    query = body.query.strip()
+    if not query:
+        return Reply(ok=False, message="I didn't catch the question.")
+    try:
+        answer = await inline.search_web(query)
+    except inline.InlineError as exc:
+        log.warning("search_web failed: %s", exc)
+        return Reply(
+            ok=False,
+            message="I couldn't get that quickly. Want me to look it up in the background?",
+        )
+    return Reply(ok=True, message=answer)
+
+
+@router.post("/draft_message")
+async def draft_message(body: DraftBody) -> Reply:
+    body.authorize()
+    if not body.intent.strip():
+        return Reply(ok=False, message="What should the message say?")
+    try:
+        draft = await inline.draft_message(body.to.strip(), body.intent.strip())
+    except inline.InlineError as exc:
+        log.warning("draft_message failed: %s", exc)
+        return Reply(ok=False, message="I couldn't write that one. Can you say it again?")
+    return Reply(ok=True, message=draft)
+
+
+def job_type_of(name: str | None) -> JobType:
+    """The worker type named, else `plan` (unknown or missing types are never dropped)."""
+    if not name:
+        return JobType.PLAN
+    try:
+        job_type = JobType(name.strip().lower())
+    except ValueError:
+        log.warning("dispatch_task: unknown type %r, storing as plan", name)
+        return JobType.PLAN
+    return job_type if job_type in jobs.WORKER_TYPES else JobType.PLAN
+
+
 @router.post("/dispatch_task")
 async def dispatch_task(body: DispatchBody, conn: Conn) -> Reply:
     body.authorize()
-    request = body.request.strip()
-    if not request:
+    text = (body.details or body.request or "").strip()
+    if not text:
         return Reply(ok=False, message="I didn't catch a request.")
-    job_type = JobType.PLAN
-    if body.type:
-        try:
-            job_type = JobType(body.type.strip().lower())
-        except ValueError:
-            log.warning("dispatch_task: unknown type %r, storing as plan", body.type)
-        if job_type not in jobs.WORKER_TYPES:
-            job_type = JobType.PLAN
-    job = await jobs.create_job(
-        conn,
-        job_type,
-        {"conversation_id": body.conversation_id} if body.conversation_id else {},
-        request=request,
-        source="voice",
-    )
-    log.info("dispatch_task: job %s (%s) queued", job.id, job.type)
-    return Reply(ok=True, message="On it.", job_id=job.id)
+    details: dict[str, Any] = {}
+    if body.conversation_id:
+        details["conversation_id"] = body.conversation_id
+    if body.label and body.label.strip():
+        details["label"] = body.label.strip()
+    preapproval = body.preapproval.model_dump(exclude_none=True) if body.preapproval else None
+    async with conn.transaction():
+        drive = await drives.current_or_open(conn)
+        job = await jobs.create_job(
+            conn,
+            job_type_of(body.type),
+            details,
+            request=text,
+            source="voice",
+            drive_id=drive.id,
+            preapproval=preapproval,
+        )
+    log.info("dispatch_task: job %s (%s) queued in drive %s", job.id, job.type, drive.id)
+    message = "On it."
+    if preapproval:
+        message = f"On it. Pre-approved: {preapproval['condition']}"
+    return Reply(ok=True, message=message, job_id=job.id, drive_id=drive.id)
 
 
 TYPE_NAMES = {
@@ -160,20 +243,26 @@ STATE_PHRASES = {
     JobState.RUNNING: "is in progress",
     JobState.NEEDS_APPROVAL: "needs your OK",
     JobState.APPROVED: "is going through",
+    JobState.DONE: "is done",
+    JobState.FAILED: "didn't work out",
 }
 
 
-def status_sentence(open_jobs: list[Job]) -> str:
-    """One short spoken sentence about open jobs.
+def status_sentence(listed: list[Job]) -> str:
+    """One short spoken sentence about the jobs (open ones, or one drive's).
 
     e.g. "The code fix is in progress and the email needs your OK."
     """
-    if not open_jobs:
+    listed = [j for j in listed if not (j.type is JobType.PLAN and j.state is JobState.DONE)]
+    if not listed:
         return "Nothing is in progress right now."
     parts = []
-    for job in open_jobs:
+    for job in listed:
         if job.type is JobType.PLAN:
-            parts.append("I'm still planning your request")
+            if job.state is JobState.FAILED:
+                parts.append("I couldn't work out one request")
+            else:
+                parts.append("I'm still planning your request")
         else:
             parts.append(f"{TYPE_NAMES[job.type]} {STATE_PHRASES[job.state]}")
     if len(parts) > 1:
@@ -183,13 +272,17 @@ def status_sentence(open_jobs: list[Job]) -> str:
 
 
 @router.post("/get_status")
-async def get_status(body: CallContext, conn: Conn) -> Reply:
+async def get_status(body: StatusBody, conn: Conn) -> Reply:
     body.authorize()
-    open_jobs = await jobs.list_jobs(conn)
-    listed = [
-        {"id": j.id, "type": j.type, "state": j.state, "summary": j.summary} for j in open_jobs
-    ]
-    return Reply(ok=True, message=status_sentence(open_jobs), jobs=listed)
+    drive_id = None
+    if body.drive_id not in (None, ""):
+        try:
+            drive_id = int(str(body.drive_id).strip())
+        except ValueError:
+            return Reply(ok=False, message="I couldn't find that drive.")
+    found = await jobs.list_jobs(conn, JobState if drive_id else None, drive_id=drive_id)
+    listed = [{"id": j.id, "type": j.type, "state": j.state, "summary": j.summary} for j in found]
+    return Reply(ok=True, message=status_sentence(found), drive_id=drive_id, jobs=listed)
 
 
 @router.post("/approve_action")

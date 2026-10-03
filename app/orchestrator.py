@@ -294,6 +294,8 @@ async def process_plan_job(
                     request=planned.label,
                     source=f"plan:{plan_job.id}",
                     deadline=deadline,
+                    drive_id=plan_job.drive_id,
+                    preapproval=plan_job.preapproval,  # the driver's yes covers every part
                 )
             )
         await jobs.transition(

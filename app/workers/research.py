@@ -84,7 +84,7 @@ def request_for(job: Job, now: datetime) -> str:
     return "\n".join(lines)
 
 
-def _speakable(text: str) -> str:
+def speakable(text: str) -> str:
     text = re.sub(r"\s*\([^()]*https?://[^()]*\)", "", text)  # "(see https://...)"
     text = re.sub(r"https?://[^\s)]+", "", text)
     text = re.sub(r"[*_#`>|]", "", text)
@@ -113,7 +113,7 @@ def parse_answer(content: list[Any]) -> Answer:
         for item in block.content
     ]
     sources = list(dict.fromkeys(url for url in cited or found if url))
-    text = _speakable("".join(block.text for block in final))
+    text = speakable("".join(block.text for block in final))
     if not text:
         raise ResearchError("Claude returned no answer text")
     return Answer(text, sources[:5])

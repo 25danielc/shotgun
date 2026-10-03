@@ -12,6 +12,10 @@ that edge is the "nothing irreversible without a spoken yes" rule.
 Job types: the four worker types, plus `plan`, a raw spoken request stored by dispatch_task that
 the orchestrator (step 2.4) claims and turns into worker jobs.
 
+Each job belongs to a drive (`drive_id`, app/drives.py) and may carry a `preapproval` given at
+dispatch: {condition, require_tests_pass?, max_usd?} (D17). Only the structured fields are
+enforced by code; `condition` is what the driver agreed to, read back to them.
+
 Every state change goes through `transition()`, which locks the row, checks the edge, and logs it
 in job_events (the approval log for step 4.2). Workers claim work with `claim_next()`
 (SELECT ... FOR UPDATE SKIP LOCKED), so the local Mac food worker and the Railway process can
@@ -32,6 +36,8 @@ from psycopg import AsyncConnection
 from psycopg.rows import class_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
+
+from app import drives
 
 
 class JobState(StrEnum):
@@ -98,6 +104,8 @@ class Job(BaseModel):
     source: str
     created_at: datetime
     updated_at: datetime
+    drive_id: int | None = None
+    preapproval: dict[str, Any] | None = None
 
 
 def _sql_list(values: Iterable[str]) -> str:
@@ -121,6 +129,9 @@ create table if not exists jobs (
 );
 -- Columns added by later steps (idempotent).
 alter table jobs add column if not exists announced_state text;  -- step 4.1 callbacks
+alter table jobs add column if not exists drive_id bigint references drives (id);  -- D17
+alter table jobs add column if not exists preapproval jsonb;  -- D17
+create index if not exists jobs_drive_idx on jobs (drive_id, id);
 -- Named checks, re-applied on every init so adding a type or state updates an existing table.
 alter table jobs drop constraint if exists jobs_type_check;
 alter table jobs add constraint jobs_type_check check (type in ({_sql_list(JobType)}));
@@ -143,6 +154,7 @@ create index if not exists job_events_job_idx on job_events (job_id, id);
 async def init_schema(conn: AsyncConnection) -> None:
     """Create the tables if they don't exist. Safe to run on every deploy."""
     async with conn.transaction():
+        await conn.execute(drives.SCHEMA)  # jobs.drive_id references it
         await conn.execute(SCHEMA)
 
 
@@ -163,15 +175,25 @@ async def create_job(
     request: str | None = None,
     source: str = "voice",
     deadline: datetime | None = None,
+    drive_id: int | None = None,
+    preapproval: dict[str, Any] | None = None,
 ) -> Job:
     """Insert a queued job and log its creation."""
     job_type = JobType(type)
     async with conn.transaction():
         cur = conn.cursor(row_factory=class_row(Job))
         await cur.execute(
-            "insert into jobs (type, request, details, source, deadline) "
-            "values (%s, %s, %s, %s, %s) returning *",
-            (job_type.value, request, Jsonb(details or {}), source, deadline),
+            "insert into jobs (type, request, details, source, deadline, drive_id, preapproval) "
+            "values (%s, %s, %s, %s, %s, %s, %s) returning *",
+            (
+                job_type.value,
+                request,
+                Jsonb(details or {}),
+                source,
+                deadline,
+                drive_id,
+                Jsonb(preapproval) if preapproval is not None else None,
+            ),
         )
         job = await cur.fetchone()
         await _log(conn, job.id, None, job.state, "created")
@@ -185,12 +207,19 @@ async def get_job(conn: AsyncConnection, job_id: int) -> Job | None:
 
 
 async def list_jobs(
-    conn: AsyncConnection, states: Iterable[JobState | str] | None = None
+    conn: AsyncConnection,
+    states: Iterable[JobState | str] | None = None,
+    *,
+    drive_id: int | None = None,
 ) -> list[Job]:
-    """Jobs in the given states (default: all open jobs), oldest first."""
+    """Jobs in the given states (default: all open jobs), oldest first, optionally one drive's."""
     wanted = [JobState(state).value for state in (states if states is not None else OPEN)]
     cur = conn.cursor(row_factory=class_row(Job))
-    await cur.execute("select * from jobs where state = any(%s) order by created_at, id", (wanted,))
+    await cur.execute(
+        """select * from jobs where state = any(%s) and (%s::bigint is null or drive_id = %s)
+           order by created_at, id""",
+        (wanted, drive_id, drive_id),
+    )
     return await cur.fetchall()
 
 

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     orchestrator_model: str = "claude-sonnet-5-5"
     voice_model: str = "claude-haiku-4-5"  # selected inside ElevenLabs, not called by us
+    inline_model: str = "claude-haiku-4-5"  # inline tools search_web / draft_message (D17)
 
     # ElevenLabs Agents + Twilio
     elevenlabs_api_key: str = ""
