@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools callback-demo coder-demo github-hook deploy smoke
+.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools callback-demo coder-demo github-hook railway-env deploy smoke
 
 PORT ?= 8000
 
@@ -52,6 +52,9 @@ coder-demo:  ## Step 3.1: insert a coder job in DATABASE_URL and watch it for 10
 
 github-hook:  ## Step 3.1: create/update the demo repo webhook -> PUBLIC_BASE_URL/github/hook
 	uv run python scripts/github_hook.py
+
+railway-env:  ## Copy non-empty .env values into Railway variables (names printed, never values)
+	uv run python scripts/railway_env.py
 
 deploy:  ## Deploy to Railway (see .claude/skills/deploy)
 	railway up --detach

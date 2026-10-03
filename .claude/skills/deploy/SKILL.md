@@ -8,10 +8,9 @@ description: Use when deploying Shotgun to Railway, after changing env vars, or 
 Railway docs checked 2026-10-03: Railpack builder (reads `.python-version` = 3.12, `pyproject.toml` + `uv.lock`), config in `railway.json` (start command `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`, healthcheck `/health`). Containers stay running (app sleeping is opt-in), so background loops work.
 
 ## First time (step 1.4, ask Daniel before creating the project)
-1. `railway login` (Daniel; browser). Check with `railway whoami`.
+1. `railway login` (Daniel; browser) **in this terminal** (`! railway login`): logging in on the website doesn't log the CLI in. Check with `railway whoami`.
 2. `railway init` (new project "shotgun") or `railway link` to an existing one.
-3. Set variables from `.env` without echoing them:
-   `railway variable set KEY=VALUE ...` (`railway variables --set` is deprecated). Never paste values into chat or commit them.
+3. Set variables from `.env` without echoing them: `make railway-env` (scripts/railway_env.py, prints names only). The installed CLI is **4.10**: the syntax is `railway variables --service shotgun --set K=V --skip-deploys`. Newer CLIs prefer `railway variable set`. Never paste values into chat or commit them.
 4. `make deploy` (`railway up --detach`), then `railway logs` until the healthcheck passes.
 5. `railway domain` creates the public URL. Put it in `.env` as `PUBLIC_BASE_URL` and in Railway variables.
 6. TODO(verify): Railpack puts the venv's `uvicorn` on PATH for the start command. If the deploy fails with "uvicorn: not found", switch `startCommand` to `python -m uvicorn ...` and re-check the Railpack Python docs.
