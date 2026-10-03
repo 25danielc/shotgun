@@ -21,7 +21,6 @@ Rules:
 
 from __future__ import annotations
 
-import hmac
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
@@ -29,6 +28,7 @@ from pydantic import BaseModel, ValidationError
 
 from app import telephony
 from app.config import settings
+from app.security import check_secret
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -45,14 +45,6 @@ class Event(BaseModel):
     source: str
     event: str
     location: Location | None = None
-
-
-def check_secret(given: str | None, expected: str) -> None:
-    """401 on a missing or wrong secret; 503 if the server has none configured."""
-    if not expected:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "events secret not configured")
-    if not given or not hmac.compare_digest(given.encode(), expected.encode()):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad secret")
 
 
 def greeting_for(event: Event) -> str:

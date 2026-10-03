@@ -41,9 +41,8 @@ async def close_pool() -> None:
         _pool = None
 
 
-def get_pool() -> AsyncConnectionPool:
-    if _pool is None:
-        raise RuntimeError("database pool is not open")
+def get_pool() -> AsyncConnectionPool | None:
+    """The open pool, or None if DATABASE_URL isn't configured / the app hasn't started."""
     return _pool
 
 

@@ -158,3 +158,17 @@ async def test_list_jobs_defaults_to_open(db):
     ids = [job.id for job in await jobs.list_jobs(db)]
     assert open_job.id in ids
     assert closed.id not in ids
+
+
+async def test_init_schema_is_idempotent_and_accepts_plan_jobs(db):
+    await jobs.init_schema(db)  # second run in the same database: constraints re-applied
+    job = await jobs.create_job(db, JobType.PLAN, request="fix the bug and email Alex")
+    assert job.type is JobType.PLAN
+    assert JobType.PLAN not in jobs.WORKER_TYPES
+
+
+async def test_expect_guards_the_current_state(db):
+    job = await jobs.create_job(db, "email")
+    with pytest.raises(IllegalTransition):
+        await jobs.transition(db, job.id, "failed", expect=JobState.NEEDS_APPROVAL)
+    assert (await jobs.get_job(db, job.id)).state is JobState.QUEUED

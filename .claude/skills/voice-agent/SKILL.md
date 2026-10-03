@@ -33,7 +33,7 @@ Config lives in `config/elevenlabs_agent.json` (agent body + tool definitions). 
 ## Caller allowlist
 There is **no built-in phone allowlist** (`platform_settings.auth.allowlist` is for web hosts). Two layers:
 1. The conversation initiation webhook (`POST {{BASE_URL}}/tools/init`, enabled with `platform_settings.overrides.enable_conversation_initiation_client_data_from_webhook`) gets `{caller_id, agent_id, called_number, call_sid, conversation_id}`. For an unknown caller, return dynamic variables with a refusal greeting so the agent says "Sorry, this line is private" and calls `end_call`. The response must define **every** dynamic variable the agent uses. TODO(verify) whether it can reject outright.
-2. Every `/tools/*` handler rejects a body whose `caller` isn't `ALLOWED_CALLER_NUMBER`.
+2. Every `/tools/*` handler (`app/security.py: check_caller`) returns 403 unless `ALLOWED_CALLER_NUMBER` equals the body's `caller` (`system__caller_id`) **or** `called` (`system__called_number`). Either one counts because it's unverified which field holds Daniel's number on an outbound callback. A stranger dialling in has their own number as caller and the Twilio number as callee, so they're still refused. Numbers are normalised to `+digits`.
 
 ## Outbound calls and summaries (steps 1.2, 4.1)
 ```

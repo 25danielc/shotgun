@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring deploy smoke
+.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools deploy smoke
 
 PORT ?= 8000
 
@@ -40,6 +40,9 @@ check-keys:  ## Step 0.2 pass check: one cheap read-only call per key
 
 ring:  ## Step 1.2: ring MY_PHONE_NUMBER through ElevenLabs (MSG="..." to set the greeting)
 	uv run python -m app.telephony $(MSG)
+
+curl-tools:  ## Step 2.2: curl sample ElevenLabs payloads at BASE (default PUBLIC_BASE_URL)
+	bash scripts/curl_tools.sh $(BASE)
 
 deploy:  ## Deploy to Railway (see .claude/skills/deploy)
 	railway up --detach

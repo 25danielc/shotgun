@@ -39,8 +39,9 @@ def test_every_tool_sends_the_secret_and_the_caller():
     for tool in config["tools"]:
         schema = tool["tool_config"]["api_schema"]
         assert schema["request_headers"]["X-Shotgun-Secret"] == {"secret_id": "sec_123"}
-        caller = schema["request_body_schema"]["properties"]["caller"]
-        assert caller["dynamic_variable"] == "system__caller_id"
+        properties = schema["request_body_schema"]["properties"]
+        assert properties["caller"]["dynamic_variable"] == "system__caller_id"
+        assert properties["called"]["dynamic_variable"] == "system__called_number"
 
 
 def test_greet_stage_has_no_tools_or_server_webhook():

@@ -1,0 +1,7 @@
+{
+  "job_id": "1",
+  "approved": true,
+  "caller": "+15555550199",
+  "called": "+15555550100",
+  "conversation_id": "conv_sample_callback"
+}

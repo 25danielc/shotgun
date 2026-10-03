@@ -3,7 +3,7 @@
     "Source of truth for the ElevenLabs voice agent. Apply with scripts/apply_agent.py --stage greet (step 1.1) or --stage full (step 2.3). See .claude/skills/voice-agent/SKILL.md.",
     "Shapes follow the ElevenLabs API as read on 2026-10-03: agent = POST /v1/convai/agents/create or PATCH /v1/convai/agents/{agent_id}; each entry in tools = POST /v1/convai/tools, and the returned ids go in conversation_config.agent.prompt.tool_ids.",
     "{{BASE_URL}} is replaced with PUBLIC_BASE_URL at apply time. tools_secret is an ElevenLabs workspace secret holding TOOLS_SHARED_SECRET. Never put real secrets in this file.",
-    "Field names (dynamic_variable_placeholders, built_in_tools.end_call, llm claude-haiku-4-5, workspace_overrides webhook) checked against the OpenAPI spec 2026-10-03. TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and what system__caller_id holds on outbound calls."
+    "Field names (dynamic_variable_placeholders, built_in_tools.end_call, llm claude-haiku-4-5, workspace_overrides webhook) checked against the OpenAPI spec 2026-10-03. TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py)."
   ],
   "agent": {
     "name": "Shotgun",
@@ -67,6 +67,7 @@
               "request": { "type": "string", "description": "The driver's full confirmed request, in their words." },
               "type": { "type": "string", "description": "Optional. Only if the request is clearly one job: coder, email, food or research." },
               "caller": { "type": "string", "dynamic_variable": "system__caller_id" },
+              "called": { "type": "string", "dynamic_variable": "system__called_number" },
               "conversation_id": { "type": "string", "dynamic_variable": "system__conversation_id" }
             },
             "required": ["request"]
@@ -87,7 +88,8 @@
           "request_body_schema": {
             "type": "object",
             "properties": {
-              "caller": { "type": "string", "dynamic_variable": "system__caller_id" }
+              "caller": { "type": "string", "dynamic_variable": "system__caller_id" },
+              "called": { "type": "string", "dynamic_variable": "system__called_number" }
             }
           }
         }
@@ -108,7 +110,8 @@
             "properties": {
               "job_id": { "type": "string", "description": "The pending job id from the callback context." },
               "approved": { "type": "boolean", "description": "true only for a clear spoken yes." },
-              "caller": { "type": "string", "dynamic_variable": "system__caller_id" }
+              "caller": { "type": "string", "dynamic_variable": "system__caller_id" },
+              "called": { "type": "string", "dynamic_variable": "system__called_number" }
             },
             "required": ["job_id", "approved"]
           }

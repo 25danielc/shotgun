@@ -9,6 +9,9 @@ States:
 done and failed are terminal. There is no path from needs_approval to done that skips approved:
 that edge is the "nothing irreversible without a spoken yes" rule.
 
+Job types: the four worker types, plus `plan`, a raw spoken request stored by dispatch_task that
+the orchestrator (step 2.4) claims and turns into worker jobs.
+
 Every state change goes through `transition()`, which locks the row, checks the edge, and logs it
 in job_events (the approval log for step 4.2). Workers claim work with `claim_next()`
 (SELECT ... FOR UPDATE SKIP LOCKED), so the local Mac food worker and the Railway process can
@@ -41,10 +44,14 @@ class JobState(StrEnum):
 
 
 class JobType(StrEnum):
+    PLAN = "plan"  # a raw spoken request; the orchestrator (step 2.4) turns it into worker jobs
     CODER = "coder"
     EMAIL = "email"
     FOOD = "food"
     RESEARCH = "research"
+
+
+WORKER_TYPES = frozenset(JobType) - {JobType.PLAN}
 
 
 TRANSITIONS: dict[JobState, frozenset[JobState]] = {
@@ -100,8 +107,8 @@ def _sql_list(values: Iterable[str]) -> str:
 SCHEMA = f"""
 create table if not exists jobs (
     id          bigint generated always as identity primary key,
-    type        text not null check (type in ({_sql_list(JobType)})),
-    state       text not null default 'queued' check (state in ({_sql_list(JobState)})),
+    type        text not null,
+    state       text not null default 'queued',
     request     text,
     details     jsonb not null default '{{}}'::jsonb,
     summary     text,
@@ -112,6 +119,11 @@ create table if not exists jobs (
     created_at  timestamptz not null default now(),
     updated_at  timestamptz not null default now()
 );
+-- Named checks, re-applied on every init so adding a type or state updates an existing table.
+alter table jobs drop constraint if exists jobs_type_check;
+alter table jobs add constraint jobs_type_check check (type in ({_sql_list(JobType)}));
+alter table jobs drop constraint if exists jobs_state_check;
+alter table jobs add constraint jobs_state_check check (state in ({_sql_list(JobState)}));
 create index if not exists jobs_open_idx on jobs (state, deadline, created_at)
     where state not in ({_sql_list(TERMINAL)});
 create table if not exists job_events (
@@ -189,9 +201,12 @@ async def transition(
     result: dict[str, Any] | None = None,
     error: str | None = None,
     note: str | None = None,
+    expect: JobState | str | None = None,
 ) -> Job:
     """Move a job to new_state if the state machine allows it; log the change.
 
+    `expect` additionally requires the job to be in that state right now (approve_action uses
+    it so a "no" can't cancel a job that was never waiting for approval).
     Raises JobNotFound or IllegalTransition (the row is left untouched). summary, result and
     error overwrite their columns only when given.
     """
@@ -202,6 +217,8 @@ async def transition(
         if row is None:
             raise JobNotFound(job_id)
         current = JobState(row[0])
+        if expect is not None and current != JobState(expect):
+            raise IllegalTransition(current, new_state)
         check_transition(current, new_state)
         cur = conn.cursor(row_factory=class_row(Job))
         await cur.execute(

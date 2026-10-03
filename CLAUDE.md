@@ -19,6 +19,7 @@ job done / needs_approval ─▶ callback watcher ─▶ outbound call with summ
 |---|---|---|
 | `app/main.py` | App, `/health` | 1.4 |
 | `app/events.py` | `/events` + call trigger | 1.5, 4.3 |
+| `app/security.py` | Shared-secret + caller checks (fail closed) | 1.5, 2.2 |
 | `app/telephony.py` | ElevenLabs outbound call | 1.2 |
 | `app/voice_tools.py` | `/tools/*` webhooks | 2.2, 2.3, 4.2 |
 | `app/jobs.py`, `app/db.py` | Job table + state machine; connection pool | 2.1 |
@@ -72,6 +73,7 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 | `make lint` / `make fmt` | Ruff check + format check / auto-fix |
 | `make check-keys` | Step 0.2 pass check: one cheap read-only call per key |
 | `make ring` | Step 1.2: ring `MY_PHONE_NUMBER` via ElevenLabs. `scripts/apply_agent.py --stage greet\|full` pushes the agent config |
+| `make curl-tools` | Step 2.2: curl the sample ElevenLabs payloads at a server (`BASE=...`, default `PUBLIC_BASE_URL`); 200 in < 500 ms each |
 | `make deploy` | `railway up --detach` (see the `deploy` skill) |
 | `make smoke` | GET /health on `PUBLIC_BASE_URL` (or `BASE_URL=...`) |
 
