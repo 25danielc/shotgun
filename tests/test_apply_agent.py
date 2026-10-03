@@ -1,4 +1,5 @@
-"""Offline checks for config/elevenlabs_agent.json and scripts/apply_agent.py (steps 1.1, 2.3)."""
+"""Offline checks for config/elevenlabs_agent.json, config/elevenlabs_prompt.md and
+scripts/apply_agent.py (steps 1.1, 2.3; D17: the agent stays on the call)."""
 
 import importlib.util
 import re
@@ -10,12 +11,28 @@ apply_agent = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(apply_agent)
 
 BASE = "https://shotgun.example.com"
+INLINE = ("search_web", "draft_message")
+BACKGROUND = ("dispatch_task", "get_status", "approve_action")
+
+
+def conversation():
+    return apply_agent.load_config(BASE)["agent"]["conversation_config"]
+
+
+def prompt_text():
+    return conversation()["agent"]["prompt"]["prompt"]
+
+
+def tools():
+    return {
+        t["tool_config"]["name"]: t["tool_config"] for t in apply_agent.load_config(BASE)["tools"]
+    }
 
 
 def test_base_url_substituted_and_dynamic_variables_kept():
     config = apply_agent.load_config(BASE + "/")
     urls = [t["tool_config"]["api_schema"]["url"] for t in config["tools"]]
-    assert urls == [f"{BASE}/tools/{n}" for n in ("dispatch_task", "get_status", "approve_action")]
+    assert sorted(urls) == sorted(f"{BASE}/tools/{n}" for n in INLINE + BACKGROUND)
     assert config["agent"]["conversation_config"]["agent"]["first_message"] == "{{greeting}}"
     assert "_notes" not in config
 
@@ -30,8 +47,13 @@ def test_every_prompt_variable_has_a_placeholder():
 def test_prompt_mentions_every_tool():
     config = apply_agent.load_config(BASE)
     prompt = config["agent"]["conversation_config"]["agent"]["prompt"]["prompt"]
-    for name in [t["tool_config"]["name"] for t in config["tools"]] + ["end_call"]:
+    for name in [t["tool_config"]["name"] for t in config["tools"]] + ["end_call", "skip_turn"]:
         assert name in prompt
+
+
+def test_prompt_comes_from_its_own_file():
+    assert prompt_text() == (ROOT / "config" / "elevenlabs_prompt.md").read_text().strip()
+    assert "prompt_file" not in conversation()["agent"]["prompt"]
 
 
 def test_every_tool_sends_the_secret_and_the_caller():
@@ -54,8 +76,14 @@ def test_greet_stage_has_no_tools_or_server_webhook():
 
 def test_full_stage_wires_tools_and_caller_webhook():
     config = apply_agent.with_secret_id(apply_agent.load_config(BASE), "sec_123")
-    body = apply_agent.agent_body(config, "full", ["t1", "t2", "t3"])
-    assert body["conversation_config"]["agent"]["prompt"]["tool_ids"] == ["t1", "t2", "t3"]
+    body = apply_agent.agent_body(config, "full", ["t1", "t2", "t3", "t4", "t5"])
+    assert body["conversation_config"]["agent"]["prompt"]["tool_ids"] == [
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5",
+    ]
     webhook = body["platform_settings"]["workspace_overrides"][
         "conversation_initiation_client_data_webhook"
     ]
@@ -63,13 +91,76 @@ def test_full_stage_wires_tools_and_caller_webhook():
     assert webhook["request_headers"]["X-Shotgun-Secret"] == {"secret_id": "sec_123"}
 
 
-def test_agent_always_hangs_up():
-    """Regression: the 1.2 test call stayed open because nothing told the agent to end it."""
-    conversation = apply_agent.load_config(BASE)["agent"]["conversation_config"]
-    prompt = conversation["agent"]["prompt"]["prompt"]
-    assert "Never leave the line open" in prompt
-    assert "only delivers a message" in prompt
-    assert 0 < conversation["turn"]["silence_end_call_timeout"] <= 30
-    assert conversation["agent"]["prompt"]["built_in_tools"]["end_call"]["params"] == {
-        "system_tool_type": "end_call"
+def test_agent_stays_on_the_call():
+    """D17 replaces the 14:25 "always hang up" rule: no hanging up to continue later."""
+    prompt = prompt_text()
+    for gone in ("I'll call you back", "Never leave the line open", "only delivers a message"):
+        assert gone not in prompt
+    assert "You never hang up" in prompt
+    assert "dispatching a job doesn't end the call" in prompt
+    assert prompt.count("How can I help") == 1  # only in "Never open with ..."
+
+
+def test_end_call_has_exactly_three_reasons():
+    prompt = prompt_text()
+    assert "end_call is allowed for exactly three reasons" in prompt
+    assert '1. The driver says goodbye, "that\'s all"' in prompt
+    assert "2. The caller check above says the line is private." in prompt
+    assert "3. Silence" in prompt
+    end_call = conversation()["agent"]["prompt"]["built_in_tools"]["end_call"]
+    assert end_call["params"] == {"system_tool_type": "end_call"}
+
+
+def test_silence_rule_asks_at_60_s_and_hangs_up_30_s_later():
+    """60 s of silence -> "Anything else?"; 30 s more -> end the call (D17, Daniel 17:43).
+
+    ElevenLabs caps turn_timeout at 30 s, so the 60 s is 30 s turn timeout + a 30 s skip_turn
+    wait, after which the agent checks in.
+    """
+    conv = conversation()
+    turn = conv["turn"]
+    skip = conv["agent"]["prompt"]["built_in_tools"]["skip_turn"]
+    assert skip["params"]["system_tool_type"] == "skip_turn"
+    assert turn["turn_timeout"] <= 30  # documented maximum
+    assert turn["turn_timeout"] + skip["params"]["wait_timeout_secs"] == 60
+    prompt = prompt_text()
+    assert "call skip_turn and say nothing" in prompt
+    assert 'check in, say only "Anything else?"' in prompt
+    assert 'still say nothing after "Anything else?"' in prompt and "call end_call" in prompt
+    # The next silent turn comes turn_timeout (30 s) after "Anything else?".
+    assert turn["turn_timeout"] == 30
+    # Backstop if the model misses it: never earlier than the 90 s rule.
+    assert turn["silence_end_call_timeout"] >= 90
+
+
+def test_inline_tools_cover_the_8_s_budget_and_speak_first():
+    for name in INLINE:
+        config = tools()[name]
+        assert 8 < config["response_timeout_secs"] <= 15
+        assert config["pre_tool_speech"] == "force"
+    assert "say a short filler first" in prompt_text()
+
+
+def test_background_tools_keep_the_short_timeout():
+    for name in BACKGROUND:
+        assert tools()[name]["response_timeout_secs"] == 5
+        assert "pre_tool_speech" not in tools()[name]
+
+
+def test_dispatch_takes_type_details_and_a_nested_preapproval():
+    schema = tools()["dispatch_task"]["api_schema"]["request_body_schema"]
+    assert schema["required"] == ["details"]
+    pre = schema["properties"]["preapproval"]
+    assert pre["type"] == "object"
+    assert pre["required"] == ["condition"]
+    assert {k: v["type"] for k, v in pre["properties"].items()} == {
+        "condition": "string",
+        "require_tests_pass": "boolean",
+        "max_usd": "number",
     }
+    assert "repeat the condition back" in prompt_text()
+
+
+def test_get_status_is_scoped_to_the_drive():
+    properties = tools()["get_status"]["api_schema"]["request_body_schema"]["properties"]
+    assert properties["drive_id"]["dynamic_variable"] == "drive_id"

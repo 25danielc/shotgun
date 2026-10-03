@@ -142,7 +142,7 @@ class InitBody(BaseModel):
     conversation_id: str | None = None
 
 
-INBOUND_GREETING = "Hey, it's Shotgun. Anything you want handled?"
+INBOUND_GREETING = "Shotgun here."  # D17: never open with "How can I help?"
 REFUSAL_GREETING = "Sorry, this line is private. Goodbye."
 
 
@@ -153,7 +153,9 @@ async def init(body: InitBody) -> dict[str, Any]:
     if not allowed:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "caller allowlist not configured")
     is_daniel = normalize_number(body.caller_id) == allowed
-    variables = telephony.call_variables(INBOUND_GREETING if is_daniel else REFUSAL_GREETING)
+    variables = telephony.call_variables(
+        INBOUND_GREETING if is_daniel else REFUSAL_GREETING, call_kind="inbound"
+    )
     variables["caller_allowed"] = "yes" if is_daniel else "no"
     if not is_daniel:
         log.warning("init: refused inbound call from an unknown number (%s)", body.call_sid)

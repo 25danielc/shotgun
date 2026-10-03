@@ -6,6 +6,8 @@ Steps 1.1 and 2.3. Idempotent: re-run after any change to the config or the base
     uv run python scripts/apply_agent.py --stage full    # 2.3: + webhook tools, caller webhook
     add --dry-run to print the request bodies without calling the API
 
+The prompt text lives in config/elevenlabs_prompt.md (D17) and is inlined into the agent body.
+
 Stage "greet" leaves out tools and the conversation-initiation webhook, because both point at
 our server and would break calls before it's deployed. Stage "full" needs PUBLIC_BASE_URL and
 TOOLS_SHARED_SECRET, and must not run until /tools/init is built and deployed (step 2.3): with the
@@ -42,9 +44,12 @@ SECRET_NAME = "shotgun_tools_secret"  # noqa: S105 - a name, not a secret
 
 
 def load_config(base_url: str) -> dict[str, Any]:
+    """The agent config with the base URL filled in and the prompt read from its own file."""
     text = CONFIG.read_text().replace("{{BASE_URL}}", base_url.rstrip("/"))
     config = json.loads(text)
     config.pop("_notes", None)
+    prompt = config["agent"]["conversation_config"]["agent"]["prompt"]
+    prompt["prompt"] = (CONFIG.parent / prompt.pop("prompt_file")).read_text().strip()
     return config
 
 

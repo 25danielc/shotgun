@@ -1,10 +1,12 @@
 {
   "_notes": [
     "Source of truth for the ElevenLabs voice agent. Apply with scripts/apply_agent.py --stage greet (step 1.1) or --stage full (step 2.3). See .claude/skills/voice-agent/SKILL.md.",
+    "The prompt lives in config/elevenlabs_prompt.md; apply_agent.py reads prompt_file into prompt.prompt.",
     "Shapes follow the ElevenLabs API as read on 2026-10-03: agent = POST /v1/convai/agents/create or PATCH /v1/convai/agents/{agent_id}; each entry in tools = POST /v1/convai/tools, and the returned ids go in conversation_config.agent.prompt.tool_ids.",
     "{{BASE_URL}} is replaced with PUBLIC_BASE_URL at apply time. tools_secret is an ElevenLabs workspace secret holding TOOLS_SHARED_SECRET. Never put real secrets in this file.",
-    "Field names (dynamic_variable_placeholders, built_in_tools.end_call, llm claude-haiku-4-5, workspace_overrides webhook) checked against the OpenAPI spec 2026-10-03. TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py).",
-    "turn.silence_end_call_timeout (seconds; -1 disables) ends the call when the driver says nothing; added after the 1.2 test call stayed open (2026-10-03). Field from the OpenAPI TurnConfig schema."
+    "D17 fields, checked against https://api.elevenlabs.io/openapi.json on 2026-10-03: webhook response_timeout_secs is 5-300 (inline tools use 15); pre_tool_speech auto|force|off ('force' makes the agent say a filler before inline tools); ObjectJsonSchemaProperty supports nested properties + required (preapproval); built_in_tools.skip_turn params {system_tool_type: skip_turn, wait_timeout_secs} (the silence timer pauses during the wait, then the agent checks in).",
+    "Silence (D17): turn.turn_timeout max is 30 s (docs, conversation-flow), so 60 s can't be one setting. 30 s of silence -> the agent calls skip_turn; after its 30 s wait it checks in with 'Anything else?' (~60 s); the next silent turn (~90 s) says goodbye and calls end_call. silence_end_call_timeout 90 is the backstop. TODO(verify) on a live call: the timer pause and that the check-in follows the prompt.",
+    "TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py)."
   ],
   "agent": {
     "name": "Shotgun",
@@ -14,24 +16,35 @@
         "first_message": "{{greeting}}",
         "dynamic_variables": {
           "dynamic_variable_placeholders": {
-            "greeting": "Hey, it's Shotgun. Anything you want handled?",
+            "greeting": "Shotgun here.",
             "summary": "",
             "eta_minutes": "",
             "pending_job_id": "",
+            "drive_id": "",
+            "call_kind": "inbound",
             "caller_allowed": "yes"
           }
         },
         "prompt": {
           "llm": "claude-haiku-4-5",
-          "prompt": "Caller check: if {{caller_allowed}} is \"no\", this line is private. Say only \"Sorry, this line is private. Goodbye.\" and call end_call at once. Never call any other tool on that call.\n\nYou are Shotgun, an assistant the driver talks to over a phone call in their car. They are driving: they cannot look at a screen and their attention is on the road.\n\nStyle: one or two short sentences per turn. Plain speech, no lists, no markdown, no spelling out URLs. Never ask more than one question at a time.\n\nYour job on a normal call:\n1. Listen to the request. It may have several parts.\n2. Repeat it back in one sentence and ask \"Right?\"\n3. When they confirm, call dispatch_task once with the whole request in their words. Do not do the work yourself and do not wait for results.\n4. Say \"On it. I'll call you back.\" and call end_call.\n\nIf they ask how things are going, call get_status and read back the short answer.\n\nCallbacks: if {{summary}} is not empty, this is a callback. The first message already told them the result. If {{pending_job_id}} is not empty, you asked them to confirm an action: when they clearly say yes, call approve_action with job_id {{pending_job_id}} and approved true; if they say no or are unsure, call it with approved false. Never treat silence, \"maybe\" or \"hold on\" as yes. Then say a short goodbye and call end_call.\n\nHanging up: you must end every call yourself with end_call. Call it right after a short goodbye when: you've dispatched the request; the driver says goodbye, thanks, that's all, or no; a callback has been answered; or this call only delivers a message (a test call, or a callback with no question), in which case ask \"Anything else?\" once and end the call if the answer is no or there's no answer. Never leave the line open waiting.\n\nSafety: nothing irreversible (sending, ordering, paying, merging) happens without a clear spoken yes. If they sound distracted, say you'll call back when they're parked and end the call. Driving time left: {{eta_minutes}} minutes.",
+          "prompt_file": "elevenlabs_prompt.md",
           "tool_ids": [],
           "built_in_tools": {
             "end_call": {
               "type": "system",
               "name": "end_call",
-              "description": "Hang up after dispatching, after a callback is answered, or when the caller is not allowed.",
+              "description": "Hang up. Only when the driver says goodbye or that's all, when the caller is not allowed, or after 'Anything else?' got no answer.",
               "params": {
                 "system_tool_type": "end_call"
+              }
+            },
+            "skip_turn": {
+              "type": "system",
+              "name": "skip_turn",
+              "description": "Stay silent for now: the driver has gone quiet or asked for a moment. You'll get a turn to check in after the wait.",
+              "params": {
+                "system_tool_type": "skip_turn",
+                "wait_timeout_secs": 30
               }
             }
           }
@@ -41,8 +54,8 @@
         "voice_id": "TODO(verify): choose a calm, clear voice in the ElevenLabs UI"
       },
       "turn": {
-        "turn_timeout": 7,
-        "silence_end_call_timeout": 20
+        "turn_timeout": 30,
+        "silence_end_call_timeout": 90
       }
     },
     "platform_settings": {
@@ -69,8 +82,89 @@
     {
       "tool_config": {
         "type": "webhook",
+        "name": "search_web",
+        "description": "Answer a quick question now (scores, weather, hours, prices, news, nearby places) with a web search. Takes a few seconds; say a short filler first. Returns one or two sentences to read back.",
+        "response_timeout_secs": 15,
+        "pre_tool_speech": "force",
+        "api_schema": {
+          "url": "{{BASE_URL}}/tools/search_web",
+          "method": "POST",
+          "request_headers": {
+            "X-Shotgun-Secret": {
+              "secret_id": "tools_secret"
+            }
+          },
+          "request_body_schema": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "The question, in the driver's words."
+              },
+              "caller": {
+                "type": "string",
+                "dynamic_variable": "system__caller_id"
+              },
+              "called": {
+                "type": "string",
+                "dynamic_variable": "system__called_number"
+              }
+            },
+            "required": [
+              "query"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "tool_config": {
+        "type": "webhook",
+        "name": "draft_message",
+        "description": "Draft a short message now, to read back word for word before anything is sent. Sends nothing. Say a short filler first.",
+        "response_timeout_secs": 15,
+        "pre_tool_speech": "force",
+        "api_schema": {
+          "url": "{{BASE_URL}}/tools/draft_message",
+          "method": "POST",
+          "request_headers": {
+            "X-Shotgun-Secret": {
+              "secret_id": "tools_secret"
+            }
+          },
+          "request_body_schema": {
+            "type": "object",
+            "properties": {
+              "to": {
+                "type": "string",
+                "description": "Who it's for, as spoken."
+              },
+              "intent": {
+                "type": "string",
+                "description": "What they want to say, in their words."
+              },
+              "caller": {
+                "type": "string",
+                "dynamic_variable": "system__caller_id"
+              },
+              "called": {
+                "type": "string",
+                "dynamic_variable": "system__called_number"
+              }
+            },
+            "required": [
+              "to",
+              "intent"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "tool_config": {
+        "type": "webhook",
         "name": "dispatch_task",
-        "description": "Hand the driver's confirmed request to background workers. Returns instantly with a short acknowledgement. Call once per confirmed request.",
+        "description": "Start one background job: a code fix, a food order, a sent email or longer research. Returns instantly. Include preapproval only after a clear spoken yes to the condition.",
         "response_timeout_secs": 5,
         "api_schema": {
           "url": "{{BASE_URL}}/tools/dispatch_task",
@@ -83,13 +177,42 @@
           "request_body_schema": {
             "type": "object",
             "properties": {
-              "request": {
-                "type": "string",
-                "description": "The driver's full confirmed request, in their words."
-              },
               "type": {
                 "type": "string",
-                "description": "Optional. Only if the request is clearly one job: coder, email, food or research."
+                "description": "coder, email, food or research. Leave out if unsure."
+              },
+              "details": {
+                "type": "string",
+                "description": "What the driver asked for, in their words (for email: the final message text)."
+              },
+              "label": {
+                "type": "string",
+                "description": "Under 8 words, read back later, e.g. 'Fix Sarah's login bug'."
+              },
+              "preapproval": {
+                "type": "object",
+                "description": "Only after a clear yes: the condition the driver agreed to.",
+                "properties": {
+                  "condition": {
+                    "type": "string",
+                    "description": "The condition in plain words, e.g. 'merge it if the tests pass'."
+                  },
+                  "require_tests_pass": {
+                    "type": "boolean",
+                    "description": "true if they said the tests must pass."
+                  },
+                  "max_usd": {
+                    "type": "number",
+                    "description": "A price limit in dollars, if they named one."
+                  }
+                },
+                "required": [
+                  "condition"
+                ]
+              },
+              "conversation_id": {
+                "type": "string",
+                "dynamic_variable": "system__conversation_id"
               },
               "caller": {
                 "type": "string",
@@ -98,14 +221,10 @@
               "called": {
                 "type": "string",
                 "dynamic_variable": "system__called_number"
-              },
-              "conversation_id": {
-                "type": "string",
-                "dynamic_variable": "system__conversation_id"
               }
             },
             "required": [
-              "request"
+              "details"
             ]
           }
         }
@@ -115,7 +234,7 @@
       "tool_config": {
         "type": "webhook",
         "name": "get_status",
-        "description": "Get a one-sentence spoken summary of the driver's open jobs.",
+        "description": "One spoken sentence about the driver's jobs on this drive. Returns instantly.",
         "response_timeout_secs": 5,
         "api_schema": {
           "url": "{{BASE_URL}}/tools/get_status",
@@ -128,6 +247,10 @@
           "request_body_schema": {
             "type": "object",
             "properties": {
+              "drive_id": {
+                "type": "string",
+                "dynamic_variable": "drive_id"
+              },
               "caller": {
                 "type": "string",
                 "dynamic_variable": "system__caller_id"
@@ -136,7 +259,8 @@
                 "type": "string",
                 "dynamic_variable": "system__called_number"
               }
-            }
+            },
+            "required": []
           }
         }
       }
@@ -145,7 +269,7 @@
       "tool_config": {
         "type": "webhook",
         "name": "approve_action",
-        "description": "Record the driver's spoken yes or no for a job waiting on approval. Only call after a clear answer.",
+        "description": "Record the driver's spoken yes or no for a job waiting on approval. Only call after a clear answer. Returns instantly.",
         "response_timeout_secs": 5,
         "api_schema": {
           "url": "{{BASE_URL}}/tools/approve_action",
@@ -160,7 +284,7 @@
             "properties": {
               "job_id": {
                 "type": "string",
-                "description": "The pending job id from the callback context."
+                "description": "The pending job id from the call context."
               },
               "approved": {
                 "type": "boolean",

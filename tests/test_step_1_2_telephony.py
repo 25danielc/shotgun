@@ -57,6 +57,8 @@ async def test_request_shape(configured):
                 "summary": "",
                 "eta_minutes": "31",
                 "pending_job_id": "7",
+                "drive_id": "",
+                "call_kind": "",
                 "caller_allowed": "yes",
             }
         },

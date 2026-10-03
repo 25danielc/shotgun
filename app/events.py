@@ -50,7 +50,7 @@ class Event(BaseModel):
 
 
 def greeting_for(event: Event) -> str:
-    return "Hey, it's Shotgun. Anything you want handled?"
+    return "Hey, it's Shotgun, riding along."  # D17: no "How can I help?"; 4.3 adds the facts
 
 
 async def ring_on_plug_in(event: Event) -> None:

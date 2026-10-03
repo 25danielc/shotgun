@@ -260,3 +260,9 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Inline `search_web` / `draft_message` live in `app/inline.py`. A slow or failed answer is a spoken fallback ("Want me to look it up in the background?"), never an error.
   - **The curl check now dispatches a research-only sample.** The multi-part sample would make the live planner file a real coder issue.
   - One live draft turned "come over tonight, I'm bringing ramen" into "I'm bringing ramen over tonight. Want me to come by?": wrong direction. That's acceptable, because the agent reads every draft back before anything happens. Watch it in 2.3.
+- 2026-10-03 18:05 (hour 6): **Step 2.3 config (D17), not pushed yet.**
+  - The prompt moved to `config/elevenlabs_prompt.md`. It adds inline-first rules, dispatch with a yes up front, and `end_call` for exactly three reasons.
+  - **ElevenLabs caps `turn_timeout` at 30 s** (docs, conversation-flow), so the 60 s silence rule is 30 s `turn_timeout` → `skip_turn` with `wait_timeout_secs` 30 → check-in "Anything else?" → next silent turn → `end_call`. `silence_end_call_timeout` is 90 as a backstop. TODO(verify) on a live call.
+  - Inline tools: timeout 15 s and `pre_tool_speech: "force"`. `preapproval` is a nested object (supported per the OpenAPI spec).
+  - New call variables `drive_id` and `call_kind`. Greetings no longer ask "Anything you want handled?".
+  - **The in-car pass check has to wait for 4.2 + 4.1:** the old per-job watcher still rings after the call until then.

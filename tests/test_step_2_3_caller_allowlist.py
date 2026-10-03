@@ -42,7 +42,7 @@ async def test_daniel_gets_the_normal_greeting(client):
     data = response.json()
     assert data["type"] == "conversation_initiation_client_data"
     assert data["dynamic_variables"]["caller_allowed"] == "yes"
-    assert data["dynamic_variables"]["greeting"] == "Hey, it's Shotgun. Anything you want handled?"
+    assert data["dynamic_variables"]["greeting"] == "Shotgun here."
 
 
 async def test_stranger_is_refused(client):
@@ -77,6 +77,6 @@ async def test_unconfigured_allowlist_fails_closed(client, monkeypatch):
 
 
 def test_prompt_hangs_up_on_strangers_first():
-    prompt = AGENT["prompt"]["prompt"]
-    assert prompt.startswith('Caller check: if {{caller_allowed}} is "no"')
+    prompt = (Path(__file__).parents[1] / "config" / "elevenlabs_prompt.md").read_text()
+    assert prompt.startswith('# Caller check\nIf {{caller_allowed}} is "no"')
     assert "call end_call at once" in prompt
