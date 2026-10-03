@@ -117,7 +117,7 @@ async def test_issue_failure_fails_the_job_with_a_spoken_reason(db, gh, fake):
     await coder_job(db)
     job = await coder.start_job(db, gh, await jobs.claim_next(db, [JobType.CODER]))
     assert job.state is JobState.FAILED
-    assert job.summary == "I couldn't file the issue for Fix the login bug."
+    assert job.summary == "I couldn't get started on the fix for the login bug."
 
 
 # --- webhook: PR ready ------------------------------------------------------------------------
@@ -231,7 +231,7 @@ async def test_merge_failure_is_reported(db, gh, fake):
     assert failed.state is JobState.FAILED
     assert (
         failed.summary
-        == "I couldn't merge the pull request for Fix the login bug. It's still open."
+        == "I couldn't merge the fix for the login bug. The pull request is still open."
     )
 
 
@@ -245,7 +245,7 @@ async def test_no_pr_in_time_fails_the_job(db, gh):
     later = now + timedelta(minutes=coder.PR_TIMEOUT_MINUTES + 1)
     [expired] = await coder.expire_stale(db, later)
     assert expired.id == job.id
-    assert expired.summary == "The code fix for Fix the login bug didn't come back in time."
+    assert expired.summary == "The fix for the login bug didn't come back in time."
 
 
 async def test_tick_runs_the_whole_loop_once(db, gh, fake):

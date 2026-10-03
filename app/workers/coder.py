@@ -324,7 +324,7 @@ async def start_job(conn: AsyncConnection, gh: GitHub, job: Job) -> Job:
             conn,
             job.id,
             JobState.FAILED,
-            summary=f"I couldn't file the issue for {label_of(job)}.",
+            summary=f"I couldn't get started on the fix for {fix_name(job)}.",
             error=str(exc),
         )
     log.info("coder job %s: opened issue #%s", job.id, issue["number"])
@@ -355,7 +355,7 @@ async def merge_approved(conn: AsyncConnection, gh: GitHub) -> Job | None:
                 conn,
                 job.id,
                 JobState.FAILED,
-                summary=f"I couldn't merge the pull request for {label_of(job)}. It's still open.",
+                summary=f"I couldn't merge the fix for {fix_name(job)}. The pull request is still open.",
                 error=str(exc),
             )
         summary = f"I merged the fix for {fix_name(job)}."
@@ -380,7 +380,7 @@ async def expire_stale(conn: AsyncConnection, now: datetime | None = None) -> li
                 conn,
                 job.id,
                 JobState.FAILED,
-                summary=f"The code fix for {label_of(job)} didn't come back in time.",
+                summary=f"The fix for {fix_name(job)} didn't come back in time.",
                 error=f"no pull request after {PR_TIMEOUT_MINUTES} minutes",
             )
         )

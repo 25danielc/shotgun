@@ -478,7 +478,7 @@ function renderDrive(s) {
     <div class="drive-top">${tag(d.status)}<span class="r dim">since ${hms(start)}</span></div>
     <div class="kv">
       <span class="k">dest</span><span class="ell">${d.destination ? esc(d.destination) : '<span class="dim">--</span>'}</span>
-      <span class="k">eta</span><span>${eta ? `${hms(eta)} <span class="dim">in <span data-cd="${eta}" data-zero="arrived"></span></span>` : '<span class="dim">--</span>'}</span>
+      <span class="k">eta</span><span>${eta ? `${hms(eta)} <span class="dim"><span data-cd="${eta}" data-pre="in " data-zero="· arrived"></span></span>` : '<span class="dim">--</span>'}</span>
       <span class="k">driving</span><span data-since="${start}"${d.ended_at ? ` data-until="${ts(d.ended_at)}"` : ''}></span>
     </div>
     <div class="hero-wrap">${hero}</div>`;
@@ -820,7 +820,8 @@ function tick() {
   const t = now();
   for (const el of document.querySelectorAll('[data-cd]')) {
     const left = (+el.dataset.cd - t) / 1000;
-    el.textContent = !Number.isFinite(left) ? '--:--' : left > 0 ? dur(left) : (el.dataset.zero || '00:00');
+    el.textContent = !Number.isFinite(left) ? '--:--'
+      : left > 0 ? (el.dataset.pre || '') + dur(left) : (el.dataset.zero || '00:00');
   }
   for (const el of document.querySelectorAll('[data-since]')) {
     const end = el.dataset.until ? +el.dataset.until : t;
