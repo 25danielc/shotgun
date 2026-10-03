@@ -53,10 +53,10 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 | ID | Step | Needs | Pass when | Hrs | Priority | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.1 | Join the DoorDash CLI waitlist | — | Confirmation email received | 0.1 | Core | Not started |
-| 0.2 | Create accounts and keys: Anthropic, ElevenLabs, Twilio, Railway, Neon, Composio, GitHub, Google Maps | — | check\_keys.py prints OK for every key | 0.75 | Core | In progress: ElevenLabs OK; Anthropic key must be workspace-scoped (400 otherwise); others pending. Check: `make check-keys` |
+| 0.2 | Create accounts and keys: Anthropic, ElevenLabs, Twilio, Railway, Neon, Composio, GitHub, Google Maps | — | check\_keys.py prints OK for every key | 0.75 | Core | In progress: Anthropic, ElevenLabs, Twilio OK; still missing Neon, GitHub, Composio, Google Maps, Railway login, the 3 secrets, ALLOWED_CALLER_NUMBER. Check: `make check-keys` |
 | 0.3 | Notability: architecture sketch and wireframes | — | 2+ screenshots saved | 0.25 | Stretch | Not started |
 | 1.1 | ElevenLabs agent on a Twilio number; save the "Shotgun" contact | 0.2 | Calling it from the Civic: agent greets through the car speakers, contact name on screen | 0.5 | Core | Not started |
-| 1.2 | Outbound call through the ElevenLabs API | 1.1 | One curl makes the phone ring within 5 s | 0.25 | Core | Blocked: client + offline tests done; needs 1.1, then `make ring` and Daniel confirms the ring |
+| 1.2 | Outbound call through the ElevenLabs API | 1.1 | One curl makes the phone ring within 5 s | 0.25 | Core | Awaiting Daniel: `make test-live T=tests/test_step_1_2_telephony.py` placed the call 14:15:12 (ElevenLabs accepted in ~0.5 s). Done when Daniel confirms it rang within 5 s |
 | 1.3 | CarPlay-connect automation posting to webhook.site | — | 5 of 5 replugs logged with the phone locked; location present; latency noted | 0.5 | Core | Not started |
 | 1.4 | FastAPI skeleton deployed on Railway | 0.2 | GET /health on the public URL returns 200 | 0.5 | Core | Not started |
 | 1.5 | /events triggers an outbound call, shared-secret check | 1.2, 1.4 | curl /events rings the phone; wrong secret returns 401 | 0.5 | Core | Blocked: /events + offline tests done (401/202 checked locally); needs 1.2 + 1.4, then curl the Railway URL |
@@ -81,7 +81,7 @@ Each step has one pass/fail check you can run on its own. Core rows total about 
 
 ## Decision points and open questions
 
-- [ ] Hour 1: does Claude appear as a model choice in ElevenLabs Agents? If not, use its custom-LLM endpoint pointed at our server. *(2026-10-03: the API's LLM list includes `claude-haiku-4-5`; confirm in the agent UI during 1.1.)*
+- [x] Hour 1: does Claude appear as a model choice in ElevenLabs Agents? If not, use its custom-LLM endpoint pointed at our server. *Yes: the agent runs `claude-haiku-4-5` (set via API 14:14, read back OK).*
 - [x] Hour 1: read the Fetch.ai hackpack — is their own LLM or a specific chat protocol required? *Agent Chat Protocol required; ASI-1 LLM not required (DECISIONS §6a).*
 - [ ] Hour 10: hero worker. DoorDash approved and an Apple Silicon Mac on hand → food (3.4). Otherwise → coding PR (3.1).
 - [x] Check Devpost rules: how many sponsor prizes can one project enter? *As many as eligible; one main track. Winning several isn't stated (DECISIONS §6).*
