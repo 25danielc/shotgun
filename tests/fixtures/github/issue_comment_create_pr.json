@@ -1,0 +1,14 @@
+{
+  "action": "edited",
+  "issue": {
+    "number": 7,
+    "title": "Bug: Login fails when the email has capital letters or spaces",
+    "html_url": "https://github.com/25danielc/shotgun-demo-app/issues/7"
+  },
+  "comment": {
+    "id": 9001,
+    "user": {"login": "claude[bot]"},
+    "body": "**Claude finished @25danielc's task in 2m 41s** —— [View job](https://github.com/25danielc/shotgun-demo-app/actions/runs/1)\n\n---\nI normalised the email in `authenticate()` (strip + lowercase) and added tests for both cases.\n\n[View branch](https://github.com/25danielc/shotgun-demo-app/tree/claude/issue-7-20261003-1530)\n[Create a PR](https://github.com/25danielc/shotgun-demo-app/compare/main...claude/issue-7-20261003-1530?quick_pull=1&title=Issue%20%237%3A%20Changes%20from%20Claude&body=This%20PR%20addresses%20issue%20%237%0A%0AGenerated%20with%20%5BClaude%20Code%5D(https%3A%2F%2Fclaude.ai%2Fcode))"
+  },
+  "repository": {"full_name": "25danielc/shotgun-demo-app"}
+}

@@ -4,13 +4,14 @@ Step 1.4 deploys this to Railway; its pass check is GET /health on the public UR
 Routers:
 - app.events        POST /events             (step 1.5)
 - app.voice_tools   POST /tools/*            (step 2.2)
-- app.workers.coder POST /github/hook        (step 3.1, stub)
+- app.workers.coder POST /github/hook        (step 3.1)
 
 On startup, if DATABASE_URL is set, the Postgres pool opens and the job tables are created or
 updated (idempotent). A database outage doesn't stop the app: /health stays up and the tools
 answer 503 until the pool is back. Background loops, cancelled on shutdown: the planner
-(app/orchestrator.py, needs ANTHROPIC_API_KEY) and the callback watcher (app/callbacks.py, needs
-the ElevenLabs agent, phone number id and MY_PHONE_NUMBER).
+(app/orchestrator.py, needs ANTHROPIC_API_KEY), the callback watcher (app/callbacks.py, needs
+the ElevenLabs agent, phone number id and MY_PHONE_NUMBER) and the coder worker
+(app/workers/coder.py, needs GITHUB_TOKEN and GITHUB_DEMO_REPO).
 """
 
 import asyncio
@@ -59,6 +60,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         background.append(asyncio.create_task(callbacks.run_callbacks(pool), name="callbacks"))
     else:
         log.warning("callbacks not running (needs DATABASE_URL and the ElevenLabs/phone settings)")
+    if pool is not None and settings.github_token and settings.github_demo_repo:
+        background.append(asyncio.create_task(coder.run_coder(pool), name="coder"))
+    else:
+        log.warning("coder worker not running (needs DATABASE_URL, GITHUB_TOKEN, GITHUB_DEMO_REPO)")
     yield
     for task in background:
         task.cancel()

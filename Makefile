@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools callback-demo deploy smoke
+.PHONY: help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools callback-demo coder-demo github-hook deploy smoke
 
 PORT ?= 8000
 
@@ -46,6 +46,12 @@ curl-tools:  ## Step 2.2: curl sample ElevenLabs payloads at BASE (default PUBLI
 
 callback-demo:  ## Step 4.1: flip a job to done in DATABASE_URL and ring with its summary
 	uv run python -m app.callbacks --demo "$(or $(MSG),I opened a pull request for the login bug.)"
+
+coder-demo:  ## Step 3.1: insert a coder job in DATABASE_URL and watch it for 10 min (deployed app does the work)
+	uv run python -m app.workers.coder --demo
+
+github-hook:  ## Step 3.1: create/update the demo repo webhook -> PUBLIC_BASE_URL/github/hook
+	uv run python scripts/github_hook.py
 
 deploy:  ## Deploy to Railway (see .claude/skills/deploy)
 	railway up --detach

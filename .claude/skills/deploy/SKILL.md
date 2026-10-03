@@ -21,13 +21,14 @@ Railway docs checked 2026-10-03: Railpack builder (reads `.python-version` = 3.1
 2. `make deploy`, then `railway logs` for build errors.
 3. **Smoke check:** `make smoke` (GET `$PUBLIC_BASE_URL/health` must return 200). Once `/events` exists, also check that a wrong secret gives 401:
    `curl -s -o /dev/null -w "%{http_code}" -X POST "$PUBLIC_BASE_URL/events" -H "X-Shotgun-Secret: wrong" -d '{}'` should print `401`.
-4. Report the URL, the commit deployed, and the smoke results.
+4. With keys set, also run `make curl-tools` (step 2.2 check against the public URL) and look for `database ready`, and for no "not running" warnings about planner/callbacks/coder, in `railway logs`.
+5. Report the URL, the commit deployed, and the smoke results.
 
 ## If the base URL changed
 Everything that points at the server must be updated:
 - ElevenLabs: update `PUBLIC_BASE_URL` in `.env`, then `uv run python scripts/apply_agent.py --stage full`. It PATCHes every tool URL (`PATCH /v1/convai/tools/{tool_id}`) and the conversation initiation webhook (`{{BASE_URL}}/tools/init`).
 - The iPhone Shortcut's URL (Daniel, on the phone).
-- The demo repo's GitHub webhook (`/github/hook`): `gh api repos/$GITHUB_DEMO_REPO/hooks` to list, then PATCH the `config.url`.
+- The demo repo's GitHub webhook (`/github/hook`): `make github-hook` creates or updates it (events `issue_comment`, `pull_request`; secret `GITHUB_WEBHOOK_SECRET`).
 - `.env` and Railway `PUBLIC_BASE_URL`.
 
 ## Fallback: ngrok from the laptop

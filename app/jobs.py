@@ -262,6 +262,20 @@ async def claim_next(conn: AsyncConnection, types: Iterable[JobType | str]) -> J
         return await transition(conn, row[0], JobState.RUNNING, note="claimed")
 
 
+async def update_result(conn: AsyncConnection, job_id: int, patch: dict[str, Any]) -> Job:
+    """Merge keys into a job's result without changing its state (e.g. an issue number while the
+    job is still running). Raises JobNotFound."""
+    cur = conn.cursor(row_factory=class_row(Job))
+    await cur.execute(
+        "update jobs set result = coalesce(result, '{}'::jsonb) || %s where id = %s returning *",
+        (Jsonb(patch), job_id),
+    )
+    job = await cur.fetchone()
+    if job is None:
+        raise JobNotFound(job_id)
+    return job
+
+
 async def set_announced(conn: AsyncConnection, job_id: int, state: JobState | str) -> None:
     """Record that the driver has heard about this job in `state` (no-op if it moved on)."""
     state = JobState(state).value
