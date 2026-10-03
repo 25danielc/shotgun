@@ -233,3 +233,7 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - The planner's research tool now covers quick facts too (scores, weather, news).
   - **Bug fixed:** the planner formatted "current time" in the server zone, which is UTC on Railway, so clock-time deadlines would have been 4 h off. New `TIMEZONE` setting (default America/Detroit).
   - **Risk to watch:** a callback can ring while the driver is still on the dispatch call, because the watcher only spaces out *its own* calls. Research finishes about 30 s after dispatch.
+- 2026-10-03 17:45 (hour 6): **Research latency 13.6 s → 3.6 s.**
+  - Benchmark on one lookup: Sonnet 5.5 + `web_search_20260209` took 13.6 s and found 1 place (4 code-execution rounds from dynamic filtering). Sonnet 5.5 + `web_search_20250305` took 3.5 s and found 3 places with hours. Haiku 4.5 + 20250305 took 3.7 s and was wordier; Haiku can't use 20260209 at all.
+  - Switched to 20250305 with max_uses 3.
+  - **Busy-line guard:** the callback watcher first asks ElevenLabs (`GET /v1/convai/conversations?agent_id=…`, about 300 ms) whether a conversation is `initiated` or `in-progress`, and waits if so. It fails open, and ignores "live" calls older than 15 min. Needed because a research answer can now be ready before the driver hangs up.

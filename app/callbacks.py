@@ -15,6 +15,8 @@ Rules:
 - Unclaimed guard: a job still queued after UNCLAIMED_MINUTES has no worker running for its type
   (e.g. a stub worker, or the Mac food worker is offline). It fails with a spoken reason so a
   request never ends in silence. Deadline-scheduled jobs (step 5.2) must not wait in `queued`.
+- Busy-line guard: no callback while the agent is on a call (telephony.call_in_progress), e.g.
+  research finishing before the driver hangs up the dispatch call. Retried next tick.
 - Collision guard: at least MIN_GAP_SECONDS between callbacks so a new call can't ring into one
   still in progress. Not the step 4.3 call policy (cooldown, drive length, pending items).
 
@@ -63,6 +65,8 @@ class Watcher:
         batch = await pick_batch(conn)
         if not batch:
             return []
+        if await telephony.call_in_progress():
+            return []  # driver is still on a call; try again next tick
         variables = callback_variables(batch)
         try:
             placed = await telephony.place_call(variables)

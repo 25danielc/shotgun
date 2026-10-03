@@ -79,7 +79,7 @@ async def test_request_uses_web_search_and_the_destination(db):
     [request] = client.requests
     assert request["model"] == "claude-sonnet-5-5"
     assert request["tools"] == [
-        {"type": "web_search_20260209", "name": "web_search", "max_uses": 5}
+        {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
     ]
     prompt = request["messages"][0]["content"]
     assert "Saturday 06:30 PM EDT" in prompt

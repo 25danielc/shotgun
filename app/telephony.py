@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
 from dataclasses import dataclass
 
 import httpx
@@ -33,6 +34,11 @@ import httpx
 from app.config import settings
 
 OUTBOUND_URL = "https://api.elevenlabs.io/v1/convai/twilio/outbound-call"
+CONVERSATIONS_URL = "https://api.elevenlabs.io/v1/convai/conversations"
+# Conversation statuses (API reference, read 2026-10-03): initiated, in-progress, processing,
+# done, failed. "processing" is post-call analysis, so the line is already free.
+LIVE_STATUSES = frozenset({"initiated", "in-progress"})
+STALE_CALL_SECONDS = 15 * 60  # a "live" call older than this is a stuck status, not a call
 TIMEOUT = 10.0
 
 
@@ -104,6 +110,32 @@ async def place_call(
     if not data.get("success", False):
         raise CallError(f"outbound call refused: {data.get('message', data)}")
     return PlacedCall(conversation_id=data.get("conversation_id"), call_sid=data.get("callSid"))
+
+
+async def call_in_progress(*, client: httpx.AsyncClient | None = None) -> bool:
+    """True if the agent is on a call right now, so a callback would ring into it.
+
+    Fails open (False) when ElevenLabs can't be reached: a late callback beats none.
+    """
+    params = {"agent_id": settings.elevenlabs_agent_id, "page_size": 5}
+    headers = {"xi-api-key": settings.elevenlabs_api_key}
+    owns_client = client is None
+    client = client or httpx.AsyncClient(timeout=TIMEOUT)
+    try:
+        response = await client.get(CONVERSATIONS_URL, params=params, headers=headers)
+        response.raise_for_status()
+        conversations = response.json().get("conversations", [])
+    except (httpx.HTTPError, ValueError):
+        return False
+    finally:
+        if owns_client:
+            await client.aclose()
+    now = time.time()
+    return any(
+        c.get("status") in LIVE_STATUSES
+        and now - (c.get("start_time_unix_secs") or now) < STALE_CALL_SECONDS
+        for c in conversations
+    )
 
 
 if __name__ == "__main__":

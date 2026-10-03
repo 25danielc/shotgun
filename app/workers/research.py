@@ -6,14 +6,13 @@ Read-only, so no approval gate: queued -> running -> done (or failed), and the c
     uv run python -m app.workers.research "ramen open now"     # prints the spoken answer
 
 Claude API (bundled claude-api skill docs, read 2026-10-03):
-- Server tool {"type": "web_search_20260209", "name": "web_search"} on claude-sonnet-5-5. It runs
-  on Anthropic's side (dynamic filtering built in), so there is nothing to implement here.
-  `max_uses` caps searches per request. TODO(verify): max_uses on the 20260209 version (it is
-  documented for web_search_20250305); the live test exercises it.
+- Server tool {"type": "web_search_20250305", "name": "web_search", "max_uses": N} on
+  claude-sonnet-5-5. It runs on Anthropic's side, so there is nothing to implement here. Not the
+  20260209 version: its dynamic filtering adds code-execution rounds. Measured live 2026-10-03 on
+  the same lookup: 13.6 s and 1 place (20260209) vs 3.5 s and 3 places (20250305).
 - stop_reason "pause_turn": the server-side loop hit its iteration limit. Re-send the user turn
   plus the paused assistant content, with no extra "continue" message, and it resumes.
-- The answer is the text after the last tool block. With dynamic filtering, results pass through
-  code_execution_tool_result blocks and the final text often has no citations (seen live
+- The answer is the text after the last tool block. Its text may carry no citations (seen live
   2026-10-03), so sources fall back to the URLs in the web_search_tool_result blocks. Sources are
   stored in `result`, never read aloud.
 
@@ -40,11 +39,11 @@ log = logging.getLogger(__name__)
 
 POLL_SECONDS = 1.0
 MAX_TOKENS = 4000
-MAX_SEARCHES = 5
+MAX_SEARCHES = 3
 MAX_CONTINUATIONS = 3
 MAX_PARALLEL = 3
 MAX_SPOKEN_CHARS = 320
-WEB_SEARCH = {"type": "web_search_20260209", "name": "web_search", "max_uses": MAX_SEARCHES}
+WEB_SEARCH = {"type": "web_search_20250305", "name": "web_search", "max_uses": MAX_SEARCHES}
 
 SYSTEM_PROMPT = """You do one lookup for Shotgun, an assistant a driver talks to on a phone call. \
 Search the web, then answer. Your answer is read aloud on a call, so:

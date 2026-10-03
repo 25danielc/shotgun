@@ -5,11 +5,14 @@ summary (`uv run python -m app.callbacks --demo "..."`). Offline: what gets anno
 with which dynamic variables, with a fake telephony layer and a fake clock.
 """
 
+import time
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 
 from app import callbacks, jobs, telephony, voice_tools
+from app.config import settings
 from app.jobs import JobState, JobType
 
 
@@ -21,15 +24,25 @@ class FakeClock:
         return self.now
 
 
+class Placed(list):
+    busy: list[bool]
+
+
 @pytest.fixture
 def calls(monkeypatch):
-    placed = []
+    placed = Placed()
 
     async def fake_place_call(variables, **kwargs):
         placed.append(variables)
         return telephony.PlacedCall(conversation_id=f"c{len(placed)}", call_sid="CA")
 
+    async def line_free():
+        return busy[0]
+
+    busy = [False]
     monkeypatch.setattr(telephony, "place_call", fake_place_call)
+    monkeypatch.setattr(telephony, "call_in_progress", line_free)
+    placed.busy = busy
     return placed
 
 
@@ -238,3 +251,43 @@ async def test_unclaimed_guard_falls_back_to_the_request(db):
 async def test_claimed_jobs_are_left_alone(db, state):
     await job_in(db, state)
     assert await callbacks.expire_unclaimed(db, later(60)) == []
+
+
+# --- busy-line guard --------------------------------------------------------------------------
+
+
+async def test_no_callback_while_the_driver_is_on_a_call(db, watcher, clock, calls):
+    await job_in(db, JobState.DONE, summary="Three ramen places are open.")
+    calls.busy[0] = True
+    assert await watcher.tick(db) == []
+    assert calls == []
+    calls.busy[0] = False  # hung up; no full gap needed, nothing was placed
+    assert len(await watcher.tick(db)) == 1
+
+
+def conversations(*rows):
+    def handler(request):
+        assert request.url.params["agent_id"] == settings.elevenlabs_agent_id
+        return httpx.Response(200, json={"conversations": list(rows)})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.parametrize(
+    ("rows", "busy"),
+    [
+        ([], False),
+        ([{"status": "done", "start_time_unix_secs": time.time() - 30}], False),
+        ([{"status": "processing", "start_time_unix_secs": time.time() - 30}], False),
+        ([{"status": "in-progress", "start_time_unix_secs": time.time() - 30}], True),
+        ([{"status": "initiated", "start_time_unix_secs": time.time() - 2}], True),
+        ([{"status": "in-progress", "start_time_unix_secs": time.time() - 3600}], False),
+    ],
+)
+async def test_call_in_progress_reads_conversation_status(rows, busy):
+    assert await telephony.call_in_progress(client=conversations(*rows)) is busy
+
+
+async def test_call_in_progress_fails_open():
+    down = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+    assert await telephony.call_in_progress(client=down) is False
