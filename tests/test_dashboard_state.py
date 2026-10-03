@@ -249,10 +249,21 @@ def test_queries_are_scrubbed():
     assert "[email]" in query and "[phone]" in query
 
 
-def test_init_marks_a_call_live():
-    dashboard.record_tool_call("init", b'{"conversation_id": "conv_9"}', 40, 200)
+def test_init_marks_a_call_live(monkeypatch):
+    monkeypatch.setattr(settings, "allowed_caller_number", DANIEL)
+    body = json.dumps({"conversation_id": "conv_9", "caller_id": DANIEL}).encode()
+    dashboard.record_tool_call("init", body, 40, 200)
     assert dashboard.call_live()
     assert not dashboard.TOOL_CALLS  # /tools/init is the call starting, not a tool
+
+
+def test_init_from_a_stranger_is_not_a_call(monkeypatch):
+    """/tools/init answers a stranger 200 (caller_allowed "no"): not shown as the drive's call."""
+    monkeypatch.setattr(settings, "allowed_caller_number", DANIEL)
+    stranger = json.dumps({"conversation_id": "conv_x", "caller_id": "+15555550111"}).encode()
+    dashboard.record_tool_call("init", stranger, 40, 200)
+    dashboard.record_tool_call("init", json.dumps({"caller_id": DANIEL}).encode(), 40, 503)
+    assert not dashboard.call_live() and not dashboard.TOOL_EVENTS
 
 
 # ── demo endpoints ──────────────────────────────────────────────────────────
@@ -273,7 +284,13 @@ async def test_demo_arrive_and_plug_in(http, db, rang, monkeypatch):
     drive = await drives.current_drive(db)
     assert drive is not None and drive.source == "dashboard_demo"
 
+    # calls.arrival_due: a drive with no jobs gets no arrival call, so there is nothing to do
+    response = await http.post("/dashboard/demo/arrive", params={"token": TOKEN})
+    assert response.status_code == 409
+    await jobs.create_job(db, "research", request="ramen nearby", drive_id=drive.id)
     response = await http.post("/dashboard/demo/arrive", params={"token": TOKEN})
     assert response.status_code == 202
     drive = await drives.current_drive(db)
     assert drive.arrival_call_at is not None
+    state = await get_state(http)
+    assert any("(demo)" in e["message"] for e in state["events"])

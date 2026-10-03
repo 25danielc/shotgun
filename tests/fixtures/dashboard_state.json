@@ -6,14 +6,62 @@
     "demo_mode": true
   },
   "services": [
-    {"name": "api_server", "ok": true, "latency_ms": 3, "checked_at": "2026-10-03T22:34:52Z", "detail": null},
-    {"name": "neon", "ok": true, "latency_ms": 42, "checked_at": "2026-10-03T22:34:40Z", "detail": null},
-    {"name": "elevenlabs", "ok": true, "latency_ms": 188, "checked_at": "2026-10-03T22:34:38Z", "detail": null},
-    {"name": "twilio", "ok": true, "latency_ms": 121, "checked_at": "2026-10-03T22:34:39Z", "detail": null},
-    {"name": "anthropic", "ok": true, "latency_ms": 233, "checked_at": "2026-10-03T22:34:41Z", "detail": null},
-    {"name": "github", "ok": true, "latency_ms": 97, "checked_at": "2026-10-03T22:34:42Z", "detail": null},
-    {"name": "google_routes", "ok": false, "latency_ms": null, "checked_at": "2026-10-03T22:34:44Z", "detail": "timeout after 5000ms"},
-    {"name": "ntfy", "ok": true, "latency_ms": 64, "checked_at": "2026-10-03T22:32:58Z", "detail": null}
+    {
+      "name": "api_server",
+      "ok": true,
+      "latency_ms": 3,
+      "checked_at": "2026-10-03T22:34:52Z",
+      "detail": null
+    },
+    {
+      "name": "neon",
+      "ok": true,
+      "latency_ms": 42,
+      "checked_at": "2026-10-03T22:34:40Z",
+      "detail": null
+    },
+    {
+      "name": "elevenlabs",
+      "ok": true,
+      "latency_ms": 188,
+      "checked_at": "2026-10-03T22:34:38Z",
+      "detail": null
+    },
+    {
+      "name": "twilio",
+      "ok": true,
+      "latency_ms": 121,
+      "checked_at": "2026-10-03T22:34:39Z",
+      "detail": null
+    },
+    {
+      "name": "anthropic",
+      "ok": true,
+      "latency_ms": 233,
+      "checked_at": "2026-10-03T22:34:41Z",
+      "detail": null
+    },
+    {
+      "name": "github",
+      "ok": true,
+      "latency_ms": 97,
+      "checked_at": "2026-10-03T22:34:42Z",
+      "detail": null
+    },
+    {
+      "name": "google_routes",
+      "ok": null,
+      "latency_ms": null,
+      "checked_at": "2026-10-03T22:34:44Z",
+      "detail": "not probed: billed per request"
+    },
+    {
+      "name": "ntfy",
+      "ok": true,
+      "latency_ms": 64,
+      "checked_at": "2026-10-03T22:34:43Z",
+      "detail": null
+    }
   ],
   "drive": {
     "id": 17,
@@ -29,93 +77,324 @@
     "status": "active",
     "kind": "departure",
     "started_at": "2026-10-03T22:29:12Z",
-    "duration_s": 334,
-    "last_tool": "get_status",
-    "transcript": [
-      {"at": "2026-10-03T22:34:14Z", "role": "driver", "text": "How's the code fix going?"},
-      {"at": "2026-10-03T22:34:21Z", "role": "agent", "text": "Claude pushed a fix and the tests are running. I'll merge it if they pass."},
-      {"at": "2026-10-03T22:34:30Z", "role": "driver", "text": "Perfect."},
-      {"at": "2026-10-03T22:34:33Z", "role": "agent", "text": "Anything else?"}
-    ]
+    "duration_s": 340,
+    "last_tool": "get_status"
   },
   "jobs": [
     {
       "id": 41,
       "type": "research",
-      "title": "Quiet study spot on North Campus open late",
-      "details": {"query": "quiet study spot on North Campus open past 10pm"},
+      "title": "Quiet study spot on North Campus",
+      "details": {
+        "label": "Quiet study spot on North Campus",
+        "conversation_id": "conv_17"
+      },
       "state": "done",
-      "progress": 1,
+      "progress": 1.0,
       "steps": [
-        {"name": "searching", "state": "done", "started_at": "2026-10-03T22:29:59Z", "finished_at": "2026-10-03T22:30:31Z", "detail": "4 searches"},
-        {"name": "summarizing", "state": "done", "started_at": "2026-10-03T22:30:31Z", "finished_at": "2026-10-03T22:30:38Z", "detail": null}
+        {
+          "name": "searching",
+          "state": "done",
+          "started_at": "2026-10-03T22:29:59Z",
+          "finished_at": "2026-10-03T22:30:21Z",
+          "detail": null
+        },
+        {
+          "name": "summarizing",
+          "state": "done",
+          "started_at": null,
+          "finished_at": "2026-10-03T22:30:21Z",
+          "detail": null
+        }
       ],
       "preapproval": null,
-      "approval": {"status": "not_needed", "note": null},
+      "approval": {
+        "status": "not_needed",
+        "note": null
+      },
       "result_summary": "The Duderstadt Center is open 24 hours; floors 3 and 4 are the quiet ones.",
       "result_url": null,
       "created_at": "2026-10-03T22:29:58Z",
-      "updated_at": "2026-10-03T22:30:38Z"
+      "updated_at": "2026-10-03T22:30:21Z"
     },
     {
       "id": 42,
       "type": "coder",
       "title": "Fix the login redirect loop on /settings",
-      "details": {"repo": "shotgun-demo-app", "request": "the settings page keeps bouncing me back to login"},
+      "details": {
+        "label": "Fix the login redirect loop on /settings",
+        "conversation_id": "conv_17"
+      },
       "state": "running",
       "progress": 0.5,
       "steps": [
-        {"name": "issue_filed", "state": "done", "started_at": "2026-10-03T22:30:51Z", "finished_at": "2026-10-03T22:30:58Z", "detail": "issue #12"},
-        {"name": "action_running", "state": "done", "started_at": "2026-10-03T22:30:58Z", "finished_at": "2026-10-03T22:33:40Z", "detail": "claude/issue-12"},
-        {"name": "pr_opened", "state": "done", "started_at": null, "finished_at": "2026-10-03T22:33:40Z", "detail": "PR #13"},
-        {"name": "tests", "state": "running", "started_at": "2026-10-03T22:33:40Z", "finished_at": null, "detail": "2/3 checks"},
-        {"name": "approval_check", "state": "pending", "started_at": null, "finished_at": null, "detail": null},
-        {"name": "merged", "state": "pending", "started_at": null, "finished_at": null, "detail": null}
+        {
+          "name": "issue_filed",
+          "state": "done",
+          "started_at": "2026-10-03T22:30:51Z",
+          "finished_at": null,
+          "detail": "issue #12"
+        },
+        {
+          "name": "action_running",
+          "state": "done",
+          "started_at": "2026-10-03T22:30:51Z",
+          "finished_at": "2026-10-03T22:33:40Z",
+          "detail": null
+        },
+        {
+          "name": "pr_opened",
+          "state": "done",
+          "started_at": null,
+          "finished_at": "2026-10-03T22:33:40Z",
+          "detail": "PR #13"
+        },
+        {
+          "name": "tests",
+          "state": "running",
+          "started_at": "2026-10-03T22:33:40Z",
+          "finished_at": null,
+          "detail": "waiting for checks"
+        },
+        {
+          "name": "approval_check",
+          "state": "pending",
+          "started_at": null,
+          "finished_at": null,
+          "detail": null
+        },
+        {
+          "name": "merged",
+          "state": "pending",
+          "started_at": null,
+          "finished_at": null,
+          "detail": null
+        }
       ],
-      "preapproval": {"condition": "merge it if the tests pass", "require_tests_pass": true, "max_usd": null},
-      "approval": {"status": "preapproved", "note": null},
+      "preapproval": {
+        "condition": "merge it if the tests pass",
+        "require_tests_pass": true,
+        "max_usd": null
+      },
+      "approval": {
+        "status": "preapproved",
+        "note": null
+      },
       "result_summary": null,
       "result_url": "https://github.com/25danielc/shotgun-demo-app/pull/13",
       "created_at": "2026-10-03T22:30:50Z",
-      "updated_at": "2026-10-03T22:34:30Z"
+      "updated_at": "2026-10-03T22:30:51Z"
     }
   ],
   "upcoming": [
-    {"at": "2026-10-03T22:42:00Z", "kind": "arrival_call", "description": "arrival call: batched summary of 2 jobs", "job_id": null},
-    {"at": "2026-10-03T22:43:40Z", "kind": "job_expiry", "description": "#42 goes to you if tests never report", "job_id": 42},
-    {"at": null, "kind": "preapproved_action", "description": "merge the PR if tests pass (pre-approved)", "job_id": 42}
+    {
+      "at": "2026-10-03T22:42:00Z",
+      "kind": "arrival_call",
+      "description": "arrival call: batched summary of 2 jobs",
+      "job_id": null
+    },
+    {
+      "at": "2026-10-03T22:43:40Z",
+      "kind": "job_expiry",
+      "description": "#42 goes to you if the tests never report",
+      "job_id": 42
+    },
+    {
+      "at": null,
+      "kind": "preapproved_action",
+      "description": "merge the PR if the tests pass (pre-approved)",
+      "job_id": 42
+    }
   ],
   "tool_calls": [
-    {"at": "2026-10-03T22:34:20Z", "tool": "get_status", "query": null, "latency_ms": 138, "ok": true},
-    {"at": "2026-10-03T22:31:02Z", "tool": "draft_message", "query": "text Maya I'm running ten minutes late", "latency_ms": 2208, "ok": true},
-    {"at": "2026-10-03T22:30:50Z", "tool": "dispatch_task", "query": "fix the login redirect loop on settings, merge it if the tests pass", "latency_ms": 184, "ok": true},
-    {"at": "2026-10-03T22:29:58Z", "tool": "dispatch_task", "query": "find a quiet study spot on North Campus open past 10", "latency_ms": 171, "ok": true},
-    {"at": "2026-10-03T22:29:41Z", "tool": "search_web", "query": "is the Bonisteel lot open on Saturday", "latency_ms": 3712, "ok": true},
-    {"at": "2026-10-03T22:29:31Z", "tool": "set_destination", "query": "North Campus", "latency_ms": 412, "ok": true}
+    {
+      "at": "2026-10-03T22:34:20Z",
+      "tool": "get_status",
+      "query": "drive #17",
+      "latency_ms": 138,
+      "ok": true
+    },
+    {
+      "at": "2026-10-03T22:31:02Z",
+      "tool": "draft_message",
+      "query": "Maya: running ten minutes late",
+      "latency_ms": 2208,
+      "ok": true
+    },
+    {
+      "at": "2026-10-03T22:30:50Z",
+      "tool": "dispatch_task",
+      "query": "coder: fix the login redirect loop on settings",
+      "latency_ms": 184,
+      "ok": true
+    },
+    {
+      "at": "2026-10-03T22:29:58Z",
+      "tool": "dispatch_task",
+      "query": "research: find a quiet study spot on North Campus open past 10",
+      "latency_ms": 171,
+      "ok": true
+    },
+    {
+      "at": "2026-10-03T22:29:41Z",
+      "tool": "search_web",
+      "query": "is the Bonisteel lot open on Saturday",
+      "latency_ms": 3712,
+      "ok": true
+    },
+    {
+      "at": "2026-10-03T22:29:31Z",
+      "tool": "set_destination",
+      "query": "North Campus",
+      "latency_ms": 412,
+      "ok": true
+    }
   ],
   "events": [
-    {"id": 301, "at": "2026-10-03T22:29:10Z", "type": "plug_in", "message": "CarPlay connected, drive #17 opened", "job_id": null},
-    {"id": 302, "at": "2026-10-03T22:29:18Z", "type": "call_started", "message": "departure call answered", "job_id": null},
-    {"id": 303, "at": "2026-10-03T22:29:31Z", "type": "tool_called", "message": "set_destination \"North Campus\" 412ms", "job_id": null},
-    {"id": 304, "at": "2026-10-03T22:29:32Z", "type": "arrival_scheduled", "message": "ETA in 15 min, arrival call 3 min before", "job_id": null},
-    {"id": 305, "at": "2026-10-03T22:29:41Z", "type": "tool_called", "message": "search_web \"is the Bonisteel lot open on Saturday\" 3712ms", "job_id": null},
-    {"id": 306, "at": "2026-10-03T22:29:58Z", "type": "job_dispatched", "message": "research #41: quiet study spot on North Campus open late", "job_id": 41},
-    {"id": 307, "at": "2026-10-03T22:29:59Z", "type": "job_state", "message": "#41 queued -> running", "job_id": 41},
-    {"id": 308, "at": "2026-10-03T22:30:38Z", "type": "job_state", "message": "#41 running -> done: Duderstadt Center, open 24h", "job_id": 41},
-    {"id": 309, "at": "2026-10-03T22:30:50Z", "type": "job_dispatched", "message": "coder #42: fix the login redirect loop, pre-approved: merge if tests pass", "job_id": 42},
-    {"id": 310, "at": "2026-10-03T22:30:51Z", "type": "job_state", "message": "#42 queued -> running", "job_id": 42},
-    {"id": 311, "at": "2026-10-03T22:30:58Z", "type": "job_state", "message": "#42 issue #12 filed on shotgun-demo-app, @claude tagged", "job_id": 42},
-    {"id": 312, "at": "2026-10-03T22:31:02Z", "type": "tool_called", "message": "draft_message \"text Maya I'm running ten minutes late\" 2208ms", "job_id": null},
-    {"id": 313, "at": "2026-10-03T22:33:40Z", "type": "job_state", "message": "#42 PR #13 opened from claude/issue-12, tests running", "job_id": 42},
-    {"id": 314, "at": "2026-10-03T22:34:20Z", "type": "tool_called", "message": "get_status 138ms", "job_id": null},
-    {"id": 315, "at": "2026-10-03T22:34:30Z", "type": "job_state", "message": "#42 tests: 2/3 checks passed", "job_id": 42}
+    {
+      "id": 28657064800000,
+      "at": "2026-10-03T22:29:10Z",
+      "type": "plug_in",
+      "message": "CarPlay connected: drive #17 opened",
+      "job_id": null
+    },
+    {
+      "id": 28657064816001,
+      "at": "2026-10-03T22:29:11Z",
+      "type": "call_started",
+      "message": "departure call placed",
+      "job_id": null
+    },
+    {
+      "id": 28657064832004,
+      "at": "2026-10-03T22:29:12Z",
+      "type": "call_started",
+      "message": "call connected: agent on the line",
+      "job_id": null
+    },
+    {
+      "id": 28657065136004,
+      "at": "2026-10-03T22:29:31Z",
+      "type": "tool_called",
+      "message": "set_destination \"North Campus\" 412ms",
+      "job_id": null
+    },
+    {
+      "id": 28657065296004,
+      "at": "2026-10-03T22:29:41Z",
+      "type": "tool_called",
+      "message": "search_web \"is the Bonisteel lot open on Saturday\" 3712ms",
+      "job_id": null
+    },
+    {
+      "id": 28657065568004,
+      "at": "2026-10-03T22:29:58Z",
+      "type": "tool_called",
+      "message": "dispatch_task \"research: find a quiet study spot on North Campus open past 10\" 171ms",
+      "job_id": null
+    },
+    {
+      "id": 28657065571202,
+      "at": "2026-10-03T22:29:58Z",
+      "type": "job_dispatched",
+      "message": "research #41: Quiet study spot on North Campus",
+      "job_id": 41
+    },
+    {
+      "id": 28657065584003,
+      "at": "2026-10-03T22:29:59Z",
+      "type": "job_state",
+      "message": "#41 queued → running: claimed",
+      "job_id": 41
+    },
+    {
+      "id": 28657065936003,
+      "at": "2026-10-03T22:30:21Z",
+      "type": "job_state",
+      "message": "#41 running → done",
+      "job_id": 41
+    },
+    {
+      "id": 28657066400004,
+      "at": "2026-10-03T22:30:50Z",
+      "type": "tool_called",
+      "message": "dispatch_task \"coder: fix the login redirect loop on settings\" 184ms",
+      "job_id": null
+    },
+    {
+      "id": 28657066403202,
+      "at": "2026-10-03T22:30:50Z",
+      "type": "job_dispatched",
+      "message": "coder #42: Fix the login redirect loop on /settings, pre-approved: merge it if the tests pass",
+      "job_id": 42
+    },
+    {
+      "id": 28657066416003,
+      "at": "2026-10-03T22:30:51Z",
+      "type": "job_state",
+      "message": "#42 queued → running: claimed",
+      "job_id": 42
+    },
+    {
+      "id": 28657066416004,
+      "at": "2026-10-03T22:30:51Z",
+      "type": "job_state",
+      "message": "#42 issue #12 filed, @claude tagged",
+      "job_id": 42
+    },
+    {
+      "id": 28657066592004,
+      "at": "2026-10-03T22:31:02Z",
+      "type": "tool_called",
+      "message": "draft_message \"Maya: running ten minutes late\" 2208ms",
+      "job_id": null
+    },
+    {
+      "id": 28657069120003,
+      "at": "2026-10-03T22:33:40Z",
+      "type": "job_state",
+      "message": "#42 PR #13 opened, waiting for the tests",
+      "job_id": 42
+    },
+    {
+      "id": 28657069760004,
+      "at": "2026-10-03T22:34:20Z",
+      "type": "tool_called",
+      "message": "get_status \"drive #17\" 138ms",
+      "job_id": null
+    }
   ],
   "agents": [
-    {"name": "voice", "status": "busy", "last_heartbeat": "2026-10-03T22:34:50Z", "current_job_id": null},
-    {"name": "orchestrator", "status": "idle", "last_heartbeat": "2026-10-03T22:34:44Z", "current_job_id": null},
-    {"name": "coder", "status": "busy", "last_heartbeat": "2026-10-03T22:34:47Z", "current_job_id": 42},
-    {"name": "research", "status": "idle", "last_heartbeat": "2026-10-03T22:34:41Z", "current_job_id": null},
-    {"name": "email", "status": "offline", "last_heartbeat": "2026-10-03T22:31:40Z", "current_job_id": null}
+    {
+      "name": "voice",
+      "status": "busy",
+      "last_heartbeat": "2026-10-03T22:34:38Z",
+      "current_job_id": null
+    },
+    {
+      "name": "orchestrator",
+      "status": "idle",
+      "last_heartbeat": "2026-10-03T22:34:52Z",
+      "current_job_id": null
+    },
+    {
+      "name": "coder",
+      "status": "busy",
+      "last_heartbeat": "2026-10-03T22:34:52Z",
+      "current_job_id": 42
+    },
+    {
+      "name": "research",
+      "status": "idle",
+      "last_heartbeat": "2026-10-03T22:34:52Z",
+      "current_job_id": null
+    },
+    {
+      "name": "email",
+      "status": "offline",
+      "last_heartbeat": null,
+      "current_job_id": null
+    }
   ],
-  "active_agent": "coder"
+  "active_agent": "voice"
 }
