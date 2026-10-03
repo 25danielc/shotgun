@@ -104,12 +104,13 @@ async def test_waiting_items_ring_and_lead_the_greeting(http, db, rang):
         held.id,
         "running",
         "needs_approval",
-        summary="I opened a pull request: Fix the login bug. Merge it?",
+        summary="The fix for the login bug is ready as a pull request. Want me to merge it?",
     )
     assert await plug_in(http) is True  # a quick replug, but something is waiting
     call = rang[1]
     assert call["greeting"] == (
-        "Hey, it's Shotgun. I opened a pull request: Fix the login bug. Merge it?"
+        "Hey, it's Shotgun. "
+        "The fix for the login bug is ready as a pull request. Want me to merge it?"
     )
     assert call["pending_job_id"] == str(held.id)
 

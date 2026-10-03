@@ -161,14 +161,22 @@ def issue_for(job: Job) -> tuple[str, str]:
     return f"Bug: {title}" if not title.lower().startswith("bug") else title, body
 
 
+def fix_name(job: Job) -> str:
+    """ "Fix the login bug" -> "the login bug", so sentences read "the fix for the login bug"."""
+    label = label_of(job).strip().rstrip(".")
+    lowered = label[:1].lower() + label[1:]
+    for verb in ("fix ", "fixing "):
+        if lowered.startswith(verb):
+            return lowered[len(verb) :]
+    return lowered
+
+
 def ready_summary(job: Job) -> str:
-    return f"I opened a pull request: {label_of(job)}. Merge it?"
+    return f"The fix for {fix_name(job)} is ready as a pull request. Want me to merge it?"
 
 
 def tests_failed_summary(job: Job, reason: str) -> str:
-    return (
-        f"{reason[0].upper()}{reason[1:]} on the pull request for {label_of(job)}. Merge it anyway?"
-    )
+    return f"{reason[0].upper()}{reason[1:]} on the fix for {fix_name(job)}. Merge it anyway?"
 
 
 # --- finding the Action's branch ----------------------------------------------------------------
@@ -350,9 +358,9 @@ async def merge_approved(conn: AsyncConnection, gh: GitHub) -> Job | None:
                 summary=f"I couldn't merge the pull request for {label_of(job)}. It's still open.",
                 error=str(exc),
             )
-        summary = f"Merged: {label_of(job)}."
+        summary = f"I merged the fix for {fix_name(job)}."
         if (job.result or {}).get("tests") == "success":
-            summary += " The tests passed."
+            summary = f"I merged the fix for {fix_name(job)}, and the tests passed."
         return await jobs.transition(conn, job.id, JobState.DONE, summary=summary, note="merged")
 
 

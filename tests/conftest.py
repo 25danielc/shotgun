@@ -35,6 +35,14 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(autouse=True)
+def no_real_claude(monkeypatch):
+    """Offline tests never reach Anthropic: code that would use the .env key without an
+    injected client (e.g. the arrival wording) falls back instead. Live tests keep the key."""
+    if os.environ.get("RUN_LIVE") != "1":
+        monkeypatch.setattr(settings, "anthropic_api_key", "")
+
+
+@pytest.fixture(autouse=True)
 def default_call_policy(monkeypatch):
     """Tests see the default departure policy, whatever CALL_POLICY the local .env sets."""
     monkeypatch.setattr(settings, "call_policy", "auto")

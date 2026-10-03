@@ -25,3 +25,4 @@ build/
 # Demo artifacts (videos are large; keep them out of git)
 *.mov
 *.mp4
+.claude/worktrees/

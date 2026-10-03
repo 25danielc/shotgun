@@ -33,7 +33,7 @@ from datetime import UTC, datetime, timedelta
 from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
-from app import drives, jobs, telephony
+from app import drives, jobs, phrasing, telephony
 from app.drives import Drive
 from app.jobs import Job, JobState, JobType
 
@@ -49,6 +49,11 @@ QUESTION_ORDER = (JobState.EXCEPTION, JobState.NEEDS_APPROVAL)
 
 def label_of(job: Job) -> str:
     return job.details.get("label") or job.request or f"job {job.id}"
+
+
+def lower_first(text: str) -> str:
+    text = text.strip().rstrip(".")
+    return text[:1].lower() + text[1:]
 
 
 def job_sentence(job: Job) -> str:
@@ -91,10 +96,30 @@ def arrival_batch(drive_jobs: list[Job]) -> tuple[list[Job], Job | None]:
     return rest + ([question] if question else []), question
 
 
-def arrival_variables(drive: Drive, batch: list[Job], question: Job | None) -> dict[str, str]:
+FACT_STATUS = {JobState.DONE: "done", JobState.FAILED: "didn't work"}
+
+
+def facts_for(batch: list[Job], question: Job | None) -> list[phrasing.Fact]:
+    """What the arrival call reports, minus the question (asked last, separately)."""
+    facts = []
+    for job in batch:
+        if job is question:
+            continue
+        if job.state in jobs.WAITING:
+            status = "waiting on you"
+        else:
+            status = FACT_STATUS.get(job.state, "still going")
+        facts.append(phrasing.Fact(status, job_sentence(job)))
+    return facts
+
+
+async def arrival_variables(drive: Drive, batch: list[Job], question: Job | None) -> dict[str, str]:
+    """The arrival call: a natural greeting (app/phrasing.py) plus the plain facts as summary."""
     sentences = " ".join(job_sentence(job) for job in batch)
+    asked = job_sentence(question) if question else None
+    greeting = await phrasing.arrival_greeting(facts_for(batch, question), asked)
     return telephony.call_variables(
-        f"Shotgun here, nearly there. {sentences}",
+        greeting,
         summary=sentences,
         pending_job_id=question.id if question else None,
         drive_id=drive.id,
@@ -200,12 +225,12 @@ async def tick(conn: AsyncConnection, now: datetime | None = None) -> str | None
         drive, found = due[0]
         batch, question = arrival_batch(found)
         placed = await place(
-            conn, "arrival", arrival_variables(drive, batch, question), drive.id, batch, now
+            conn, "arrival", await arrival_variables(drive, batch, question), drive.id, batch, now
         )
         return "arrival" if placed else FAILED
     job = pending_exception
     variables = telephony.call_variables(
-        f"Shotgun here, quick one. {job_sentence(job)}",
+        f"Hey, quick one. {job_sentence(job)}",
         summary=job_sentence(job),
         pending_job_id=job.id,
         drive_id=job.drive_id,
@@ -230,7 +255,7 @@ async def expire_unclaimed(conn: AsyncConnection, now: datetime | None = None) -
                     conn,
                     job.id,
                     JobState.FAILED,
-                    summary=f"Sorry, I can't handle this one yet: {label_of(job)}.",
+                    summary=f"I can't do that one yet: {lower_first(label_of(job))}.",
                     error=f"no {job.type} worker claimed it within {UNCLAIMED_MINUTES} minutes",
                     expect=JobState.QUEUED,
                 )

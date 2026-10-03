@@ -53,7 +53,7 @@ async def test_unplug_cancels_the_arrival_call_and_pushes_the_recap(http, db, ra
         held.id,
         "running",
         "exception",
-        summary="The tests failed on the pull request for Fix the login bug. Merge it anyway?",
+        summary="The tests failed on the fix for the login bug. Merge it anyway?",
     )
 
     reply = await event(http, "carplay_disconnected")
@@ -66,7 +66,7 @@ async def test_unplug_cancels_the_arrival_call_and_pushes_the_recap(http, db, ra
 
     assert pushed == [
         "Done: The Lions won 31 to 24.\n"
-        "Waiting on you: The tests failed on the pull request for Fix the login bug. "
+        "Waiting on you: The tests failed on the fix for the login bug. "
         "Merge it anyway?"
     ]
 

@@ -56,9 +56,11 @@ async def test_drive_with_two_pre_approved_jobs_makes_exactly_two_calls(http, db
     await run(db, second["job_id"], "running", "approved")  # pre-approved: no question
     assert await ticks(db) == [None] * 5  # work in progress: nobody rings
 
-    await run(db, first["job_id"], "approved", "done", summary="Merged: Fix the login bug.")
+    await run(
+        db, first["job_id"], "approved", "done", summary="I merged the fix for the login bug."
+    )
     assert await ticks(db) == [None] * 5  # one still going through
-    await run(db, second["job_id"], "done", summary="Merged: Fix the signup typo.")
+    await run(db, second["job_id"], "done", summary="I merged the fix for the signup typo.")
     assert await ticks(db) == ["arrival", None, None, None, None]
 
     assert len(rang) == 2
@@ -67,8 +69,10 @@ async def test_drive_with_two_pre_approved_jobs_makes_exactly_two_calls(http, db
     assert arrival["call_kind"] == "arrival"
     assert arrival["drive_id"] == str(drive.id)
     assert arrival["pending_job_id"] == ""
-    assert arrival["summary"] == "Merged: Fix the login bug. Merged: Fix the signup typo."
-    assert arrival["greeting"].startswith("Shotgun here")
+    assert arrival["summary"] == (
+        "I merged the fix for the login bug. I merged the fix for the signup typo."
+    )
+    assert arrival["greeting"].startswith("Hey, almost there.")
 
 
 async def test_late_results_after_the_arrival_call_never_ring(http, db, rang):
@@ -164,6 +168,7 @@ async def test_arrival_batches_done_failed_then_one_question(db, rang):
 
 
 async def exception_in(db, drive_id, label):
+    what = label.lower().removeprefix("fix ")
     job = await jobs.create_job(
         db, JobType.CODER, {"label": label}, drive_id=drive_id, preapproval=TESTS_YES
     )
@@ -172,7 +177,7 @@ async def exception_in(db, drive_id, label):
         job.id,
         "running",
         "exception",
-        summary=f"The tests failed on the pull request for {label}. Merge it anyway?",
+        summary=f"The tests failed on the fix for {what}. Merge it anyway?",
     )
 
 
@@ -188,8 +193,7 @@ async def test_broken_preapproval_rings_one_exception_call(db, rang):
     assert call["call_kind"] == "exception"
     assert call["pending_job_id"] == str(job.id)
     assert call["greeting"] == (
-        "Shotgun here, quick one. "
-        "The tests failed on the pull request for Fix the login bug. Merge it anyway?"
+        "Hey, quick one. The tests failed on the fix for the login bug. Merge it anyway?"
     )
 
 
@@ -253,13 +257,13 @@ async def test_job_nobody_claims_fails_and_is_reported_on_arrival(db, rang):
     assert await calls.expire_unclaimed(db, later(1)) == []
     assert await calls.tick(db, later(calls.UNCLAIMED_MINUTES + 1)) == "arrival"
     assert (await jobs.get_job(db, job.id)).state is JobState.FAILED
-    assert rang[0]["summary"] == "Sorry, I can't handle this one yet: Email Alex I'm running late."
+    assert rang[0]["summary"] == "I can't do that one yet: email Alex I'm running late."
 
 
 async def test_unclaimed_guard_falls_back_to_the_request(db):
     await jobs.create_job(db, JobType.RESEARCH, request="find ramen nearby")
     [expired] = await calls.expire_unclaimed(db, later(calls.UNCLAIMED_MINUTES + 1))
-    assert expired.summary == "Sorry, I can't handle this one yet: find ramen nearby."
+    assert expired.summary == "I can't do that one yet: find ramen nearby."
 
 
 @pytest.mark.parametrize("steps", [["running"], ["running", "needs_approval"]])

@@ -117,7 +117,7 @@ async def test_pre_approved_pr_merges_once_the_tests_pass(db, gh, fake):
     done = await coder.merge_approved(db, gh)
     assert (done.state, done.summary) == (
         JobState.DONE,
-        "Merged: Fix the login bug. The tests passed.",
+        "I merged the fix for the login bug, and the tests passed.",
     )
     assert fake.paths("PUT") == ["/pulls/8/merge"]
     assert await states(db, job.id) == ["queued", "running", "approved", "done"]
@@ -138,9 +138,7 @@ async def test_failed_tests_put_the_job_in_exception(db, gh, fake, conclusion):
     moved = await coder.handle_event(db, gh, "check_run", check_run(conclusion))
     assert moved.id == job.id
     assert moved.state is JobState.EXCEPTION
-    assert moved.summary == (
-        "The tests failed on the pull request for Fix the login bug. Merge it anyway?"
-    )
+    assert moved.summary == ("The tests failed on the fix for the login bug. Merge it anyway?")
     assert await coder.merge_approved(db, gh) is None
     assert fake.paths("PUT") == []
 
@@ -150,7 +148,7 @@ async def test_tests_that_never_report_put_the_job_in_exception(db, gh):
     later = datetime.now(UTC) + timedelta(minutes=coder.TESTS_TIMEOUT_MINUTES + 1)
     [moved] = await coder.expire_tests(db, now=later)
     assert (moved.id, moved.state) == (job.id, JobState.EXCEPTION)
-    assert moved.summary.startswith("The tests never reported on the pull request")
+    assert moved.summary.startswith("The tests never reported on the fix")
     assert await coder.expire_tests(db, now=later) == []
 
 
@@ -175,7 +173,9 @@ async def test_check_run_for_a_held_job_changes_nothing(db, gh):
 async def test_without_preapproval_the_pr_is_held_for_a_yes(db, gh, fake):
     job = await pr_open(db, gh)
     assert job.state is JobState.NEEDS_APPROVAL
-    assert job.summary == "I opened a pull request: Fix the login bug. Merge it?"
+    assert (
+        job.summary == "The fix for the login bug is ready as a pull request. Want me to merge it?"
+    )
     assert fake.paths("PUT") == []
 
 

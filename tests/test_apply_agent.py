@@ -194,3 +194,13 @@ def test_agent_talks_like_a_friend_not_a_screen_reader():
     assert "Never read out street numbers, full addresses, coordinates or exact times" in prompt
     assert 'never "Sent" or "Done"' in prompt
     assert "where they are right now" in prompt
+
+
+def test_agent_is_honest_about_what_it_cant_do_yet():
+    """Daniel 18:40: it said "Sent." for an email, but there is no email worker (3.2 stretch);
+    the job failed and the arrival call had to admit it. Same for food (3.4, no worker)."""
+    prompt = prompt_text()
+    assert "You can't send messages yet" in prompt
+    assert "Never call dispatch_task for a message, and never say it's sent." in prompt
+    assert "You can't order food yet" in prompt
+    assert "type email" not in prompt and "type food" not in prompt

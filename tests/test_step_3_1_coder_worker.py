@@ -137,7 +137,10 @@ async def test_action_comment_opens_pr_and_job_needs_approval(db, gh, fake):
     moved = await coder.handle_event(db, gh, "issue_comment", COMMENT)
     assert moved.id == job.id
     assert moved.state is JobState.NEEDS_APPROVAL
-    assert moved.summary == "I opened a pull request: Fix the login bug. Merge it?"
+    assert (
+        moved.summary
+        == "The fix for the login bug is ready as a pull request. Want me to merge it?"
+    )
     assert moved.result["pr_number"] == 8
     _, _, body = fake.calls[-1]
     assert body == {
@@ -214,7 +217,7 @@ async def test_spoken_yes_merges_and_finishes(db, gh, fake):
     await coder.handle_event(db, gh, "issue_comment", COMMENT)
     await jobs.transition(db, job.id, "approved", expect="needs_approval")
     done = await coder.merge_approved(db, gh)
-    assert (done.state, done.summary) == (JobState.DONE, "Merged: Fix the login bug.")
+    assert (done.state, done.summary) == (JobState.DONE, "I merged the fix for the login bug.")
     method, path, body = fake.calls[-1]
     assert (method, path, body) == ("PUT", "/pulls/8/merge", {"merge_method": "squash"})
 

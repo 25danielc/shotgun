@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
+.PHONY: demo-reset demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
 
 PORT ?= 8000
 
@@ -67,4 +67,7 @@ demo-arrive:  ## Step 4.5: make the open drive's arrival call ring now (DATABASE
 
 watch:  ## Step 4.5: live terminal view of the drive, its jobs and calls (DATABASE_URL)
 	uv run python scripts/demo.py watch
+
+demo-reset:  ## Before every rehearsal: restore the planted bug, close stale drives/jobs (ARGS=--dry-run)
+	uv run python scripts/demo_reset.py $(ARGS)
 
