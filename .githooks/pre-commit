@@ -1,0 +1,3 @@
+#!/bin/sh
+# Enabled by `make setup` (git config core.hooksPath .githooks). Blocks .env files and API keys.
+exec python3 "$(git rev-parse --show-toplevel)/scripts/hooks/check_secrets.py" --staged
