@@ -5,7 +5,7 @@ description: Use when creating, changing or debugging the Shotgun ElevenLabs voi
 
 # The ElevenLabs voice agent
 
-Config lives in `config/elevenlabs_agent.json` (agent body + tool definitions). Change the file first, then apply it in the UI or with the API, so the repo always matches what's live. API facts below were read from elevenlabs.io/docs and the OpenAPI spec on 2026-10-03; re-check anything that errors.
+Config lives in `config/elevenlabs_agent.json` (agent body + tool definitions). Change the file first, then apply it with `uv run python scripts/apply_agent.py --stage greet|full` (add `--dry-run` to preview), so the repo always matches what's live. The script is idempotent: it creates or updates the workspace secret, the tools (matched by name), the agent (`ELEVENLABS_AGENT_ID`, or creates one) and the phone number (imports it from Twilio, or reassigns it). API facts below were read from elevenlabs.io/docs and the OpenAPI spec on 2026-10-03; re-check anything that errors.
 
 ## Prompt principles
 - **Short:** one or two sentences per turn, spoken style, no lists or URLs. The driver can't look at anything.
@@ -26,9 +26,9 @@ Config lives in `config/elevenlabs_agent.json` (agent body + tool definitions). 
 ## Tools (step 2.3)
 - Tools are separate resources: `POST /v1/convai/tools` with each `tools[]` entry from the config, then put the returned ids in `conversation_config.agent.prompt.tool_ids` (inline `prompt.tools` is deprecated).
 - Webhook tools: `tool_config.type = "webhook"`, `api_schema {url, method, request_headers, request_body_schema}`. `response_timeout_secs` minimum is 5, but **our endpoints answer in < 500 ms anyway**.
-- Auth header: `X-Shotgun-Secret` whose value is an ElevenLabs workspace secret (`{"secret_id": ...}`) holding `TOOLS_SHARED_SECRET`. TODO(verify) the secret creation flow in the UI/API.
+- Auth header: `X-Shotgun-Secret` whose value is an ElevenLabs workspace secret (`{"secret_id": ...}`) holding `TOOLS_SHARED_SECRET`. Created by `POST /v1/convai/secrets {type: "new", name, value}`, updated by `PATCH /v1/convai/secrets/{id} {type: "update", ...}`, both handled by the script.
 - The caller number goes into each body via `"dynamic_variable": "system__caller_id"`. Other system vars: `system__conversation_id`, `system__call_sid`, `system__called_number`. TODO(verify) that `system__caller_id` is filled on **outbound** calls (it may be our Twilio number or the callee there).
-- `end_call` is a built-in system tool under `prompt.built_in_tools.end_call` (TODO(verify) exact shape). The prompt must tell the agent when to call it.
+- `end_call` is a built-in system tool: `prompt.built_in_tools.end_call = {type: "system", name: "end_call", params: {system_tool_type: "end_call"}}` (OpenAPI, 2026-10-03). The prompt must tell the agent when to call it.
 
 ## Caller allowlist
 There is **no built-in phone allowlist** (`platform_settings.auth.allowlist` is for web hosts). Two layers:

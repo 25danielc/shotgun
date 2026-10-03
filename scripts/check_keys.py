@@ -70,7 +70,6 @@ def check_elevenlabs(env: dict) -> str:
         _get(f"{base}/agents/{env['ELEVENLABS_AGENT_ID']}", headers=headers)
         detail += ", agent id found"
     if env.get("ELEVENLABS_PHONE_NUMBER_ID"):
-        # TODO(verify): GET /v1/convai/phone-numbers/{id} path
         _get(f"{base}/phone-numbers/{env['ELEVENLABS_PHONE_NUMBER_ID']}", headers=headers)
         detail += ", phone number id found"
     return detail

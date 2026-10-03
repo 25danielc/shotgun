@@ -25,7 +25,7 @@ Railway docs checked 2026-10-03: Railpack builder (reads `.python-version` = 3.1
 
 ## If the base URL changed
 Everything that points at the server must be updated:
-- ElevenLabs: each webhook tool's `api_schema.url` (`PATCH` the tool, or edit it in the UI) and the conversation initiation webhook URL (`{{BASE_URL}}/tools/init`). Re-apply from `config/elevenlabs_agent.json` with `{{BASE_URL}}` replaced. TODO(verify) the tool update endpoint (`PATCH /v1/convai/tools/{tool_id}`).
+- ElevenLabs: update `PUBLIC_BASE_URL` in `.env`, then `uv run python scripts/apply_agent.py --stage full`. It PATCHes every tool URL (`PATCH /v1/convai/tools/{tool_id}`) and the conversation initiation webhook (`{{BASE_URL}}/tools/init`).
 - The iPhone Shortcut's URL (Daniel, on the phone).
 - The demo repo's GitHub webhook (`/github/hook`): `gh api repos/$GITHUB_DEMO_REPO/hooks` to list, then PATCH the `config.url`.
 - `.env` and Railway `PUBLIC_BASE_URL`.
