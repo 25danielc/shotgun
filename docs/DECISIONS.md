@@ -260,20 +260,20 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Inline `search_web` / `draft_message` live in `app/inline.py`. A slow or failed answer is a spoken fallback ("Want me to look it up in the background?"), never an error.
   - **The curl check now dispatches a research-only sample.** The multi-part sample would make the live planner file a real coder issue.
   - One live draft turned "come over tonight, I'm bringing ramen" into "I'm bringing ramen over tonight. Want me to come by?": wrong direction. That's acceptable, because the agent reads every draft back before anything happens. Watch it in 2.3.
-- 2026-10-03 18:05 (hour 6): **Step 2.3 config (D17), not pushed yet.**
+- 2026-10-03 17:58 (hour 6): **Step 2.3 config (D17), not pushed yet.**
   - The prompt moved to `config/elevenlabs_prompt.md`. It adds inline-first rules, dispatch with a yes up front, and `end_call` for exactly three reasons.
   - **ElevenLabs caps `turn_timeout` at 30 s** (docs, conversation-flow), so the 60 s silence rule is 30 s `turn_timeout` → `skip_turn` with `wait_timeout_secs` 30 → check-in "Anything else?" → next silent turn → `end_call`. `silence_end_call_timeout` is 90 as a backstop. TODO(verify) on a live call.
   - Inline tools: timeout 15 s and `pre_tool_speech: "force"`. `preapproval` is a nested object (supported per the OpenAPI spec).
   - New call variables `drive_id` and `call_kind`. Greetings no longer ask "Anything you want handled?".
   - **The in-car pass check has to wait for 4.2 + 4.1:** the old per-job watcher still rings after the call until then.
-- 2026-10-03 18:25 (hour 6.4): **Step 4.2 (D17).**
+- 2026-10-03 18:04 (hour 6): **Step 4.2 (D17).**
   - New state `exception` (→ approved or failed only) and the edge running → approved, which `transition()` allows only when the job carries a preapproval.
   - `app/approvals.py` `settle()` decides at the irreversible step: approved (inside the pre-approval), exception (broken), or needs_approval (no pre-approval).
   - A structured condition the worker can't check counts as broken: "merge if the tests pass" with no result → exception.
   - Coder: "merge if the tests pass" waits for the demo repo's new `tests.yml` (job `tests`).
   - **The result arrives by webhook (`check_run` added to hook 691695445)**, because the fine-grained GITHUB_TOKEN gets 403 on both check runs and Actions runs. The webhook needs no new permission.
   - No result in 10 min → exception. `approve_action` accepts needs_approval or exception.
-- 2026-10-03 18:45 (hour 6.7): **Step 4.1 (D17).** `app/callbacks.py` deleted and `app/calls.py` added. Each tick, in order:
+- 2026-10-03 18:08 (hour 6): **Step 4.1 (D17).** `app/callbacks.py` deleted and `app/calls.py` added. Each tick, in order:
   - The unclaimed guard (moved over unchanged).
   - The busy-line check.
   - At most one call: the arrival call for a due drive, or else one exception call.
@@ -284,7 +284,7 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - The arrival call's question is one the driver hasn't been asked yet (exception before hold); one already asked is read out but not asked again first.
   - Nothing rings after the arrival call. Results that come later go in the unplug recap (4.4).
   - With no ETA, the arrival call can ring soon after the driver hangs up, as soon as everything is settled (e.g. a quick research job). Step 5.1's ETA moves it to ETA − 3 min.
-- 2026-10-03 18:10 (hour 7): **Step 4.3 Done.**
+- 2026-10-03 18:10 (hour 6): **Step 4.3 Done.**
   - `app/policy.py`: ring on plug-in if something is waiting on the driver (needs_approval or exception, any drive), or a known drive of 10+ min, or no call in 30 min. `CALL_POLICY=always` overrides. Thresholds are settings (`DEPARTURE_MIN_DRIVE_MINUTES`, `DEPARTURE_QUIET_MINUTES`).
   - A silent plug-in still opens a drive. The decision is made in the request (a few queries), so `/events` returns an accurate `calling`. If the DB or the policy fails, it rings anyway (the never-cut ring).
   - The departure greeting leads with what's waiting and asks its question. Otherwise "Hey, it's Shotgun, riding along."
