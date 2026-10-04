@@ -1,0 +1,75 @@
+/* Shotgun video tokens: the dashboard palette and type (shotgun-dashboard-design skill). */
+@font-face { font-family: "JBM"; font-weight: 400; src: url("fonts/JetBrainsMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "JBM"; font-weight: 500; src: url("fonts/JetBrainsMono-Medium.woff2") format("woff2"); }
+@font-face { font-family: "JBM"; font-weight: 800; src: url("fonts/JetBrainsMono-ExtraBold.woff2") format("woff2"); }
+
+:root {
+  --bg: #07090c;
+  --panel: #0c1015;
+  --line: #1c2530;
+  --fg: #c9d4df;
+  --dim: #5c6b7a;
+  --accent: #39ff9c;
+  --safe-x: 96px;
+  --safe-y: 80px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+body { font-family: "JBM", ui-monospace, monospace; color: var(--fg); font-variant-numeric: tabular-nums; }
+
+#stage { position: absolute; inset: 0; overflow: hidden; background: var(--bg); }
+.scene { position: absolute; inset: 0; overflow: hidden; display: none; }
+.layer { position: absolute; inset: 0; }
+.fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bg { position: absolute; inset: 0; background: var(--bg); }
+
+/* Headlines: 800, uppercase, -0.01em, 96-120 px, top-left in the safe area. */
+.headline {
+  position: absolute; left: var(--safe-x); top: var(--safe-y);
+  font-weight: 800; font-size: 108px; line-height: 0.98; letter-spacing: -0.01em;
+  text-transform: uppercase; color: var(--fg); white-space: nowrap;
+}
+.headline .w { display: inline-block; will-change: transform, opacity, filter; }
+.headline .accent { color: var(--accent); }
+.headline .cursor { color: var(--accent); margin-left: 0.08em; }
+
+/* Callouts: 500, 24 px, uppercase, 0.08em, on thin leader lines. */
+.callout-label {
+  position: absolute; font-weight: 500; font-size: 30px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--fg); white-space: nowrap;
+  background: rgba(7, 9, 12, 0.82); padding: 6px 12px; transform: translateY(-50%);
+}
+.callout-label.dim { color: var(--dim); background: none; padding: 0; transform: none; }
+svg.over { position: absolute; inset: 0; width: 1920px; height: 1080px; pointer-events: none; overflow: visible; }
+
+/* Captions: 500, 34 px, sentence case, on a #07090c 80% box, bottom-center. */
+#captions {
+  position: absolute; left: 50%; bottom: var(--safe-y); transform: translateX(-50%);
+  width: max-content; max-width: 1600px; text-align: center; font-weight: 500; font-size: 34px; line-height: 1.3;
+  background: rgba(7, 9, 12, 0.8); padding: 10px 22px; white-space: pre-line; display: none;
+}
+#captions .who { color: var(--accent); }
+
+/* Windows in the house style (the dashboard's bordered panels). */
+.win {
+  position: absolute; border: 1.5px solid var(--line); background: var(--panel);
+}
+.win > .title {
+  position: absolute; top: -15px; left: 20px; padding: 0 10px; background: var(--bg);
+  font-weight: 500; font-size: 22px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase;
+}
+.mono22 { font-weight: 500; font-size: 22px; letter-spacing: 0.04em; }
+.tag {
+  display: inline-block; font-weight: 500; color: var(--accent); white-space: nowrap;
+}
+.tagbox {
+  display: inline-block; border: 1.5px solid var(--accent); padding: 4px 12px; color: var(--fg);
+  font-weight: 500; font-size: 24px; letter-spacing: 0.04em; white-space: nowrap;
+}
+.chip {
+  display: inline-block; border: 1px solid var(--line); padding: 4px 12px; color: var(--dim);
+  font-weight: 500; font-size: 22px; letter-spacing: 0.04em; white-space: nowrap;
+}
+
+#grain { position: absolute; inset: 0; width: 1920px; height: 1080px; opacity: 0.04; pointer-events: none; image-rendering: pixelated; }

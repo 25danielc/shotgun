@@ -1,0 +1,17 @@
+# Paste into the YouTube description (every chapter is at least 10 s, as YouTube requires):
+0:00 Intro
+0:18 Plug in, it calls you
+0:32 Talk
+0:53 Background work: subagents
+1:06 Arrival call
+1:18 How it works, safety
+
+# Full list as requested (Plug in and How it works are under 10 s, so YouTube won't show these as chapters):
+0:00 Intro
+0:18 Plug in
+0:23 It calls you
+0:32 Talk
+0:53 Background work: subagents
+1:06 Arrival call
+1:18 How it works
+1:26 Safety

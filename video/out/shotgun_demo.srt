@@ -1,0 +1,58 @@
+1
+00:00:00,060 --> 00:00:03,820
+Everyone's building agents for your phone,
+Muse, Instinct.
+
+2
+00:00:03,820 --> 00:00:06,950
+And if you watch the OpenAI Dev Day drop,
+dots,
+
+3
+00:00:06,950 --> 00:00:09,400
+but we built one for your car.
+
+4
+00:00:29,385 --> 00:00:31,885
+SHOTGUN: Shotgun here. Where are we headed?
+
+5
+00:00:32,537 --> 00:00:35,297
+Can you find me some ramen places nearby?
+
+6
+00:00:35,680 --> 00:00:38,900
+SHOTGUN: You've got Tomukun Noodle Bar
+and Slurping Turtle.
+
+7
+00:00:39,109 --> 00:00:43,629
+Before I left, I remember I had a bug
+in my demo workspace.
+
+8
+00:00:43,629 --> 00:00:45,479
+It has to do with email capitalization.
+
+9
+00:00:45,479 --> 00:00:47,329
+Do you think you could go in
+and fix that for me?
+
+10
+00:00:47,394 --> 00:00:49,804
+SHOTGUN: Want me to merge it if the tests pass?
+
+11
+00:00:49,680 --> 00:00:51,300
+Uh, yeah, that'd be great.
+
+12
+00:01:08,823 --> 00:01:11,443
+SHOTGUN: Shotgun here.
+You're about three minutes out.
+
+13
+00:01:11,443 --> 00:01:15,243
+SHOTGUN: Got the email capitalization fix merged
+and tests came through.
