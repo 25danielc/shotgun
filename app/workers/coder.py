@@ -167,7 +167,11 @@ def fix_name(job: Job) -> str:
     lowered = label[:1].lower() + label[1:]
     for verb in ("fix ", "fixing "):
         if lowered.startswith(verb):
-            return lowered[len(verb) :]
+            lowered = lowered[len(verb) :]
+            break
+    # "Fix login bug" -> "the login bug" (job 185 said "the fix for login bug").
+    if not re.match(r"(the|a|an|my|our|his|her|their|\w+'s)\b", lowered):
+        lowered = f"the {lowered}"
     return lowered
 
 

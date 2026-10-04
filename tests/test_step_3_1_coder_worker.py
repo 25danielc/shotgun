@@ -312,3 +312,20 @@ async def test_live_job_by_hand_gets_a_pr_within_10_minutes():
     job = await coder._demo(wait_minutes=10)
     assert job.state is JobState.NEEDS_APPROVAL
     assert job.result["pr_url"]
+
+
+@pytest.mark.parametrize(
+    ("label", "name"),
+    [
+        ("Fix the login bug", "the login bug"),
+        ("Fix login bug", "the login bug"),
+        ("Fix Sarah's login bug", "Sarah's login bug"),
+        ("Fixing the signup typo.", "the signup typo"),
+        ("Dark mode", "the dark mode"),
+    ],
+)
+def test_fix_name_reads_naturally(label, name):
+    from types import SimpleNamespace
+
+    job = SimpleNamespace(details={"label": label}, request=None)
+    assert coder.fix_name(job) == name

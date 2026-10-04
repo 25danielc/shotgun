@@ -370,4 +370,7 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Also seen on that call, not fixed:
     - The agent made up an explanation for why search worked without a location.
     - It dispatched the coder job without asking for the pre-approval first, so the job was held and asked on the arrival call, where a "yes" merged it. That's allowed, but not the intended demo flow.
+- 2026-10-03 20:11 (hour 8.2): Pushed the agent: it always asks "Want me to merge it if the tests pass?" before dispatching a code fix, and never invents explanations ("I'm not sure why"). `LAST_KNOWN_HOURS` 12 → 48 (Daniel) so Saturday's location covers Sunday's judging.
+  - Live evidence from drive 2 (the 20:00 simulated plug-in): exactly two calls, departure and arrival. Job 185 was held, asked on the arrival call, and Daniel's "yep" merged PR #7. Marked 4.1 Done and 4.2 Done apart from a live "no".
+  - `fix_name` adds "the" ("the fix for login bug" → "the fix for the login bug").
 
