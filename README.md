@@ -2,7 +2,7 @@
 
 **Everyone put a chatbot in the car. Shotgun is an agent built for the car.**
 
-Shotgun is an AI agent saved as a phone contact. Plug your phone into the car and the car rings: you say what you need, it answers quick questions on the spot and hands longer jobs (like fixing a bug and opening a pull request) to background workers. About 3 minutes before you arrive, the car rings once more with a summary. Nothing irreversible happens without a spoken "yes".
+Shotgun is an AI agent saved as a phone contact. Plug your phone into the car and the car rings: you say what you need, it answers quick questions on the spot and hands longer jobs (like fixing a bug, opening a pull request, ordering food) to background workers. About 3 minutes before you arrive, the car rings once more with a summary. Nothing irreversible happens without a spoken "yes".
 
 Built solo at MHacks 2026.
 
