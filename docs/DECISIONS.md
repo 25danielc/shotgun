@@ -405,11 +405,15 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **Arrival calls end on their own:** they say what finished, end with "If you don't have anything else, I'm going to hang up.", and hang up after about 10 s of silence.
     - ElevenLabs can't change `turn_timeout` per call (`TurnConfigOverride` only has `soft_timeout_config`), so a second agent, "Shotgun (arrival)", handles arrival and exception calls: same prompt, tools and built-ins, with turn 10 / silence-end 30. The main agent keeps 30/90 for the departure silence rule.
     - `apply_agent.py` creates it (`ELEVENLABS_CALLBACK_AGENT_ID`), `agent-check` covers it, `calls.py` places these calls with it, and the busy-line check and dashboard read both agents' conversations.
-    - TODO(verify): an outbound call with an agent that isn't the number's assigned agent (the docs list `agent_id` and `agent_phone_number_id` as separate fields).
+    - Verified 21:40: an outbound call with the callback agent on the main number works.
   - First live arrival at ETA − 3 with the new opener (21:28:39): "Hey, you're about three minutes out. Good news—I already sent that email to Erica for you."
 - 2026-10-03 21:36 (hour 9.7): **Every call opens "Shotgun here"** (Daniel: character in the first five seconds, without overdoing it).
   - Openers: departure "Shotgun here. Where are we headed?"; inbound "Shotgun here. What's up?"; arrival "Shotgun here. You're about three minutes out…" (or "Shotgun here, quick update."); exception "Shotgun here, quick one."; voicemail "Shotgun here with your update."
   - The arrival wording strips a leading "Hey/Hi" before adding the prefix. The prompt gives the character one line: easygoing, a little dry, no catchphrases or puns about riding shotgun.
   - **The voice, as checked:** "Kai – Clean, Modern, Global" (young American male, "confident… crisp and neutral with an edge"), `eleven_v4_turbo`, stability 0.5, speed 1.0. It was picked in the ElevenLabs UI and isn't pinned in the repo (`tts.voice_id` is still TODO), so a UI save can change it.
   - Test fix: `conftest.py` resets `inline._shared` per test. A reused client from an earlier test's event loop made live phrasing silently fall back.
+- 2026-10-03 21:41 (hour 9.7): Pushed with Daniel's OK ("pin and push").
+  - The main agent got "Shotgun here", the character line, the repo rules and the pinned voice (Kai, `eleven_v4_turbo`, the live settings). The new callback agent "Shotgun (arrival)" is `agent_0601m428…`, and `ELEVENLABS_CALLBACK_AGENT_ID` is in `.env` and Railway. Deployed; `make agent-check` passes for both agents.
+  - Test arrival call through the callback agent (conv_1101m429…, 11 s): "Shotgun here. This is a test of the arrival call. If you don't have anything else, I'm going to hang up." → "Hang up." → "Talk later." → end_call. The silent 10 s path is still to be seen live.
+  - **`.env` glitch:** the file ended without a newline after `EMAIL_CONTACTS`, so the appended line got glued onto it and dotenv failed to parse it. Fixed (backup in the scratchpad), and Railway re-synced and checked without printing the values. Appends to `.env` must start on a new line.
 
