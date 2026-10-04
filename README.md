@@ -21,7 +21,7 @@ Built solo at MHacks 2026.
 
 ## Try it out
 
-- **Demo video:** TODO: paste URL
+- **Demo video:** https://www.youtube.com/watch?v=P9eiu86cmdE
 - **Dashboard replay:** https://shotgun-production-5f30.up.railway.app/dashboard?mock=1 (a recorded drive: the call, the coding job, the PR and the arrival call, looping)
 - **Code:** this repo
 
