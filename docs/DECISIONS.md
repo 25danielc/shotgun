@@ -383,4 +383,10 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
     - Shapes were checked live with a draft to the account itself, then deleted.
   - `dispatch_task` gained `to`. The prompt now reads the draft back, asks "Want me to send that?", and on a yes dispatches with the exact text plus the pre-approval. It says "I'll send it", never "Sent".
   - The dashboard shows email as a real worker.
+- 2026-10-03 20:59 (hour 9): **Daniel's Car Run 1** (drive 5, real Shortcut with location; 181 s departure call, 28 s arrival).
+  - Worked: a real email to Daniel (pre-approved), the coder pre-approved and merged, exactly two calls, natural arrival summary, and several searches.
+  - The planted bug was restored automatically after the merge, for Run 2.
+  - **Miss: "The Landmark" got no ETA.** Routes has no route for the bare name. The first fix (retry with ", Ann Arbor, MI") routed to the wrong place 8 km away, while the agent's own search found the right one (student housing on South University).
+  - **Final fix:** a place name (no street number, no city) is looked up first with Haiku and web search near the driver (`inline.find_address`, 5 s cap, a street-address line only, else NONE), then routed. Street addresses and "home" skip the lookup; a failed lookup falls back.
+  - Live: The Landmark → 1300 S University, 11 min; the Michigan Union → 530 S State, 11 min; Costco → 771 Airport Blvd, 16 min. 2.6–2.8 s total, inside the 8 s budget.
 

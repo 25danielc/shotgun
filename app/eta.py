@@ -49,7 +49,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from app.config import settings
-from app.drives import Drive
+from app.drives import Drive, near
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +99,11 @@ def candidates(address: str) -> list[str]:
     if area and "," not in address and STREET_ADDRESS.match(address):
         return [address, f"{address}, {area}"]
     return [address]
+
+
+def is_place_name(address: str) -> bool:
+    """A name to look up ("The Landmark"), not a street address or one that names its city."""
+    return bool(address) and "," not in address and not STREET_ADDRESS.match(address)
 
 
 def in_home_area(address: str) -> str | None:
@@ -196,6 +201,13 @@ async def set_destination(
     spoken, address = resolve(text)
     route = None
     if drive.start_lat is not None and drive.start_lng is not None:
+        if is_place_name(address):
+            from app import inline  # imported here: app.inline imports this module's home_area
+
+            found = await inline.find_address(address, near(drive))
+            if found:
+                log.info("set_destination: %r is at %s", address, found)
+                address = found
         try:
             route = await best_route(drive.start_lat, drive.start_lng, address, client=client)
         except EtaError as exc:

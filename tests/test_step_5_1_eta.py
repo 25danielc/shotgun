@@ -345,3 +345,90 @@ async def test_a_real_plug_in_location_always_wins(db):
     await drives.open_drive(db, lat=1.0, lng=2.0, now=now - timedelta(minutes=10))
     fresh = await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=now)
     assert ((fresh.start_lat, fresh.start_lng), fresh.location_source) == (UNION, "plug_in")
+
+
+# --- a place name is looked up near the driver first (Daniel 20:52: "The Landmark") -----------
+
+
+async def test_a_place_name_is_routed_to_the_address_found_near_the_driver(db, monkeypatch):
+    from app import inline
+
+    asked = {}
+
+    async def fake_find(name, near=None, **kwargs):
+        asked.update(name=name, near=near)
+        return "1300 South University Avenue, Ann Arbor, MI"
+
+    monkeypatch.setattr(inline, "find_address", fake_find)
+    drive = await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=NOW)
+    seen = {}
+    drive, reply = await eta.set_destination(
+        db, drive, "The Landmark", now=NOW, client=routes(600, seen=seen)
+    )
+    assert asked == {"name": "The Landmark", "near": {"location": "42.2754, -83.7417"}}
+    assert seen["body"]["destination"] == {"address": "1300 South University Avenue, Ann Arbor, MI"}
+    assert drive.destination == "The Landmark"  # what the driver said, not the address
+    assert reply == "About 10 minutes. I'll ring you just before you get there."
+
+
+async def test_a_failed_lookup_falls_back_to_the_name(db, monkeypatch):
+    from app import inline
+
+    async def nothing(name, near=None, **kwargs):
+        return None
+
+    monkeypatch.setattr(inline, "find_address", nothing)
+    drive = await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=NOW)
+    seen = {}
+    await eta.set_destination(db, drive, "The Landmark", now=NOW, client=routes(900, seen=seen))
+    assert seen["body"]["destination"] == {"address": "The Landmark"}
+
+
+async def test_street_addresses_and_home_are_not_looked_up(db, monkeypatch):
+    from app import inline
+
+    async def boom(*args, **kwargs):
+        raise AssertionError("no lookup expected")
+
+    monkeypatch.setattr(inline, "find_address", boom)
+    for said in ("home", "333 East Jefferson", "333 East Jefferson, Ann Arbor"):
+        drive = await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=NOW)
+        await eta.set_destination(db, drive, said, now=NOW, client=routes(600))
+
+
+@pytest.mark.parametrize(
+    ("answer", "address"),
+    [
+        (
+            "1300 South University Avenue, Ann Arbor, MI",
+            "1300 South University Avenue, Ann Arbor, MI",
+        ),
+        (
+            '"1300 S University Ave, Ann Arbor, MI 48104."',
+            "1300 S University Ave, Ann Arbor, MI 48104",
+        ),
+        ("NONE", None),
+        ("It's student housing near campus.", None),
+    ],
+)
+async def test_find_address_keeps_only_a_street_address(answer, address):
+    from types import SimpleNamespace
+
+    from app import inline
+
+    class Fake:
+        messages = None
+
+        def __init__(self):
+            self.messages = self
+
+        def with_options(self, **kwargs):
+            return self
+
+        async def create(self, **kwargs):
+            return SimpleNamespace(
+                stop_reason="end_turn",
+                content=[SimpleNamespace(type="text", text=answer, citations=None)],
+            )
+
+    assert await inline.find_address("The Landmark", client=Fake()) == address

@@ -172,6 +172,56 @@ async def search_web(
         raise InlineError(f"Claude request failed: {type(exc).__name__}: {exc}") from exc
 
 
+FIND_PROMPT = """Find the one place the driver means and give its street address. Search the web. \
+They named it out loud, so it may be a building, a business or a landmark; pick the one nearest \
+to the driver's location. Reply with exactly one line: the full street address including city \
+and state, like "1300 South University Avenue, Ann Arbor, MI". If you can't tell which place \
+they mean, reply exactly NONE."""
+FIND_SECONDS = 5.0  # leaves room for the Routes call inside the 8 s inline budget
+ADDRESS_LINE = re.compile(r"^\d+[A-Za-z]?\s+[^,]+,\s*[^,]+.*$")
+
+
+async def find_address(
+    name: str,
+    near: dict[str, str] | None = None,
+    *,
+    client: anthropic.AsyncAnthropic | None = None,
+    budget: float | None = None,
+) -> str | None:
+    """The street address of a place the driver named, near them, or None. Never raises.
+
+    Live 2026-10-03: "The Landmark" has no route as said, and with ", Ann Arbor, MI" Routes
+    picked the wrong one 8 km away; a web search near the driver found the right one (student
+    housing on South University).
+    """
+    budget = budget or FIND_SECONDS
+    if client is None and not settings.anthropic_api_key:
+        return None
+
+    async def ask() -> str:
+        response = await _client(client).messages.create(
+            model=settings.inline_model,
+            max_tokens=200,
+            system=FIND_PROMPT,
+            tools=[web_search_tool()],
+            messages=[
+                {
+                    "role": "user",
+                    "content": search_message(f"Where is: {name}", datetime.now(settings.tz), near),
+                }
+            ],
+        )
+        return parse_answer(response.content).text if response.stop_reason != "refusal" else ""
+
+    try:
+        line = (await asyncio.wait_for(ask(), budget)).strip().strip('."')
+    except Exception as exc:  # noqa: BLE001 - a failed lookup must never block routing
+        log.warning("find_address: %s: %s", type(exc).__name__, exc)
+        return None
+    line = line.splitlines()[0].strip() if line else ""
+    return line if ADDRESS_LINE.match(line) else None
+
+
 async def _draft(to: str, intent: str, client: anthropic.AsyncAnthropic) -> str:
     response = await client.messages.create(
         model=settings.inline_model,
