@@ -419,13 +419,7 @@ async def check_health(client: httpx.AsyncClient) -> None:
 
 async def check_live_call(client: httpx.AsyncClient) -> None:
     """Mirror the agent's live conversation into LIVE_CALL (status, start, end)."""
-    response = await client.get(
-        telephony.CONVERSATIONS_URL,
-        params={"agent_id": settings.elevenlabs_agent_id, "page_size": 5},
-        headers={"xi-api-key": settings.elevenlabs_api_key},
-    )
-    response.raise_for_status()
-    conversations = response.json().get("conversations", [])
+    conversations = await telephony.recent_conversations(client=client)
     now = time.time()
     live = next(
         (

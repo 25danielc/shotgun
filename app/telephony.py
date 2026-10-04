@@ -77,10 +77,17 @@ def call_variables(
     }
 
 
+def agent_ids() -> list[str]:
+    """Every agent that can be on a call with the driver (main, then the callback agent)."""
+    ids = [settings.elevenlabs_agent_id, settings.elevenlabs_callback_agent_id]
+    return [i for i in dict.fromkeys(ids) if i]
+
+
 async def place_call(
     variables: dict[str, str],
     *,
     to_number: str | None = None,
+    agent_id: str | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> PlacedCall:
     """Ring `to_number` (default MY_PHONE_NUMBER) with the voice agent. Raises CallError."""
@@ -96,7 +103,7 @@ async def place_call(
         raise CallError(f"cannot place call, missing {', '.join(missing)}")
 
     body = {
-        "agent_id": settings.elevenlabs_agent_id,
+        "agent_id": agent_id or settings.elevenlabs_agent_id,
         "agent_phone_number_id": settings.elevenlabs_phone_number_id,
         "to_number": to_number,
         "conversation_initiation_client_data": {"dynamic_variables": variables},
@@ -121,29 +128,38 @@ async def place_call(
 
 
 async def call_in_progress(*, client: httpx.AsyncClient | None = None) -> bool:
-    """True if the agent is on a call right now, so a callback would ring into it.
+    """True if either agent is on a call right now, so a callback would ring into it.
 
     Fails open (False) when ElevenLabs can't be reached: a late callback beats none.
     """
-    params = {"agent_id": settings.elevenlabs_agent_id, "page_size": 5}
-    headers = {"xi-api-key": settings.elevenlabs_api_key}
-    owns_client = client is None
-    client = client or httpx.AsyncClient(timeout=TIMEOUT)
-    try:
-        response = await client.get(CONVERSATIONS_URL, params=params, headers=headers)
-        response.raise_for_status()
-        conversations = response.json().get("conversations", [])
-    except (httpx.HTTPError, ValueError):
-        return False
-    finally:
-        if owns_client:
-            await client.aclose()
+    conversations = await recent_conversations(client=client)
     now = time.time()
     return any(
         c.get("status") in LIVE_STATUSES
         and now - (c.get("start_time_unix_secs") or now) < STALE_CALL_SECONDS
         for c in conversations
     )
+
+
+async def recent_conversations(*, client: httpx.AsyncClient | None = None) -> list[dict]:
+    """The last few conversations of every agent (agent_ids()), newest first. [] on errors."""
+    headers = {"xi-api-key": settings.elevenlabs_api_key}
+    owns_client = client is None
+    client = client or httpx.AsyncClient(timeout=TIMEOUT)
+    found: list[dict] = []
+    try:
+        for agent_id in agent_ids() or [settings.elevenlabs_agent_id]:
+            response = await client.get(
+                CONVERSATIONS_URL, params={"agent_id": agent_id, "page_size": 5}, headers=headers
+            )
+            response.raise_for_status()
+            found += response.json().get("conversations", [])
+    except (httpx.HTTPError, ValueError):
+        return found
+    finally:
+        if owns_client:
+            await client.aclose()
+    return sorted(found, key=lambda c: c.get("start_time_unix_secs") or 0, reverse=True)
 
 
 if __name__ == "__main__":

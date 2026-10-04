@@ -148,6 +148,33 @@ def upsert_agent(el: ElevenLabs, body: dict[str, Any]) -> str:
     return agent_id
 
 
+def callback_body(config: dict[str, Any], main_body: dict[str, Any]) -> dict[str, Any]:
+    """The arrival/exception agent: the main agent with its own name and turn settings."""
+    body = copy.deepcopy(main_body)
+    extra = config.get("callback_agent") or {}
+    body["name"] = extra.get("name", f"{body.get('name', 'Shotgun')} (arrival)")
+    body["conversation_config"]["turn"] = {
+        **body["conversation_config"].get("turn", {}),
+        **extra.get("turn", {}),
+    }
+    return body
+
+
+def upsert_callback_agent(el: ElevenLabs, body: dict[str, Any]) -> str:
+    """Create or update the callback agent. It has no phone number of its own: outbound calls
+    name it with agent_id and use the main number (agent_phone_number_id)."""
+    if settings.elevenlabs_callback_agent_id:
+        el.call("PATCH", f"/agents/{settings.elevenlabs_callback_agent_id}", body)
+        print(f"callback agent: updated {settings.elevenlabs_callback_agent_id}")
+        return settings.elevenlabs_callback_agent_id
+    agent_id = el.call("POST", "/agents/create", body).get("agent_id", "<new-agent-id>")
+    print(
+        "callback agent: created. Add to .env and Railway:  "
+        f"ELEVENLABS_CALLBACK_AGENT_ID={agent_id}"
+    )
+    return agent_id
+
+
 def upsert_phone_number(el: ElevenLabs, agent_id: str) -> None:
     phone_id = settings.elevenlabs_phone_number_id
     if not phone_id and settings.twilio_phone_number:
@@ -215,6 +242,12 @@ def drift(live: dict[str, Any], expected: dict[str, Any], tool_count: int) -> li
 def check(el: ElevenLabs, config: dict[str, Any]) -> int:
     live = el.call("GET", f"/agents/{settings.elevenlabs_agent_id}")
     problems = drift(live, config["agent"], len(config["tools"]))
+    if settings.elevenlabs_callback_agent_id:
+        callback = el.call("GET", f"/agents/{settings.elevenlabs_callback_agent_id}")
+        want = callback_body(config, config["agent"])
+        problems += [f"callback agent: {p}" for p in drift(callback, want, len(config["tools"]))]
+    else:
+        problems.append("no ELEVENLABS_CALLBACK_AGENT_ID (arrival calls use the main agent)")
     for problem in problems:
         print(f"DRIFT  {problem}")
     print("agent matches the repo" if not problems else "run `make agent-push` to restore it")
@@ -247,8 +280,11 @@ def main() -> int:
         secret_id = upsert_secret(el, settings.tools_shared_secret)
         config = with_secret_id(config, secret_id)
         tool_ids = upsert_tools(el, config["tools"])
-    agent_id = upsert_agent(el, agent_body(config, args.stage, tool_ids))
+    body = agent_body(config, args.stage, tool_ids)
+    agent_id = upsert_agent(el, body)
     upsert_phone_number(el, agent_id)
+    if args.stage == "full":
+        upsert_callback_agent(el, callback_body(config, body))
     return 0
 
 

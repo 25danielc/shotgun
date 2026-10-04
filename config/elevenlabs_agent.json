@@ -7,7 +7,8 @@
     "D17 fields, checked against https://api.elevenlabs.io/openapi.json on 2026-10-03: webhook response_timeout_secs is 5-300 (inline tools use 15); pre_tool_speech auto|force|off ('force' makes the agent say a filler before inline tools); ObjectJsonSchemaProperty supports nested properties + required (preapproval); built_in_tools.skip_turn params {system_tool_type: skip_turn, wait_timeout_secs} (the silence timer pauses during the wait, then the agent checks in).",
     "Silence (D17): turn.turn_timeout max is 30 s (docs, conversation-flow), so 60 s can't be one setting. 30 s of silence -> the agent calls skip_turn; after its 30 s wait it checks in with 'Anything else?' (~60 s); the next silent turn (~90 s) says goodbye and calls end_call. silence_end_call_timeout 90 is the backstop. TODO(verify) on a live call: the timer pause and that the check-in follows the prompt.",
     "TODO(verify): voice_id (pick in the UI; until then the script keeps the default voice) and which of system__caller_id / system__called_number holds Daniel's number on outbound calls (the server accepts either, see app/security.py).",
-    "Voicemail (D17 follow-up, 19:35): built_in_tools.voicemail_detection {system_tool_type, voicemail_message} per the OpenAPI VoicemailDetectionToolConfig; the message supports dynamic variables. Added after the 19:30 arrival call talked to Daniel's voicemail greeting for 112 s."
+    "Voicemail (D17 follow-up, 19:35): built_in_tools.voicemail_detection {system_tool_type, voicemail_message} per the OpenAPI VoicemailDetectionToolConfig; the message supports dynamic variables. Added after the 19:30 arrival call talked to Daniel's voicemail greeting for 112 s.",
+    "callback_agent (21:35): a second agent for arrival and exception calls (app/calls.py places them with ELEVENLABS_CALLBACK_AGENT_ID). Same prompt, tools and built-ins, but turn_timeout 10 so 'If you don't have anything else, I'm going to hang up' is followed by a hang-up after ~10 s of silence. ElevenLabs can't override turn_timeout per call (TurnConfigOverride only allows soft_timeout_config), so a second agent is the only way to keep the departure call's 60/90 s silence rule. silence_end_call_timeout 30 is the backstop."
   ],
   "agent": {
     "name": "Shotgun",
@@ -371,5 +372,12 @@
         }
       }
     }
-  ]
+  ],
+  "callback_agent": {
+    "name": "Shotgun (arrival)",
+    "turn": {
+      "turn_timeout": 10,
+      "silence_end_call_timeout": 30
+    }
+  }
 }

@@ -300,3 +300,25 @@ async def test_call_in_progress_reads_conversation_status(rows, busy):
 async def test_call_in_progress_fails_open():
     down = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     assert await telephony.call_in_progress(client=down) is False
+
+
+async def test_arrival_and_exception_calls_use_the_callback_agent(db, monkeypatch):
+    from app import telephony as tel
+
+    used = []
+
+    async def fake(variables, **kwargs):
+        used.append(kwargs.get("agent_id"))
+        return tel.PlacedCall(conversation_id="c", call_sid="s")
+
+    async def free(**kwargs):
+        return False
+
+    monkeypatch.setattr(tel, "place_call", fake)
+    monkeypatch.setattr(tel, "call_in_progress", free)
+    monkeypatch.setattr(settings, "elevenlabs_callback_agent_id", "agent_cb")
+    drive = await drives.open_drive(db)
+    job = await jobs.create_job(db, JobType.RESEARCH, drive_id=drive.id)
+    await run(db, job.id, "running", "done", summary="It's 54 degrees.")
+    assert await calls.tick(db) == "arrival"
+    assert used == ["agent_cb"]

@@ -304,3 +304,24 @@ def test_agent_names_its_one_repo_and_makes_the_driver_say_it():
     assert 'If they don\'t, ask "Which repo is that in?"' in prompt
     props = tools()["dispatch_task"]["api_schema"]["request_body_schema"]["properties"]
     assert "Required for type coder" in props["repo"]["description"]
+
+
+def test_callback_agent_is_the_main_agent_with_a_10_s_silence_timer():
+    config = apply_agent.with_secret_id(apply_agent.load_config(BASE), "sec_123")
+    main = apply_agent.agent_body(config, "full", ["t1", "t2", "t3", "t4", "t5", "t6"])
+    callback = apply_agent.callback_body(config, main)
+    assert callback["name"] == "Shotgun (arrival)"
+    assert callback["conversation_config"]["turn"] == {
+        "turn_timeout": 10,
+        "silence_end_call_timeout": 30,
+    }
+    main_conv, cb_conv = main["conversation_config"], callback["conversation_config"]
+    assert cb_conv["agent"] == main_conv["agent"]  # same prompt, tools, built-ins, variables
+    assert main_conv["turn"]["turn_timeout"] == 30  # the departure call keeps 60/90 s
+
+
+def test_arrival_calls_end_after_the_closing_line():
+    prompt = prompt_text()
+    assert "say \"If you don't have anything else, I'm going to hang up.\"" in prompt
+    assert "On an arrival or exception call: once you've said" in prompt
+    assert "Don't use skip_turn on these calls." in prompt

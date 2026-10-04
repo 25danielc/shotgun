@@ -398,4 +398,13 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - Restored from the repo and verified: the live prompt is byte-equal to the repo, 6 tools, turn 30/90.
   - **New `make agent-check`** (read-only drift check: prompt, llm, tool count, built-ins, turn, first message) and `make agent-push`. Run agent-check before every rehearsal and never save the agent in the ElevenLabs UI.
   - **The prompt was rewritten at Daniel's request**, more conversational and less repetitive: 1,235 → 952 words, every rule kept, each rule now stated once, and the tests updated to the new phrasing. It includes the ETA-unasked and no-description rules from 21:04.
+- 2026-10-03 21:32 (hour 9.5): Daniel, two asks.
+  - **Code access (option a):** the agent says it's connected to exactly one GitHub repo ("your shotgun demo app"), and the driver must name the repo for a fix ("…in my demo workflow repo").
+    - `dispatch_task` takes `repo`. The server refuses a code fix with no repo ("Which repo is that in?…") or a different one ("I'm not connected to X…").
+    - "demo" or the repo's own name matches; "the shotgun repo" doesn't, since that's this project. The token appears to reach more of Daniel's repos (`/user/repos` lists 12 of his plus Z-Laboratory), but only the demo repo has the Action, Tests, secret and hook.
+  - **Arrival calls end on their own:** they say what finished, end with "If you don't have anything else, I'm going to hang up.", and hang up after about 10 s of silence.
+    - ElevenLabs can't change `turn_timeout` per call (`TurnConfigOverride` only has `soft_timeout_config`), so a second agent, "Shotgun (arrival)", handles arrival and exception calls: same prompt, tools and built-ins, with turn 10 / silence-end 30. The main agent keeps 30/90 for the departure silence rule.
+    - `apply_agent.py` creates it (`ELEVENLABS_CALLBACK_AGENT_ID`), `agent-check` covers it, `calls.py` places these calls with it, and the busy-line check and dashboard read both agents' conversations.
+    - TODO(verify): an outbound call with an agent that isn't the number's assigned agent (the docs list `agent_id` and `agent_phone_number_id` as separate fields).
+  - First live arrival at ETA − 3 with the new opener (21:28:39): "Hey, you're about three minutes out. Good news—I already sent that email to Erica for you."
 

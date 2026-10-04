@@ -34,6 +34,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from app import drives, jobs, phrasing, telephony
+from app.config import settings
 from app.drives import Drive
 from app.jobs import Job, JobState, JobType
 
@@ -177,7 +178,11 @@ async def place(
 ) -> bool:
     """Ring, then log the call and mark what was said. False if ElevenLabs refused."""
     try:
-        placed = await telephony.place_call(variables)
+        # Arrival and exception calls use the callback agent: same prompt and tools, but a 10 s
+        # silence timer, so "If you don't have anything else, I'm going to hang up" means it.
+        placed = await telephony.place_call(
+            variables, agent_id=settings.elevenlabs_callback_agent_id or None
+        )
     except telephony.CallError as exc:
         log.error("%s call for drive %s failed: %s", kind, drive_id, exc)
         return False

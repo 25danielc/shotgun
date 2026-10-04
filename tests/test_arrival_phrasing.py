@@ -92,7 +92,8 @@ async def test_no_key_and_no_client_is_plain_without_a_request():
     assert settings.anthropic_api_key == ""  # tests/conftest.py keeps Claude offline
     assert await phrasing.arrival_greeting(FACTS, None) == (
         "Hey, quick update. I merged the fix for the login bug, and the tests passed. "
-        "I can't do that one yet: email Alex I'm running late."
+        "I can't do that one yet: email Alex I'm running late. "
+        "If you don't have anything else, I'm going to hang up."
     )
 
 
@@ -178,3 +179,13 @@ async def test_live_arrival_mentions_minutes_out():
     text = await phrasing.arrival_greeting(FACTS[:1], None, 3)
     print(f"\n{text}\n")
     assert "three minutes" in text.lower() or "3 minutes" in text
+
+
+async def test_no_question_ends_by_saying_it_will_hang_up():
+    """Daniel 21:30: talk about what finished, then "if you don't have anything else, I'm going
+    to hang up", then hang up after about 10 seconds (the callback agent's turn timeout)."""
+    nice = "Hey, you're about three minutes out. I sent your email to Erica."
+    text = await phrasing.arrival_greeting(FACTS[:1], None, 3, client=FakeClaude(nice))
+    assert text == f"{nice} {phrasing.CLOSING}"
+    asked = await phrasing.arrival_greeting(FACTS, QUESTION, 3, client=FakeClaude(NICE))
+    assert phrasing.CLOSING not in asked and asked.endswith("?")  # said after the answer

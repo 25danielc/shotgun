@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # ElevenLabs Agents + Twilio
     elevenlabs_api_key: str = ""
     elevenlabs_agent_id: str = ""
+    # Second agent for arrival/exception calls: same prompt and tools, 10 s silence timer (Daniel
+    # 21:30: "say you'll hang up, then hang up after about 10 seconds"). Empty: use the main one.
+    elevenlabs_callback_agent_id: str = ""
     elevenlabs_phone_number_id: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

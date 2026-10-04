@@ -28,7 +28,8 @@ from app.config import settings
 log = logging.getLogger(__name__)
 
 PHRASING_SECONDS = 4.0
-MAX_CHARS = 420
+MAX_CHARS = 480
+CLOSING = "If you don't have anything else, I'm going to hang up."
 
 PROMPT = """You are Shotgun, a friend riding along who handles errands for the driver. You're \
 calling to catch them up. The message says where they are in the trip: if it gives minutes \
@@ -42,7 +43,9 @@ or "Hey, almost there."
 and never promise anything ("I'll do that next", "I'll try again"): if something didn't work, \
 say so plainly.
 - No street numbers, addresses, exact times, URLs, lists or markdown.
+- Say what finished, plainly, one short sentence each.
 - If there is a question, end with it, as a question, in plain words. Ask only that one.
+- If there is no question, don't add a closing line; one is added after your words.
 - Output only the words to say."""
 
 
@@ -70,7 +73,15 @@ def plain_greeting(facts: list[Fact], question: str | None, minutes_left: int | 
     if question:
         parts.append(question.strip())
     body = " ".join(p for p in parts if p)
-    return f"{opener(minutes_left)} {body}".strip()
+    return with_closing(f"{opener(minutes_left)} {body}".strip(), question)
+
+
+def with_closing(text: str, question: str | None) -> str:
+    """No question pending: end by saying you'll hang up (Daniel 21:30); the callback agent then
+    hangs up after about 10 s of silence. With a question, the agent says it after the answer."""
+    if question or CLOSING in text:
+        return text
+    return f"{text} {CLOSING}"
 
 
 def facts_message(facts: list[Fact], question: str | None, minutes_left: int | None = None) -> str:
@@ -93,7 +104,7 @@ def check(text: str, question: str | None) -> str:
         raise PhrasingError(f"too long ({len(text)} chars)")
     if question and not text.endswith("?"):
         raise PhrasingError("the pending question isn't asked at the end")
-    return text
+    return with_closing(text, question)
 
 
 async def _ask(facts: list[Fact], question: str | None, minutes_left: int | None, client) -> str:

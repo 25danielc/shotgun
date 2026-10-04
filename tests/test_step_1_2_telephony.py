@@ -116,3 +116,37 @@ async def test_live_outbound_call_rings_phone():
     )
     print(f"API accepted in {time.monotonic() - start:.1f}s, conversation {placed.conversation_id}")
     assert placed.conversation_id
+
+
+async def test_place_call_can_use_the_callback_agent(monkeypatch):
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"success": True, "conversation_id": "c", "callSid": "s"})
+
+    await telephony.place_call(
+        telephony.call_variables("hi"), agent_id="agent_cb", client=mock_client(handler)
+    )
+    assert seen["body"]["agent_id"] == "agent_cb"
+
+
+async def test_busy_line_check_covers_both_agents(monkeypatch):
+    import time
+
+    monkeypatch.setattr(telephony.settings, "elevenlabs_agent_id", "agent_main")
+    monkeypatch.setattr(telephony.settings, "elevenlabs_callback_agent_id", "agent_cb")
+    asked = []
+
+    def handler(request):
+        agent = request.url.params["agent_id"]
+        asked.append(agent)
+        rows = (
+            [{"status": "in-progress", "start_time_unix_secs": time.time()}]
+            if agent == "agent_cb"
+            else []
+        )
+        return httpx.Response(200, json={"conversations": rows})
+
+    assert await telephony.call_in_progress(client=mock_client(handler)) is True
+    assert asked == ["agent_main", "agent_cb"]
