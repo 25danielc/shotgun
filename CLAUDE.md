@@ -65,7 +65,7 @@ Skills in `.claude/skills/`: `build-step`, `verify-step`, `add-worker`, `voice-a
 - **1.1, 1.3, 1.6** tests in the Civic · **7.1, 7.2** rehearsal and filming
 - **Phone must ring or he must speak:** 1.2, 1.5, 2.3, 4.1, 4.2, 4.4 (push arrives). Claude may run the curl; Daniel confirms what happened.
 - **Shortcut edits:** 5.1 (plug-in automation sends lat/lng).
-- **Every ElevenLabs push** (`scripts/apply_agent.py`): ask first; it changes the live agent.
+- **Every ElevenLabs push** (`scripts/apply_agent.py`): ask first; it changes the live agent. `make agent-check` (read-only) shows whether the live agent still matches the repo; the ElevenLabs web UI must never be used to save the agent (a stale tab wiped the tools on 2026-10-03).
 
 ## Time gates (hours from noon Sat)
 

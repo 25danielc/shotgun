@@ -392,4 +392,10 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
 - 2026-10-03 21:03 (hour 9.1): Daniel's feedback on Run 1:
   - **The "last call" wasn't the 3-minute call.** With no ETA (The Landmark failed to route), the arrival call fell back to "all settled" and rang about 3.5 min into the drive. Now that place names are looked up it rings at ETA − 3. The arrival wording opens with the minutes left ("Hey, you're about three minutes out") only when there's an ETA; the fallback opens "Hey, quick update." and never claims arrival. Live: "Hey, you're about three minutes out. Good news, I merged that login bug fix and all the tests passed."
   - **The prompt changes (need a push):** say the place and the minutes right after set_destination, unasked, with no description; never describe places unless asked.
+- 2026-10-03 21:17 (hour 9.3): **The live agent was overwritten at 21:13:42 from outside the repo.** Daniel noticed the prompt "looked short".
+  - What changed: the live prompt was the old 320-word pre-D17 one ("On it. I'll call you back" + end_call), 0 webhook tools were attached, and `silence_end_call_timeout` was back to 20. Settings that came after (voicemail, skip_turn, the new dynamic variables) survived.
+  - Cause: no other session was active then, so most likely a stale ElevenLabs dashboard tab, opened around 14:14 and saved at 21:13.
+  - Restored from the repo and verified: the live prompt is byte-equal to the repo, 6 tools, turn 30/90.
+  - **New `make agent-check`** (read-only drift check: prompt, llm, tool count, built-ins, turn, first message) and `make agent-push`. Run agent-check before every rehearsal and never save the agent in the ElevenLabs UI.
+  - **The prompt was rewritten at Daniel's request**, more conversational and less repetitive: 1,235 → 952 words, every rule kept, each rule now stated once, and the tests updated to the new phrasing. It includes the ETA-unasked and no-description rules from 21:04.
 

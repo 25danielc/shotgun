@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: demo-reset demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
+.PHONY: agent-check agent-push demo-reset demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
 
 PORT ?= 8000
 
@@ -70,4 +70,10 @@ watch:  ## Step 4.5: live terminal view of the drive, its jobs and calls (DATABA
 
 demo-reset:  ## Before every rehearsal: restore the planted bug, close stale drives/jobs (ARGS=--dry-run)
 	uv run python scripts/demo_reset.py $(ARGS)
+
+agent-check:  ## Is the live ElevenLabs agent still what the repo says? (read-only; run before rehearsals)
+	uv run python scripts/apply_agent.py --check
+
+agent-push:  ## Push config/elevenlabs_agent.json + the prompt to ElevenLabs (ask Daniel first)
+	uv run python scripts/apply_agent.py --stage full
 

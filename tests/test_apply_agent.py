@@ -98,15 +98,15 @@ def test_agent_stays_on_the_call():
     for gone in ("I'll call you back", "Never leave the line open", "only delivers a message"):
         assert gone not in prompt
     assert "You never hang up" in prompt
-    assert "dispatching a job doesn't end the call" in prompt
+    assert "handing off a job doesn't end it either" in prompt
     assert prompt.count("How can I help") == 1  # only in "Never open with ..."
 
 
 def test_end_call_has_exactly_three_reasons():
     prompt = prompt_text()
     assert "end_call is allowed for exactly three reasons" in prompt
-    assert '1. The driver says goodbye, "that\'s all"' in prompt
-    assert "2. The caller check above says the line is private." in prompt
+    assert '1. They say goodbye, "that\'s all"' in prompt
+    assert "2. The private-line check above." in prompt
     assert "3. Silence" in prompt
     end_call = conversation()["agent"]["prompt"]["built_in_tools"]["end_call"]
     assert end_call["params"] == {"system_tool_type": "end_call"}
@@ -126,8 +126,8 @@ def test_silence_rule_asks_at_60_s_and_hangs_up_30_s_later():
     assert turn["turn_timeout"] + skip["params"]["wait_timeout_secs"] == 60
     prompt = prompt_text()
     assert "call skip_turn and say nothing" in prompt
-    assert 'check in, say exactly "Anything else?" and nothing more' in prompt
-    assert 'still say nothing after "Anything else?"' in prompt and "call end_call" in prompt
+    assert 'When that wait is over, say exactly "Anything else?" and nothing more.' in prompt
+    assert 'If they still say nothing, say "OK, talk later." and call end_call.' in prompt
     # The next silent turn comes turn_timeout (30 s) after "Anything else?".
     assert turn["turn_timeout"] == 30
     # Backstop if the model misses it: never earlier than the 90 s rule.
@@ -139,7 +139,10 @@ def test_inline_tools_cover_the_8_s_budget_and_speak_first():
         config = tools()[name]
         assert 8 < config["response_timeout_secs"] <= 15
         assert config["pre_tool_speech"] == "force"
-    assert "say a short filler first" in prompt_text()
+    assert (
+        "Before a tool that takes a second (search_web, draft_message, set_destination"
+        in prompt_text()
+    )
 
 
 def test_background_tools_keep_the_short_timeout():
@@ -159,7 +162,7 @@ def test_dispatch_takes_type_details_and_a_nested_preapproval():
         "require_tests_pass": "boolean",
         "max_usd": "number",
     }
-    assert "repeat the condition back" in prompt_text()
+    assert 'Then say it back: "Got it, I\'ll merge it if the tests pass."' in prompt_text()
 
 
 def test_get_status_is_scoped_to_the_drive():
@@ -172,8 +175,8 @@ def test_lookups_just_search_and_never_mention_helpers():
     research task and have someone do it". Lookups go straight to search_web, and the agent
     speaks as itself."""
     prompt = prompt_text()
-    assert "don't ask first and don't explain, just say the filler, call search_web" in prompt
-    assert "places near them" in prompt
+    assert "don't ask or explain, call search_web with what they asked" in prompt
+    assert "Places near them" in prompt
     assert "never say you can't search" in prompt
     assert 'Never mention tasks, background jobs, workers, agents or "someone else"' in prompt
     for offer in ("offer to look it up", "in the background", "have someone"):
@@ -189,9 +192,11 @@ def test_agent_talks_like_a_friend_not_a_screen_reader():
     """Daniel 18:43: stiff, read every street number and closing time, said "Sent" for a job
     that had only been dispatched."""
     prompt = prompt_text()
-    assert "Talk like a friend riding along" in prompt
-    assert "is a note for you, not a script: say it in your own words, shorter" in prompt
-    assert "Never read out street numbers, full addresses, coordinates or exact times" in prompt
+    assert "Like a friend in the passenger seat" in prompt
+    assert "Tool results are notes, not scripts. Say them your own way, shorter." in prompt
+    assert (
+        "Skip street numbers, full addresses, coordinates and exact times unless they ask" in prompt
+    )
     assert 'never "Sent" or "Done"' in prompt
     assert "where they are right now" in prompt
 
@@ -201,7 +206,7 @@ def test_agent_is_honest_about_what_it_cant_do_yet():
     3.2 (sent only after a yes); food still has no worker (3.4 cut)."""
     prompt = prompt_text()
     assert "You can't order food yet" in prompt and "type food" not in prompt
-    assert 'Then say "I\'ll send it", never "Sent".' in prompt
+    assert 'say "I\'m on it" or "I\'ll send it", never "Sent" or "Done"' in prompt
 
 
 def test_email_sends_only_the_approved_text_after_a_yes():
@@ -226,13 +231,13 @@ def test_voicemail_leaves_the_update_and_hangs_up():
 def test_destination_is_only_asked_on_departure_calls():
     """The same arrival call asked "Where are you headed?"."""
     assert "Only on a departure call" in prompt_text()
-    assert "Never ask on an arrival or exception call" in prompt_text()
+    assert "Never ask this on an arrival or exception call." in prompt_text()
 
 
 def test_code_fixes_always_ask_for_the_merge_yes_first():
     """Daniel 20:00: "fix the login bug" was dispatched with no pre-approval question."""
     prompt = prompt_text()
-    assert "always ask before you dispatch it, every time" in prompt
+    assert "before you dispatch it, every time, ask" in prompt
     assert '"Want me to merge it if the tests pass?"' in prompt
     assert "Never call dispatch_task for a code fix until they've answered that question." in prompt
 
@@ -240,13 +245,51 @@ def test_code_fixes_always_ask_for_the_merge_yes_first():
 def test_agent_never_invents_how_it_works():
     """Daniel 20:00: asked how it found ramen without his location, it made up a reason."""
     prompt = prompt_text()
-    assert "Never guess at how you work or why something happened." in prompt
+    assert "Don't make things up." in prompt
     assert "say you're not sure" in prompt
 
 
 def test_eta_is_said_right_away_without_a_description():
     """Daniel 21:00: had to ask for the ETA, and it described The Landmark at length."""
     prompt = prompt_text()
-    assert "without waiting to be asked, tell them in one short sentence the place" in prompt
-    assert "Don't describe the place or the route." in prompt
-    assert "Don't describe what it is, its history or its reviews unless they ask." in prompt
+    assert "without waiting to be asked, give the place and the minutes in one sentence" in prompt
+    assert "If there's no drive time, say so once." in prompt
+    assert "don't describe what it is, its history or its reviews unless they ask" in prompt
+
+
+def live_copy(**changes):
+    """The agent as ElevenLabs would return it right after a push."""
+    import copy
+
+    body = copy.deepcopy(apply_agent.load_config(BASE)["agent"])
+    body["conversation_config"]["agent"]["prompt"]["tool_ids"] = [f"t{i}" for i in range(6)]
+    for path, value in changes.items():
+        node = body
+        *keys, last = path.split(".")
+        for key in keys:
+            node = node[key]
+        node[last] = value
+    return body
+
+
+def test_check_finds_no_drift_right_after_a_push():
+    config = apply_agent.load_config(BASE)
+    assert apply_agent.drift(live_copy(), config["agent"], len(config["tools"])) == []
+
+
+def test_check_catches_what_the_stale_dashboard_tab_did():
+    """21:13: old prompt, no tools, 20 s silence hang-up."""
+    config = apply_agent.load_config(BASE)
+    stale = live_copy(
+        **{
+            "conversation_config.agent.prompt.prompt": "You are Shotgun, an assistant...",
+            "conversation_config.agent.prompt.tool_ids": [],
+            "conversation_config.turn.silence_end_call_timeout": 20,
+        }
+    )
+    problems = apply_agent.drift(stale, config["agent"], len(config["tools"]))
+    assert problems == [
+        "prompt differs from config/elevenlabs_prompt.md",
+        "0 tools attached, want 6",
+        "turn.silence_end_call_timeout is 20, want 90",
+    ]

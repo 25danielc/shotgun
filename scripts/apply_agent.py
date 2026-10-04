@@ -5,6 +5,11 @@ Steps 1.1 and 2.3. Idempotent: re-run after any change to the config or the base
     uv run python scripts/apply_agent.py --stage greet   # 1.1: agent + Twilio number, no tools
     uv run python scripts/apply_agent.py --stage full    # 2.3: + webhook tools, caller webhook
     add --dry-run to print the request bodies without calling the API
+    uv run python scripts/apply_agent.py --check         # `make agent-check`: is the live agent
+                                                          # still what the repo says? read-only
+
+--check exists because a stale ElevenLabs dashboard tab, saved at 21:13 on 2026-10-03, silently
+put back the old prompt, dropped all 6 tools and restored the 20 s silence hang-up.
 
 The prompt text lives in config/elevenlabs_prompt.md (D17) and is inlined into the agent body.
 
@@ -180,14 +185,58 @@ def upsert_phone_number(el: ElevenLabs, agent_id: str) -> None:
         print(f"phone number: imported. Add to .env:  ELEVENLABS_PHONE_NUMBER_ID={phone_id}")
 
 
+def drift(live: dict[str, Any], expected: dict[str, Any], tool_count: int) -> list[str]:
+    """What differs between the live agent and the repo config (empty when they match)."""
+    problems = []
+    live_conv, want_conv = live.get("conversation_config", {}), expected["conversation_config"]
+    live_prompt = live_conv.get("agent", {}).get("prompt", {})
+    want_prompt = want_conv["agent"]["prompt"]
+    if (live_prompt.get("prompt") or "").strip() != want_prompt["prompt"].strip():
+        problems.append("prompt differs from config/elevenlabs_prompt.md")
+    if live_prompt.get("llm") != want_prompt["llm"]:
+        problems.append(f"llm is {live_prompt.get('llm')}, want {want_prompt['llm']}")
+    if len(live_prompt.get("tool_ids") or []) != tool_count:
+        problems.append(
+            f"{len(live_prompt.get('tool_ids') or [])} tools attached, want {tool_count}"
+        )
+    have = {k for k, v in (live_prompt.get("built_in_tools") or {}).items() if v}
+    if have != set(want_prompt["built_in_tools"]):
+        problems.append(
+            f"built-in tools {sorted(have)}, want {sorted(want_prompt['built_in_tools'])}"
+        )
+    for key, want in want_conv["turn"].items():
+        if live_conv.get("turn", {}).get(key) != want:
+            problems.append(f"turn.{key} is {live_conv.get('turn', {}).get(key)}, want {want}")
+    if live_conv.get("agent", {}).get("first_message") != want_conv["agent"]["first_message"]:
+        problems.append("first_message differs")
+    return problems
+
+
+def check(el: ElevenLabs, config: dict[str, Any]) -> int:
+    live = el.call("GET", f"/agents/{settings.elevenlabs_agent_id}")
+    problems = drift(live, config["agent"], len(config["tools"]))
+    for problem in problems:
+        print(f"DRIFT  {problem}")
+    print("agent matches the repo" if not problems else "run `make agent-push` to restore it")
+    return 1 if problems else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--stage", choices=["greet", "full"], required=True)
+    parser.add_argument("--stage", choices=["greet", "full"])
+    parser.add_argument(
+        "--check", action="store_true", help="compare the live agent, change nothing"
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     if not settings.elevenlabs_api_key and not args.dry_run:
         sys.exit("ELEVENLABS_API_KEY is not set in .env")
+    if args.check:
+        config = load_config(settings.public_base_url or "https://example.invalid")
+        return check(ElevenLabs(settings.elevenlabs_api_key, False), config)
+    if args.stage is None:
+        sys.exit("give --stage greet|full, or --check")
     if args.stage == "full" and not (settings.public_base_url and settings.tools_shared_secret):
         sys.exit("--stage full needs PUBLIC_BASE_URL and TOOLS_SHARED_SECRET in .env")
 

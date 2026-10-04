@@ -78,5 +78,5 @@ async def test_unconfigured_allowlist_fails_closed(client, monkeypatch):
 
 def test_prompt_hangs_up_on_strangers_first():
     prompt = (Path(__file__).parents[1] / "config" / "elevenlabs_prompt.md").read_text()
-    assert prompt.startswith('# Caller check\nIf {{caller_allowed}} is "no"')
-    assert "call end_call at once" in prompt
+    assert prompt.startswith('# Private line\nIf {{caller_allowed}} is "no"')
+    assert 'say only "Sorry, this line is private. Goodbye." and call end_call' in prompt
