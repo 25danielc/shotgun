@@ -1,15 +1,68 @@
 {
   "schema_version": 1,
-  "server": {"now": "2026-10-03T23:10:00Z", "uptime_s": null, "demo_mode": false},
+  "server": {
+    "now": "2026-10-03T23:10:00Z",
+    "uptime_s": null,
+    "demo_mode": false,
+    "build": "test"
+  },
   "services": [
-    {"name": "api_server", "ok": true, "latency_ms": 0, "checked_at": "2026-10-03T23:10:00Z", "detail": null},
-    {"name": "neon", "ok": false, "latency_ms": null, "checked_at": "2026-10-03T23:09:41Z", "detail": "PoolTimeout"},
-    {"name": "elevenlabs", "ok": false, "latency_ms": 5001, "checked_at": "2026-10-03T23:05:00Z", "detail": "timeout after 5000ms"},
-    {"name": "twilio", "ok": null, "latency_ms": null, "checked_at": null, "detail": null},
-    {"name": "anthropic", "ok": false, "latency_ms": 88, "checked_at": "2026-10-03T23:09:50Z", "detail": "HTTP 529 an extremely long error detail that keeps going and going so the row has to truncate it cleanly instead of wrapping into the next service row"},
-    {"name": "github", "ok": true, "latency_ms": null, "checked_at": "not a timestamp", "detail": null},
-    {"name": "google_routes", "ok": null, "latency_ms": null, "checked_at": "2026-10-03T23:09:44Z", "detail": "not probed: billed per request"},
-    {"name": "ntfy", "ok": false, "latency_ms": null, "checked_at": "2026-10-03T23:09:44Z", "detail": "not configured"}
+    {
+      "name": "api_server",
+      "ok": true,
+      "latency_ms": 0,
+      "checked_at": "2026-10-03T23:10:00Z",
+      "detail": null
+    },
+    {
+      "name": "neon",
+      "ok": false,
+      "latency_ms": null,
+      "checked_at": "2026-10-03T23:09:41Z",
+      "detail": "PoolTimeout"
+    },
+    {
+      "name": "elevenlabs",
+      "ok": false,
+      "latency_ms": 5001,
+      "checked_at": "2026-10-03T23:05:00Z",
+      "detail": "timeout after 5000ms"
+    },
+    {
+      "name": "twilio",
+      "ok": null,
+      "latency_ms": null,
+      "checked_at": null,
+      "detail": null
+    },
+    {
+      "name": "anthropic",
+      "ok": false,
+      "latency_ms": 88,
+      "checked_at": "2026-10-03T23:09:50Z",
+      "detail": "HTTP 529 an extremely long error detail that keeps going and going so the row has to truncate it cleanly instead of wrapping into the next service row"
+    },
+    {
+      "name": "github",
+      "ok": true,
+      "latency_ms": null,
+      "checked_at": "not a timestamp",
+      "detail": null
+    },
+    {
+      "name": "google_routes",
+      "ok": null,
+      "latency_ms": null,
+      "checked_at": "2026-10-03T23:09:44Z",
+      "detail": "not probed: billed per request"
+    },
+    {
+      "name": "ntfy",
+      "ok": false,
+      "latency_ms": null,
+      "checked_at": "2026-10-03T23:09:44Z",
+      "detail": "not configured"
+    }
   ],
   "drive": {
     "id": 99,
@@ -21,42 +74,378 @@
     "arrival_call_at": null,
     "arrival_called": true
   },
-  "call": {"status": "ringing", "kind": "exception", "started_at": "2026-10-03T23:09:58Z", "duration_s": null, "last_tool": null},
+  "call": {
+    "status": "ringing",
+    "kind": "exception",
+    "started_at": "2026-10-03T23:09:58Z",
+    "duration_s": null,
+    "last_tool": null
+  },
   "jobs": [
-    {"id": 1, "type": "plan", "title": "I couldn't work out this request", "details": {}, "state": "failed", "progress": null, "steps": [{"name": "planning", "state": "failed", "started_at": null, "finished_at": "2026-10-03T22:56:00Z", "detail": "no jobs"}], "preapproval": null, "approval": {"status": "not_needed", "note": null}, "result_summary": null, "result_url": null, "created_at": "2026-10-03T22:55:30Z", "updated_at": "2026-10-03T22:56:00Z"},
-    {"id": 2, "type": "email", "title": "Tell Prof. Kim I'm late", "details": {"to": "[email]"}, "state": "queued", "progress": 0, "steps": [{"name": "drafting", "state": "pending", "started_at": null, "finished_at": null, "detail": null}, {"name": "approval_check", "state": "pending", "started_at": null, "finished_at": null, "detail": null}, {"name": "sent", "state": "pending", "started_at": null, "finished_at": null, "detail": null}], "preapproval": null, "approval": {"status": "pending", "note": null}, "result_summary": null, "result_url": null, "created_at": "2026-10-03T23:09:00Z", "updated_at": "2026-10-03T23:09:00Z"},
-    {"id": 3, "type": "coder", "title": "A coder job title that is exactly as long as the limit of si…", "details": {}, "state": "exception", "progress": 0.67, "steps": [{"name": "issue_filed", "state": "done", "started_at": "2026-10-03T22:57:00Z", "finished_at": null, "detail": "issue #4"}, {"name": "action_running", "state": "done", "started_at": "2026-10-03T22:57:00Z", "finished_at": "2026-10-03T23:00:00Z", "detail": null}, {"name": "pr_opened", "state": "done", "started_at": null, "finished_at": "2026-10-03T23:00:00Z", "detail": "PR #5"}, {"name": "tests", "state": "failed", "started_at": "2026-10-03T23:00:00Z", "finished_at": "2026-10-03T23:10:00Z", "detail": "never reported"}, {"name": "approval_check", "state": "running", "started_at": "2026-10-03T23:10:00Z", "finished_at": null, "detail": "exception"}, {"name": "merged", "state": "pending", "started_at": null, "finished_at": null, "detail": null}], "preapproval": {"condition": "merge it if the tests pass", "require_tests_pass": true, "max_usd": null}, "approval": {"status": "exception", "note": "the tests never reported"}, "result_summary": "The tests never reported on the pull request for the footer fix. Merge it anyway?", "result_url": "https://github.com/25danielc/shotgun-demo-app/pull/5", "created_at": "2026-10-03T22:56:50Z", "updated_at": "2026-10-03T23:10:00Z"},
-    {"id": 4, "type": "coder", "title": "Rename the settings page", "details": {}, "state": "needs_approval", "progress": null, "steps": null, "preapproval": null, "approval": {"status": "held", "note": null}, "result_summary": "I opened a pull request: Rename the settings page. Merge it?", "result_url": "javascript:alert(1)", "created_at": null, "updated_at": null},
-    {"id": 5, "type": "food", "title": "Order ramen", "details": {}, "state": "approved", "progress": 0.67, "steps": [null, {"name": "cart_built", "state": "done"}, {"name": "approval_check", "state": "done", "detail": "spoken yes"}, {"name": "ordered", "state": "running", "started_at": "2026-10-03T23:09:30Z"}], "preapproval": {"condition": "under twenty-five dollars", "require_tests_pass": null, "max_usd": 25}, "approval": {"status": "approved", "note": null}, "result_summary": null, "result_url": null, "created_at": "2026-10-03T23:05:00Z", "updated_at": "2026-10-03T23:09:30Z"},
-    {"id": 6, "type": "coder", "title": "Rename it", "details": {}, "state": "failed", "progress": 0.5, "steps": [], "preapproval": null, "approval": {"status": "declined", "note": null}, "result_summary": "Cancelled", "result_url": null, "created_at": "2026-10-03T22:58:00Z", "updated_at": "2026-10-03T23:02:00Z"},
-    {"id": 7, "type": "research", "title": null, "details": {}, "state": "done", "progress": 1, "steps": [{"name": "searching", "state": "done", "started_at": "2026-10-03T22:59:00Z", "finished_at": "2026-10-03T22:59:04Z", "detail": null}, {"name": "summarizing", "state": "done", "started_at": null, "finished_at": "2026-10-03T22:59:04Z", "detail": null}], "preapproval": null, "approval": {"status": "not_needed", "note": null}, "result_summary": "A research answer that is very long, the kind of answer a model gives when it doesn't follow the two-sentence rule, with names, places, a rough where for each of them and a closing time for the one that closes within the hour, and then some more words just to be sure it wraps a few times in the window.", "result_url": null, "created_at": "2026-10-03T22:58:55Z", "updated_at": "2026-10-03T22:59:04Z"},
-    {"id": 8, "type": "coder", "state": "running"}
+    {
+      "id": 1,
+      "type": "plan",
+      "title": "I couldn't work out this request",
+      "details": {},
+      "state": "failed",
+      "progress": null,
+      "steps": [
+        {
+          "name": "planning",
+          "state": "failed",
+          "started_at": null,
+          "finished_at": "2026-10-03T22:56:00Z",
+          "detail": "no jobs"
+        }
+      ],
+      "preapproval": null,
+      "approval": {
+        "status": "not_needed",
+        "note": null
+      },
+      "result_summary": null,
+      "result_url": null,
+      "created_at": "2026-10-03T22:55:30Z",
+      "updated_at": "2026-10-03T22:56:00Z"
+    },
+    {
+      "id": 2,
+      "type": "email",
+      "title": "Tell Prof. Kim I'm late",
+      "details": {
+        "to": "[email]"
+      },
+      "state": "queued",
+      "progress": 0,
+      "steps": [
+        {
+          "name": "drafting",
+          "state": "pending",
+          "started_at": null,
+          "finished_at": null,
+          "detail": null
+        },
+        {
+          "name": "approval_check",
+          "state": "pending",
+          "started_at": null,
+          "finished_at": null,
+          "detail": null
+        },
+        {
+          "name": "sent",
+          "state": "pending",
+          "started_at": null,
+          "finished_at": null,
+          "detail": null
+        }
+      ],
+      "preapproval": null,
+      "approval": {
+        "status": "pending",
+        "note": null
+      },
+      "result_summary": null,
+      "result_url": null,
+      "created_at": "2026-10-03T23:09:00Z",
+      "updated_at": "2026-10-03T23:09:00Z"
+    },
+    {
+      "id": 3,
+      "type": "coder",
+      "title": "A coder job title that is exactly as long as the limit of si…",
+      "details": {},
+      "state": "exception",
+      "progress": 0.67,
+      "steps": [
+        {
+          "name": "issue_filed",
+          "state": "done",
+          "started_at": "2026-10-03T22:57:00Z",
+          "finished_at": null,
+          "detail": "issue #4"
+        },
+        {
+          "name": "action_running",
+          "state": "done",
+          "started_at": "2026-10-03T22:57:00Z",
+          "finished_at": "2026-10-03T23:00:00Z",
+          "detail": null
+        },
+        {
+          "name": "pr_opened",
+          "state": "done",
+          "started_at": null,
+          "finished_at": "2026-10-03T23:00:00Z",
+          "detail": "PR #5"
+        },
+        {
+          "name": "tests",
+          "state": "failed",
+          "started_at": "2026-10-03T23:00:00Z",
+          "finished_at": "2026-10-03T23:10:00Z",
+          "detail": "never reported"
+        },
+        {
+          "name": "approval_check",
+          "state": "running",
+          "started_at": "2026-10-03T23:10:00Z",
+          "finished_at": null,
+          "detail": "exception"
+        },
+        {
+          "name": "merged",
+          "state": "pending",
+          "started_at": null,
+          "finished_at": null,
+          "detail": null
+        }
+      ],
+      "preapproval": {
+        "condition": "merge it if the tests pass",
+        "require_tests_pass": true,
+        "max_usd": null
+      },
+      "approval": {
+        "status": "exception",
+        "note": "the tests never reported"
+      },
+      "result_summary": "The tests never reported on the pull request for the footer fix. Merge it anyway?",
+      "result_url": "https://github.com/25danielc/shotgun-demo-app/pull/5",
+      "created_at": "2026-10-03T22:56:50Z",
+      "updated_at": "2026-10-03T23:10:00Z"
+    },
+    {
+      "id": 4,
+      "type": "coder",
+      "title": "Rename the settings page",
+      "details": {},
+      "state": "needs_approval",
+      "progress": null,
+      "steps": null,
+      "preapproval": null,
+      "approval": {
+        "status": "held",
+        "note": null
+      },
+      "result_summary": "I opened a pull request: Rename the settings page. Merge it?",
+      "result_url": "javascript:alert(1)",
+      "created_at": null,
+      "updated_at": null
+    },
+    {
+      "id": 5,
+      "type": "food",
+      "title": "Order ramen",
+      "details": {},
+      "state": "approved",
+      "progress": 0.67,
+      "steps": [
+        null,
+        {
+          "name": "cart_built",
+          "state": "done"
+        },
+        {
+          "name": "approval_check",
+          "state": "done",
+          "detail": "spoken yes"
+        },
+        {
+          "name": "ordered",
+          "state": "running",
+          "started_at": "2026-10-03T23:09:30Z"
+        }
+      ],
+      "preapproval": {
+        "condition": "under twenty-five dollars",
+        "require_tests_pass": null,
+        "max_usd": 25
+      },
+      "approval": {
+        "status": "approved",
+        "note": null
+      },
+      "result_summary": null,
+      "result_url": null,
+      "created_at": "2026-10-03T23:05:00Z",
+      "updated_at": "2026-10-03T23:09:30Z"
+    },
+    {
+      "id": 6,
+      "type": "coder",
+      "title": "Rename it",
+      "details": {},
+      "state": "failed",
+      "progress": 0.5,
+      "steps": [],
+      "preapproval": null,
+      "approval": {
+        "status": "declined",
+        "note": null
+      },
+      "result_summary": "Cancelled",
+      "result_url": null,
+      "created_at": "2026-10-03T22:58:00Z",
+      "updated_at": "2026-10-03T23:02:00Z"
+    },
+    {
+      "id": 7,
+      "type": "research",
+      "title": null,
+      "details": {},
+      "state": "done",
+      "progress": 1,
+      "steps": [
+        {
+          "name": "searching",
+          "state": "done",
+          "started_at": "2026-10-03T22:59:00Z",
+          "finished_at": "2026-10-03T22:59:04Z",
+          "detail": null
+        },
+        {
+          "name": "summarizing",
+          "state": "done",
+          "started_at": null,
+          "finished_at": "2026-10-03T22:59:04Z",
+          "detail": null
+        }
+      ],
+      "preapproval": null,
+      "approval": {
+        "status": "not_needed",
+        "note": null
+      },
+      "result_summary": "A research answer that is very long, the kind of answer a model gives when it doesn't follow the two-sentence rule, with names, places, a rough where for each of them and a closing time for the one that closes within the hour, and then some more words just to be sure it wraps a few times in the window.",
+      "result_url": null,
+      "created_at": "2026-10-03T22:58:55Z",
+      "updated_at": "2026-10-03T22:59:04Z"
+    },
+    {
+      "id": 8,
+      "type": "coder",
+      "state": "running"
+    }
   ],
   "upcoming": [
-    {"at": null, "kind": "held_action", "description": "waiting on you (next plug-in call): Rename the settings page", "job_id": 4},
-    {"at": "2026-10-03T23:00:00Z", "kind": "job_expiry", "description": "#2 fails if no email worker claims it (no worker running)", "job_id": 2},
-    {"at": "2026-10-03T23:20:00Z", "kind": "exception_call", "description": null, "job_id": 3},
-    {"at": "garbage", "kind": "preapproved_action", "description": "place the order: approved, going through", "job_id": null},
+    {
+      "at": null,
+      "kind": "held_action",
+      "description": "waiting on you (next plug-in call): Rename the settings page",
+      "job_id": 4
+    },
+    {
+      "at": "2026-10-03T23:00:00Z",
+      "kind": "job_expiry",
+      "description": "#2 fails if no email worker claims it (no worker running)",
+      "job_id": 2
+    },
+    {
+      "at": "2026-10-03T23:20:00Z",
+      "kind": "exception_call",
+      "description": null,
+      "job_id": 3
+    },
+    {
+      "at": "garbage",
+      "kind": "preapproved_action",
+      "description": "place the order: approved, going through",
+      "job_id": null
+    },
     null
   ],
   "tool_calls": [
-    {"at": "2026-10-03T23:09:50Z", "tool": "approve_action", "query": "job #3: yes", "latency_ms": 731, "ok": true},
-    {"at": "2026-10-03T23:09:40Z", "tool": "search_web", "query": null, "latency_ms": 9120, "ok": false},
-    {"at": "2026-10-03T23:09:30Z", "tool": "dispatch_task", "query": "coder: a request that is one hundred and twenty characters long because the recorder clips it right about here, at the…", "latency_ms": null, "ok": true},
-    {"at": null, "tool": "get_status", "query": "drive #99", "latency_ms": 12, "ok": true}
+    {
+      "at": "2026-10-03T23:09:50Z",
+      "tool": "approve_action",
+      "query": "job #3: yes",
+      "latency_ms": 731,
+      "ok": true
+    },
+    {
+      "at": "2026-10-03T23:09:40Z",
+      "tool": "search_web",
+      "query": null,
+      "latency_ms": 9120,
+      "ok": false
+    },
+    {
+      "at": "2026-10-03T23:09:30Z",
+      "tool": "dispatch_task",
+      "query": "coder: a request that is one hundred and twenty characters long because the recorder clips it right about here, at the…",
+      "latency_ms": null,
+      "ok": true
+    },
+    {
+      "at": null,
+      "tool": "get_status",
+      "query": "drive #99",
+      "latency_ms": 12,
+      "ok": true
+    }
   ],
   "events": [
-    {"id": 1, "at": "2026-10-03T22:55:00Z", "type": "plug_in", "message": "call with no plug-in: drive #99 opened", "job_id": null},
-    {"id": 2, "at": "2026-10-03T22:56:00Z", "type": "something_new", "message": "an event type the page doesn't know", "job_id": null},
-    {"id": null, "at": "2026-10-03T22:57:00Z", "type": null, "message": null},
-    {"id": 4, "at": "2026-10-03T23:09:58Z", "type": "exception_call", "message": "exception call placed, 1 job", "job_id": 3},
-    {"id": 5, "at": "2026-10-03T23:09:59Z", "type": "job_state", "message": "#3 running → exception: pre-approval broken: the tests never reported, and this line is long enough that it has to wrap in the log window at least twice before it ends", "job_id": 3}
+    {
+      "id": 1,
+      "at": "2026-10-03T22:55:00Z",
+      "type": "plug_in",
+      "message": "call with no plug-in: drive #99 opened",
+      "job_id": null
+    },
+    {
+      "id": 2,
+      "at": "2026-10-03T22:56:00Z",
+      "type": "something_new",
+      "message": "an event type the page doesn't know",
+      "job_id": null
+    },
+    {
+      "id": null,
+      "at": "2026-10-03T22:57:00Z",
+      "type": null,
+      "message": null
+    },
+    {
+      "id": 4,
+      "at": "2026-10-03T23:09:58Z",
+      "type": "exception_call",
+      "message": "exception call placed, 1 job",
+      "job_id": 3
+    },
+    {
+      "id": 5,
+      "at": "2026-10-03T23:09:59Z",
+      "type": "job_state",
+      "message": "#3 running → exception: pre-approval broken: the tests never reported, and this line is long enough that it has to wrap in the log window at least twice before it ends",
+      "job_id": 3
+    }
   ],
   "agents": [
-    {"name": "voice", "status": "busy", "last_heartbeat": null, "current_job_id": null},
-    {"name": "orchestrator", "status": null, "last_heartbeat": "2026-10-03T23:09:59Z", "current_job_id": null},
-    {"name": "coder", "status": "offline", "last_heartbeat": null, "current_job_id": 3},
-    {"name": "research", "status": "idle", "last_heartbeat": "bad", "current_job_id": null}
+    {
+      "name": "voice",
+      "status": "busy",
+      "last_heartbeat": null,
+      "current_job_id": null
+    },
+    {
+      "name": "orchestrator",
+      "status": null,
+      "last_heartbeat": "2026-10-03T23:09:59Z",
+      "current_job_id": null
+    },
+    {
+      "name": "coder",
+      "status": "offline",
+      "last_heartbeat": null,
+      "current_job_id": 3
+    },
+    {
+      "name": "research",
+      "status": "idle",
+      "last_heartbeat": "bad",
+      "current_job_id": null
+    }
   ],
   "active_agent": "email"
 }

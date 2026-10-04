@@ -3,7 +3,8 @@
   "server": {
     "now": "2026-10-03T22:34:52Z",
     "uptime_s": 11520,
-    "demo_mode": true
+    "demo_mode": true,
+    "build": "test"
   },
   "services": [
     {

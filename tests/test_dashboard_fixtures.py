@@ -122,6 +122,7 @@ def tool(name: str, body: dict, latency: int, seconds: float, monkeypatch) -> No
 
 def compare(state: dict, name: str) -> None:
     state["server"]["uptime_s"] = 11520 if name == "dashboard_state.json" else 11182
+    state["server"]["build"] = "test"  # the page's fingerprint changes with every page edit
     state["services"][0]["latency_ms"] = 3
     path = FIXTURES / name
     text = json.dumps(state, indent=2, ensure_ascii=False) + "\n"

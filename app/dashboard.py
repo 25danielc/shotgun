@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
+import hashlib
 import json
 import logging
 import re
@@ -53,6 +54,9 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 PAGE = Path(__file__).resolve().parents[1] / "static" / "dashboard.html"
+# Fingerprint of the page this process serves: the page reloads itself when it changes, so a
+# tab opened before a deploy never keeps showing the old dashboard (Daniel 21:50).
+BUILD = hashlib.sha256(PAGE.read_bytes()).hexdigest()[:12] if PAGE.exists() else "dev"
 STARTED = time.time()
 SCHEMA_VERSION = 1
 HEALTH_SECONDS = 30.0
@@ -1081,6 +1085,7 @@ async def build_state(now: datetime | None = None) -> dict[str, Any]:
             "now": iso(now),
             "uptime_s": int(time.time() - STARTED),
             "demo_mode": settings.demo_mode,
+            "build": BUILD,
         },
         "services": [],
         "drive": None

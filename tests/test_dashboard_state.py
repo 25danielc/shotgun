@@ -313,3 +313,11 @@ async def test_demo_arrive_and_plug_in(http, db, rang, monkeypatch):
     assert drive.arrival_call_at is not None
     state = await get_state(http)
     assert any("(demo)" in e["message"] for e in state["events"])
+
+
+async def test_state_carries_the_page_build_so_old_tabs_reload(http):
+    """Daniel 21:50: an open tab kept showing the pre-deploy page."""
+    state = (await http.get("/dashboard/state", headers={"X-Dashboard-Token": TOKEN})).json()
+    assert state["server"]["build"] == dashboard.BUILD and len(dashboard.BUILD) == 12
+    page = (await http.get("/dashboard")).text
+    assert "else if (build !== pageBuild) { location.reload(); return; }" in page

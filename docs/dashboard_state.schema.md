@@ -67,6 +67,7 @@ GET /dashboard/state   header X-Dashboard-Token: <DASHBOARD_TOKEN>   (?token= al
 | `now` | timestamp | Server clock when the payload was built. |
 | `uptime_s` | int | Seconds since the process started. |
 | `demo_mode` | bool | `DEMO_MODE=true`. The page shows the demo buttons only when this is true. |
+| `build` | string | Fingerprint of the served `static/dashboard.html`. The page reloads itself when it changes, so a tab opened before a deploy picks up the new page. |
 
 ### Service
 

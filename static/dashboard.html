@@ -56,7 +56,7 @@ a:hover { color: var(--accent); }
   display: grid;
   column-gap: var(--gap);
   row-gap: 0; /* the 6px title band above each border is the vertical gap */
-  padding: 0 var(--gap) var(--gap);
+  padding: 12px var(--gap) var(--gap); /* breathing room above the top title bars (Daniel 21:50) */
   grid-template-columns: minmax(0, 26fr) minmax(0, 41fr) minmax(0, 33fr);
   grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) 212px 30px;
   grid-template-areas:
@@ -783,6 +783,7 @@ document.querySelectorAll('.mark-slot').forEach((el) => { el.outerHTML = MARK_SM
 
 // ── SYSTEM strip ────────────────────────────────────────────────
 let offline = false, lastOk = null, lastError = '', demoNote = '';
+let pageBuild = null; // server.build when this tab loaded
 function renderSystem(s) {
   const parts = [`${BRAND}<span class="dim">mission control</span>`];
   if (s) parts.push(`<span><span class="k">up</span> <span data-up="${s.server.uptime_s},${ts(s.server.now) ?? now()}"></span></span>`);
@@ -874,6 +875,12 @@ function apply(raw) {
   for (const k of ['drive', 'call']) s[k] = obj(raw[k]) ? raw[k] : null;
   const serverNow = ts(s.server.now);
   if (serverNow != null) skew = serverNow - Date.now();
+  // A new deploy changes server.build: reload so an open tab never shows an old page.
+  const build = s && s.server && s.server.build;
+  if (build && !MOCK) {
+    if (pageBuild == null) pageBuild = build;
+    else if (build !== pageBuild) { location.reload(); return; }
+  }
   state = s;
   offline = false;
   lastOk = now();
