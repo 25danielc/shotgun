@@ -2,7 +2,11 @@
 
 **Everyone put a chatbot in the car. Shotgun is an agent built for the car.**
 
-You get in. You plug in. Before you've backed out, the dash lights up: SHOTGUN.
+You get in your car.
+
+You plug in. 
+
+Before you've backed out, the dash lights up: SHOTGUN.
 "North Campus, 22 minutes. Sarah's login bug is still open. Want me on it?"
 "Yeah. Merge it if the tests pass."
 You drive. It works. Three minutes out, the car rings again: "PR's merged. Tests are green. You're clear."
