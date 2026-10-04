@@ -57,7 +57,7 @@ svg.over { position: absolute; inset: 0; width: 1920px; height: 1080px; pointer-
 }
 .win > .title {
   position: absolute; top: -15px; left: 20px; padding: 0 10px; background: var(--bg);
-  font-weight: 500; font-size: 22px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase;
+  font-weight: 500; font-size: 26px; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase;
 }
 .mono22 { font-weight: 500; font-size: 22px; letter-spacing: 0.04em; }
 .tag {
@@ -65,11 +65,11 @@ svg.over { position: absolute; inset: 0; width: 1920px; height: 1080px; pointer-
 }
 .tagbox {
   display: inline-block; border: 1.5px solid var(--accent); padding: 4px 12px; color: var(--fg);
-  font-weight: 500; font-size: 24px; letter-spacing: 0.04em; white-space: nowrap;
+  font-weight: 500; font-size: 28px; letter-spacing: 0.04em; white-space: nowrap;
 }
 .chip {
   display: inline-block; border: 1px solid var(--line); padding: 4px 12px; color: var(--dim);
-  font-weight: 500; font-size: 22px; letter-spacing: 0.04em; white-space: nowrap;
+  font-weight: 500; font-size: 28px; letter-spacing: 0.04em; white-space: nowrap;
 }
 
 #grain { position: absolute; inset: 0; width: 1920px; height: 1080px; opacity: 0.04; pointer-events: none; image-rendering: pixelated; }

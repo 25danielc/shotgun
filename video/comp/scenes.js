@@ -172,7 +172,7 @@ scene('problem', C.start, C.end, (s, root) => {
   el('rect', { x: 0, y: 0, width: W, height: H, fill: 'url(#dots)' }, dots);
   const one = el('div', { class: 'layer' }, root);
   const h1 = new Headline(one, C.headline1, C.headline1_breaks_after);
-  const sub = el('div', { class: 'callout-label dim', style: { left: '100px', top: '336px', fontSize: '34px' } }, one);
+  const sub = el('div', { class: 'callout-label dim', style: { left: '100px', top: '336px', fontSize: '40px', color: FG } }, one);
   const two = el('div', { class: 'layer' }, root);
   const h2 = new Headline(two, C.headline2, C.headline2_breaks_after);
   const wipe = scanline(root);
@@ -224,7 +224,7 @@ scene('talk', F.start, F.end, (s, root) => {
   el('div', { class: 'title' }, panel, '┌─ CALL ─┐');
   const list = el('div', { style: { position: 'absolute', left: '32px', top: '40px', right: '28px' } }, panel);
   const rows = F.panel_lines.map((L) => {
-    const row = el('div', { style: { marginBottom: '20px', fontWeight: 500, fontSize: L.kind ? '25px' : '31px', lineHeight: 1.3, display: 'none' } }, list);
+    const row = el('div', { style: { marginBottom: '20px', fontWeight: 500, fontSize: L.kind ? '28px' : '31px', lineHeight: 1.3, display: 'none' } }, list);
     if (L.kind === 'tag') {
       const tag = el('span', { class: 'tagbox' }, row, L.text);
       return { L, row, tag };
@@ -232,7 +232,7 @@ scene('talk', F.start, F.end, (s, root) => {
     if (L.kind === 'chip') {
       const chip = el('span', { class: 'chip' }, row);
       const tl = new TypeLine(chip, '', {}, 'span');
-      const done = el('span', { class: 'tag', style: { marginLeft: '14px', fontSize: '25px' } }, row, '[DONE]');
+      const done = el('span', { class: 'tag', style: { marginLeft: '14px', fontSize: '28px' } }, row, '[DONE]');
       return { L, row, tl, done };
     }
     const who = el('span', { style: { color: L.who === 'shotgun' ? ACCENT : DIM } }, row, L.who === 'shotgun' ? 'SHOTGUN: ' : '> ');
@@ -261,7 +261,7 @@ scene('subagents', G.start, G.end, (s, root) => {
   const dimmer = el('div', { class: 'bg', style: { opacity: '0.62' } }, root);
   const svg = el('svg', { class: 'over' }, root);
   const head = new Headline(root, G.headline, G.headline_breaks_after);
-  const prov = el('div', { class: 'callout-label dim', style: { left: '96px', top: '1000px', fontSize: '24px', transform: 'translateY(-100%)' } }, root, 'DRIVE #8 · OCT 3, 22:25 · REAL DATA, TIME-COMPRESSED');
+  const prov = el('div', { class: 'callout-label dim', style: { left: '96px', top: '1000px', fontSize: '30px', transform: 'translateY(-100%)' } }, root, 'DRIVE #8 · OCT 3, 22:25 · REAL DATA, TIME-COMPRESSED');
   const wins = G.windows.map((w, i) => ({
     w, end: i + 1 < G.windows.length ? G.windows[i + 1].t : G.end,
     callouts: (w.callouts || []).map((c) => ({ c, v: new Callout(svg, root, c.text) })),

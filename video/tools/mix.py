@@ -9,8 +9,8 @@
   8 dB through the ring shot, with a 150 Hz low shelf down 3 dB under talk so it never masks
   words. It fades out by the end.
 - SFX at about -24 dB, placed by their peak (work/audio/music_report.json offsets).
-- Master: two-pass loudnorm to -14 LUFS integrated, true peak -1 dBTP; the result is measured
-  and printed.
+- Master: two-pass loudnorm to -14 LUFS integrated with a -2 dBTP ceiling, so the AAC encode
+  (which overshoots ~0.5 dB) still lands at or under -1 dBTP; the result is measured and printed.
 """
 
 from __future__ import annotations
@@ -157,15 +157,15 @@ def main() -> int:
     raw = AUD / "mix_raw.wav"
     wavfile.write(raw, SR, mix.astype(np.float32))
 
-    # two-pass loudnorm to -14 LUFS / -1 dBTP
+    # two-pass loudnorm to -14 LUFS / -2 dBTP (headroom for the AAC encode)
     first = subprocess.run(
         ["ffmpeg", "-hide_banner", "-nostats", "-i", str(raw), "-af",
-         "loudnorm=I=-14:TP=-1:LRA=11:print_format=json", "-f", "null", "-"],
+         "loudnorm=I=-14:TP=-2:LRA=11:print_format=json", "-f", "null", "-"],
         capture_output=True, text=True, check=True,
     ).stderr  # fmt: skip
     m = json.loads(first[first.rindex("{") : first.rindex("}") + 1])
     flt = (
-        "loudnorm=I=-14:TP=-1:LRA=11:linear=true:"
+        "loudnorm=I=-14:TP=-2:LRA=11:linear=true:"
         f"measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}:"
         f"measured_thresh={m['input_thresh']}:offset={m['target_offset']}"
     )
