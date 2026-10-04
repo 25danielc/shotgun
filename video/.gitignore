@@ -1,0 +1,7 @@
+# Media stays out of the public repo (size, faces, GPS metadata in the iPhone clips).
+reference/
+footage/
+work/
+out/*.mp4
+out/*.png
+out/*.wav
