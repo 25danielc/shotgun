@@ -92,6 +92,20 @@ make deploy       # Railway
 
 iPhone Shortcut setup: [docs/SHORTCUT_SETUP.md](docs/SHORTCUT_SETUP.md). `make help` lists every target.
 
+## Run a demo from the terminal
+
+```bash
+make demo-reset     # before a rehearsal: restore the planted bug, close stale drives and jobs
+make demo-call      # simulate the plug-in: the phone rings, same as plugging into CarPlay
+make watch          # live terminal view of the drive, its jobs and calls
+make demo-arrive    # ring the arrival call now instead of at ETA − 3 min (needs a job in the drive)
+```
+
+Dashboards: `/dashboard?mock=1` replays a recorded drive in the browser (local: `make dev`, then
+http://localhost:8000/dashboard?mock=1). `/dashboard#token=<DASHBOARD_TOKEN>` is the live view.
+If `demo-call` doesn't ring, the call policy skipped it (e.g. a call in the last 30 min): set
+`CALL_POLICY=always` on the server for rehearsals.
+
 ## Safety
 
 - Nothing irreversible (send, merge, order) without a spoken "yes", given at dispatch or on the arrival call. A result that breaks its pre-approval stops and triggers an exception call.
