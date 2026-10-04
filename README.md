@@ -2,6 +2,15 @@
 
 **Everyone put a chatbot in the car. Shotgun is an agent built for the car.**
 
+You get in. You plug in. Before you've backed out, the dash lights up: SHOTGUN.
+"North Campus, 22 minutes. Sarah's login bug is still open. Want me on it?"
+"Yeah. Merge it if the tests pass."
+You drive. It works. Three minutes out, the car rings again: "PR's merged. Tests are green. You're clear."
+
+Your car finally has someone riding shotgun.
+Plug in your phone and your car calls you. It knows you're heading out, and it knows how long you've got. Tell it what's on your mind. Quick questions get answered before you've left the lot. Bigger things, like a bug to fix or a pull request to ship, it takes off your hands and works on while you drive. Three minutes before you pull in, the car rings once more: here's what got done.
+It never acts on anything you can't take back until you say "yes."
+
 Shotgun is an AI agent saved as a phone contact. Plug your phone into the car and the car rings: you say what you need, it answers quick questions on the spot and hands longer jobs (like fixing a bug, opening a pull request, ordering food) to background workers. About 3 minutes before you arrive, the car rings once more with a summary. Nothing irreversible happens without a spoken "yes".
 
 Built solo at MHacks 2026.
