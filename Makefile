@@ -78,5 +78,5 @@ agent-push:  ## Push config/elevenlabs_agent.json + the prompt to ElevenLabs (as
 	uv run python scripts/apply_agent.py --stage full
 
 record-dashboard:  ## Step 7.2: record the live dashboard to ~/Movies/shotgun (MIN=30; touch ~/Movies/shotgun/STOP to stop)
-	uv run --with playwright python scripts/record_dashboard.py --minutes $(or $(MIN),30)
+	caffeinate -ims uv run --with playwright python scripts/record_dashboard.py --minutes $(or $(MIN),30)
 

@@ -9,6 +9,8 @@ A headless Chromium opens PUBLIC_BASE_URL/dashboard#token=... at 1440x900 and wr
     dashboard.mp4          the smooth recording (Playwright video, 1440x900): countdowns, motion
     dashboard_sharp.mp4    one 2x frame per second (2880x1800), real time: crisp text for zooms
     frames/frame_NNNNN.png those frames, for stills
+The make target runs under `caffeinate -ims`, so the Mac stays awake (the display may sleep)
+while it records; with the lid closed it still sleeps unless `sudo pmset -a disablesleep 1`.
 Tested 2026-10-03: the video is slightly soft on 11 px text; the 2x frames are crisp, so both are
 kept. Needs ffmpeg (brew) for the MP4s; without it the .webm and PNGs are still written.
 The token never appears in a file or in the output.
