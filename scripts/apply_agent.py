@@ -236,6 +236,11 @@ def drift(live: dict[str, Any], expected: dict[str, Any], tool_count: int) -> li
             problems.append(f"turn.{key} is {live_conv.get('turn', {}).get(key)}, want {want}")
     if live_conv.get("agent", {}).get("first_message") != want_conv["agent"]["first_message"]:
         problems.append("first_message differs")
+    want_voice = want_conv.get("tts", {}).get("voice_id", "")
+    if want_voice and not want_voice.startswith("TODO"):
+        live_voice = live_conv.get("tts", {}).get("voice_id")
+        if live_voice != want_voice:
+            problems.append(f"voice is {live_voice}, want {want_voice}")
     return problems
 
 

@@ -325,3 +325,15 @@ def test_arrival_calls_end_after_the_closing_line():
     assert "say \"If you don't have anything else, I'm going to hang up.\"" in prompt
     assert "On an arrival or exception call: once you've said" in prompt
     assert "Don't use skip_turn on these calls." in prompt
+
+
+def test_voice_is_pinned_so_a_push_cannot_reset_it():
+    tts = conversation()["tts"]
+    assert tts["voice_id"] == "hfqsl1OMbiWsgPpht3el"  # Kai - Clean, Modern, Global
+    body = apply_agent.agent_body(apply_agent.load_config(BASE), "full", [])
+    assert body["conversation_config"]["tts"]["model_id"] == "eleven_v4_turbo"
+    config = apply_agent.load_config(BASE)
+    swapped = live_copy(**{"conversation_config.tts.voice_id": "someone_else"})
+    assert apply_agent.drift(swapped, config["agent"], len(config["tools"])) == [
+        "voice is someone_else, want hfqsl1OMbiWsgPpht3el"
+    ]
