@@ -37,7 +37,7 @@ from psycopg.rows import class_row
 from pydantic import BaseModel
 
 MAX_HOURS = 3
-LAST_KNOWN_HOURS = 12
+LAST_KNOWN_HOURS = 48  # covers Saturday's plug-ins through Sunday's judging (Daniel, 20:10)
 
 SCHEMA = """
 create table if not exists drives (

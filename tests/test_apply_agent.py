@@ -220,3 +220,18 @@ def test_destination_is_only_asked_on_departure_calls():
     """The same arrival call asked "Where are you headed?"."""
     assert "Only on a departure call" in prompt_text()
     assert "Never ask on an arrival or exception call" in prompt_text()
+
+
+def test_code_fixes_always_ask_for_the_merge_yes_first():
+    """Daniel 20:00: "fix the login bug" was dispatched with no pre-approval question."""
+    prompt = prompt_text()
+    assert "always ask before you dispatch it, every time" in prompt
+    assert '"Want me to merge it if the tests pass?"' in prompt
+    assert "Never call dispatch_task for a code fix until they've answered that question." in prompt
+
+
+def test_agent_never_invents_how_it_works():
+    """Daniel 20:00: asked how it found ramen without his location, it made up a reason."""
+    prompt = prompt_text()
+    assert "Never guess at how you work or why something happened." in prompt
+    assert "say you're not sure" in prompt
