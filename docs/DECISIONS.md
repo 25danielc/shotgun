@@ -373,4 +373,14 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
 - 2026-10-03 20:11 (hour 8.2): Pushed the agent: it always asks "Want me to merge it if the tests pass?" before dispatching a code fix, and never invents explanations ("I'm not sure why"). `LAST_KNOWN_HOURS` 12 → 48 (Daniel) so Saturday's location covers Sunday's judging.
   - Live evidence from drive 2 (the 20:00 simulated plug-in): exactly two calls, departure and arrival. Job 185 was held, asked on the arrival call, and Daniel's "yep" merged PR #7. Marked 4.1 Done and 4.2 Done apart from a live "no".
   - `fix_name` adds "the" ("the fix for login bug" → "the fix for the login bug").
+- 2026-10-03 20:36 (hour 8.5): **Step 3.2, the email worker, built** (Daniel: yes).
+  - **The Composio "invalid key" was a paste error.** The `.env` value had the variable name pasted in front of the key, so the name plus an equals sign was sent as part of it. The real key works (HTTP 200); fixed in `.env` and Railway, and check-keys passes 15/15.
+  - **Gmail connected** through `POST /api/v3/connected_accounts/link` on the existing Composio-managed auth config `shotgun` (`initiate()` is retired for managed OAuth since May 2026). Status ACTIVE.
+  - Worker (`app/workers/email.py`, REST `POST /api/v3/tools/execute/{slug}`):
+    - Claims a job and resolves `to` through `EMAIL_CONTACTS` (first name is enough) or a spoken address. An unknown name fails with "I don't have an email address for Bob."; it never guesses.
+    - Drafts with `GMAIL_CREATE_EMAIL_DRAFT`, then `approvals.settle`: approved for a pre-approval ("send this exact message"), otherwise needs_approval and held for the arrival call.
+    - An approved job is sent with `GMAIL_SEND_DRAFT`.
+    - Shapes were checked live with a draft to the account itself, then deleted.
+  - `dispatch_task` gained `to`. The prompt now reads the draft back, asks "Want me to send that?", and on a yes dispatches with the exact text plus the pre-approval. It says "I'll send it", never "Sent".
+  - The dashboard shows email as a real worker.
 

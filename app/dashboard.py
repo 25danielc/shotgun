@@ -76,7 +76,12 @@ SERVICES = (
     "google_routes",
     "ntfy",
 )
-AGENT_TASKS = {"orchestrator": "planner", "coder": "coder", "research": "research", "email": None}
+AGENT_TASKS = {
+    "orchestrator": "planner",
+    "coder": "coder",
+    "research": "research",
+    "email": "email",
+}
 AGENT_TYPES = {
     "orchestrator": JobType.PLAN,
     "research": JobType.RESEARCH,

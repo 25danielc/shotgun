@@ -93,7 +93,9 @@ async def test_token_in_a_header_keeps_it_out_of_access_logs(http):
     assert "/dashboard/state?token=" not in page
 
 
-async def test_unbuilt_worker_is_not_reported_as_offline(http):
+async def test_unbuilt_worker_is_not_reported_as_offline(http, monkeypatch):
+    # Every worker exists since email (3.2); a stand-in keeps the dim "not built" path covered.
+    monkeypatch.setitem(dashboard.AGENT_TASKS, "email", None)
     state = (await http.get("/dashboard/state", headers={"X-Dashboard-Token": TOKEN})).json()
     email = next(a for a in state["agents"] if a["name"] == "email")
     assert (email["status"], email["last_heartbeat"]) == ("not_built", None)

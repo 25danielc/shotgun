@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Composio Gmail worker
     composio_api_key: str = ""
     composio_user_id: str = ""
+    # Who "email Alex" goes to: "Alex=alex@example.com; Erica=erica@example.com". Personal: .env
+    # and Railway only, never in git (the repo is public).
+    email_contacts: str = ""
 
     # Google Maps Platform: Routes API only (ETA, step 5.1)
     google_maps_api_key: str = ""

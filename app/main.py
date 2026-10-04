@@ -27,7 +27,7 @@ from fastapi import FastAPI
 
 from app import calls, dashboard, db, events, jobs, orchestrator, voice_tools
 from app.config import settings
-from app.workers import coder, research
+from app.workers import coder, email, research
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -64,6 +64,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         background.append(asyncio.create_task(calls.run_calls(pool), name="calls"))
     else:
         log.warning("calls not running (needs DATABASE_URL and the ElevenLabs/phone settings)")
+    if pool is not None and settings.composio_api_key and settings.composio_user_id:
+        background.append(asyncio.create_task(email.run_email(pool), name="email"))
+    else:
+        log.warning("email worker not running (needs DATABASE_URL, COMPOSIO_API_KEY, USER_ID)")
     if pool is not None and settings.github_token and settings.github_demo_repo:
         background.append(asyncio.create_task(coder.run_coder(pool), name="coder"))
     else:

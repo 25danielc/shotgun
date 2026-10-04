@@ -197,13 +197,20 @@ def test_agent_talks_like_a_friend_not_a_screen_reader():
 
 
 def test_agent_is_honest_about_what_it_cant_do_yet():
-    """Daniel 18:40: it said "Sent." for an email, but there is no email worker (3.2 stretch);
-    the job failed and the arrival call had to admit it. Same for food (3.4, no worker)."""
+    """Daniel 18:40: it said "Sent." for an email nothing could send. Email is real since step
+    3.2 (sent only after a yes); food still has no worker (3.4 cut)."""
     prompt = prompt_text()
-    assert "You can't send messages yet" in prompt
-    assert "Never call dispatch_task for a message, and never say it's sent." in prompt
-    assert "You can't order food yet" in prompt
-    assert "type email" not in prompt and "type food" not in prompt
+    assert "You can't order food yet" in prompt and "type food" not in prompt
+    assert 'Then say "I\'ll send it", never "Sent".' in prompt
+
+
+def test_email_sends_only_the_approved_text_after_a_yes():
+    prompt = prompt_text()
+    assert '"Want me to send that?"' in prompt
+    assert "only on a clear yes, call dispatch_task with type email" in prompt
+    assert 'preapproval with condition "send this exact message"' in prompt
+    props = tools()["dispatch_task"]["api_schema"]["request_body_schema"]["properties"]
+    assert props["to"]["type"] == "string"
 
 
 def test_voicemail_leaves_the_update_and_hangs_up():

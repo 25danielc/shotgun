@@ -220,7 +220,7 @@
       "tool_config": {
         "type": "webhook",
         "name": "dispatch_task",
-        "description": "Start one background job: a code fix, a food order, a sent email or longer research. Returns instantly. Include preapproval only after a clear spoken yes to the condition.",
+        "description": "Start one background job: a code fix, sending an email the driver approved, or longer research. Returns instantly. Include preapproval only after a clear spoken yes to the condition.",
         "response_timeout_secs": 5,
         "api_schema": {
           "url": "{{BASE_URL}}/tools/dispatch_task",
@@ -244,6 +244,10 @@
               "label": {
                 "type": "string",
                 "description": "Under 8 words, read back later, e.g. 'Fix Sarah's login bug'."
+              },
+              "to": {
+                "type": "string",
+                "description": "Email only: who it's for, as spoken, e.g. 'Alex'."
               },
               "preapproval": {
                 "type": "object",

@@ -108,6 +108,7 @@ class DispatchBody(CallContext):
     details: str | None = None
     request: str | None = None  # the old name of `details`, sent by agents pushed before D17
     label: str | None = None
+    to: str | None = None  # email: who it's for, as spoken ("Alex")
     preapproval: Preapproval | None = None
 
 
@@ -255,6 +256,9 @@ async def dispatch_task(body: DispatchBody, conn: Conn) -> Reply:
         details["conversation_id"] = body.conversation_id
     if body.label and body.label.strip():
         details["label"] = body.label.strip()
+    if body.to and body.to.strip():
+        details["to"] = body.to.strip()
+        details["body"] = text  # email: the exact text the driver approved
     preapproval = body.preapproval.model_dump(exclude_none=True) if body.preapproval else None
     async with conn.transaction():
         drive = await drives.current_or_open(conn)

@@ -113,7 +113,7 @@
     },
     {
       "name": "email",
-      "status": "not_built",
+      "status": "offline",
       "last_heartbeat": null,
       "current_job_id": null
     }
