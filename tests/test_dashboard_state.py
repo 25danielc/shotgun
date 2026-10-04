@@ -107,6 +107,16 @@ async def test_page_is_served(http):
     assert "mission control" in response.text
 
 
+async def test_replay_fixtures_are_public_and_nothing_else_is(http):
+    """?mock=1 on the deployed page fetches ../tests/fixtures/<file> with no token (README link)."""
+    for name in ("dashboard_state.json", "dashboard_state_empty.json", "dashboard_state_edge.json"):
+        response = await http.get(f"/tests/fixtures/{name}")
+        assert response.status_code == 200, name
+        assert "drive" in response.json()
+    for name in ("planner_utterances.json", "..%2F..%2F.env", "github"):
+        assert (await http.get(f"/tests/fixtures/{name}")).status_code == 404, name
+
+
 # ── contract shape ──────────────────────────────────────────────────────────
 def same_keys(actual: dict, expected: dict, where: str, optional=()):
     missing = set(expected) - set(actual) - set(optional)

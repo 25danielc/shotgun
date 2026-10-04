@@ -4,6 +4,8 @@ Routes (contract: docs/dashboard_state.schema.md, page: static/dashboard.html):
     GET  /dashboard                  the page; it reads ?token= and polls the state every 1.5 s
     GET  /dashboard/state?token=     the state. 401 bad token, 503 DASHBOARD_TOKEN unset
     POST /dashboard/demo/{plug-in,arrive,unplug}?token=    DEMO_MODE=true only, else 404
+    GET  /tests/fixtures/{name}      public, no token: the three recorded states ?mock= replays
+                                     (already in the public repo), so /dashboard?mock=1 works
 
 The state handler never calls a third-party service. It reads Neon (drives, calls, jobs,
 job_events) plus four in-process records kept by this module:
@@ -54,6 +56,12 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 PAGE = Path(__file__).resolve().parents[1] / "static" / "dashboard.html"
+FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
+REPLAY_FIXTURES = (
+    "dashboard_state.json",
+    "dashboard_state_empty.json",
+    "dashboard_state_edge.json",
+)
 # Fingerprint of the page this process serves: the page reloads itself when it changes, so a
 # tab opened before a deploy never keeps showing the old dashboard (Daniel 21:50).
 BUILD = hashlib.sha256(PAGE.read_bytes()).hexdigest()[:12] if PAGE.exists() else "dev"
@@ -1158,6 +1166,13 @@ def check_token(token: str | None) -> None:
 @router.get("/dashboard", include_in_schema=False)
 async def page() -> FileResponse:
     return FileResponse(PAGE, media_type="text/html", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/tests/fixtures/{name}", include_in_schema=False)
+async def replay_fixture(name: str) -> FileResponse:
+    if name not in REPLAY_FIXTURES:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    return FileResponse(FIXTURES / name, media_type="application/json")
 
 
 @router.get("/dashboard/state")

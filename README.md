@@ -22,10 +22,10 @@ Built solo at MHacks 2026.
 ## Try it out
 
 - **Demo video:** TODO: paste URL
-- **Live dashboard:** https://shotgun-production-5f30.up.railway.app/dashboard (the drive, its jobs and calls in real time)
+- **Dashboard replay:** https://shotgun-production-5f30.up.railway.app/dashboard?mock=1 (a recorded drive: the call, the coding job, the PR and the arrival call, looping)
 - **Code:** this repo
 
-The phone line only answers the builder's number (caller allowlist), so the video and the dashboard are the way to see it run.
+The phone line only answers the builder's number (caller allowlist), so the video and the replay are the way to see it run. The replay runs in your browser and never touches the server's phone line.
 
 ## How a drive works
 
