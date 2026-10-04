@@ -293,3 +293,14 @@ def test_check_catches_what_the_stale_dashboard_tab_did():
         "0 tools attached, want 6",
         "turn.silence_end_call_timeout is 20, want 90",
     ]
+
+
+def test_agent_names_its_one_repo_and_makes_the_driver_say_it():
+    """Daniel 21:30: "it says it is connected to the demo org"; it should say exactly what it can
+    reach, and a fix must name the repo ("fix this bug in my demo workflow repo")."""
+    prompt = prompt_text()
+    assert "You're connected to exactly one GitHub repo: their shotgun demo app." in prompt
+    assert '"Just one GitHub repo, your shotgun demo app.' in prompt
+    assert 'If they don\'t, ask "Which repo is that in?"' in prompt
+    props = tools()["dispatch_task"]["api_schema"]["request_body_schema"]["properties"]
+    assert "Required for type coder" in props["repo"]["description"]

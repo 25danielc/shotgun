@@ -116,7 +116,12 @@ async def test_dispatch_with_no_drive_opens_one(client, db):
 
 async def test_old_request_field_still_dispatches(client, db):
     """Agents pushed before D17 send `request`, not `details`."""
-    body = {"request": "Fix the login bug.", "type": "coder", **sample("get_status")}
+    body = {
+        "request": "Fix the login bug.",
+        "type": "coder",
+        "repo": "demo app",
+        **sample("get_status"),
+    }
     job = await jobs.get_job(db, (await call(client, "dispatch_task", body))[0].json()["job_id"])
     assert (job.type, job.request) == ("coder", "Fix the login bug.")
 
@@ -319,3 +324,50 @@ async def test_a_drive_older_than_max_hours_is_not_current(db):
     assert await drives.current_drive(db, now) is None
     fresh = await drives.current_or_open(db, now=now)
     assert fresh.id != old.id
+
+
+# --- code fixes must name the connected repo (Daniel 21:30) -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "said",
+    ["my demo app", "the demo workflow repo", "shotgun demo", "shotgun-demo-app", "Demo App"],
+)
+async def test_naming_the_connected_repo_dispatches(client, db, said):
+    body = sample("dispatch_task_typed", repo=said)
+    reply = (await call(client, "dispatch_task", body))[0].json()
+    assert reply["ok"] is True
+    job = await jobs.get_job(db, reply["job_id"])
+    assert job.details["repo"] == settings.github_demo_repo
+
+
+@pytest.mark.parametrize(
+    ("said", "message"),
+    [
+        (None, "Which repo is that in? I'm only connected to your shotgun demo app."),
+        ("", "Which repo is that in? I'm only connected to your shotgun demo app."),
+        (
+            "my lab's Cheetah repo",
+            "I'm not connected to my lab's Cheetah repo. I can only work on your shotgun demo app.",
+        ),
+        (
+            "the shotgun repo",
+            "I'm not connected to the shotgun repo. I can only work on your shotgun demo app.",
+        ),
+    ],
+)
+async def test_a_code_fix_without_the_connected_repo_is_refused(client, db, said, message):
+    body = sample("dispatch_task_typed")
+    body.pop("repo")
+    if said is not None:
+        body["repo"] = said
+    response, elapsed = await call(client, "dispatch_task", body)
+    assert elapsed < BUDGET
+    assert response.json()["ok"] is False
+    assert response.json()["message"] == message
+    assert await jobs.list_jobs(db) == []
+
+
+async def test_other_job_types_need_no_repo(client, db):
+    body = sample("dispatch_task_curl")  # research
+    assert (await call(client, "dispatch_task", body))[0].json()["ok"] is True

@@ -249,6 +249,10 @@
                 "type": "string",
                 "description": "Email only: who it's for, as spoken, e.g. 'Alex'."
               },
+              "repo": {
+                "type": "string",
+                "description": "Code fixes only: the repo exactly as the driver named it, e.g. 'my demo app'. Required for type coder."
+              },
               "preapproval": {
                 "type": "object",
                 "description": "Only after a clear yes: the condition the driver agreed to.",

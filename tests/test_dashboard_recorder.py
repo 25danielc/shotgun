@@ -124,7 +124,9 @@ async def test_overhead_is_negligible():
         await send({"type": "http.response.start", "status": 200, "headers": []})
         await send({"type": "http.response.body", "body": b'{"ok": true}'})
 
-    body = json.dumps({**CALL, "type": "coder", "details": "fix the login bug"}).encode()
+    body = json.dumps(
+        {**CALL, "type": "coder", "repo": "demo app", "details": "fix the login bug"}
+    ).encode()
     wrapped = dashboard.ToolCallRecorder(tiny)
     n = 300
 
@@ -142,7 +144,13 @@ async def test_overhead_is_negligible():
 # ── through the real app ────────────────────────────────────────────────────
 async def test_background_tool_answers_under_500ms_through_the_full_app(http, db):
     await drives.open_drive(db)
-    body = {**CALL, "type": "coder", "details": "fix the login bug", "label": "Fix login"}
+    body = {
+        **CALL,
+        "type": "coder",
+        "repo": "demo app",
+        "details": "fix the login bug",
+        "label": "Fix login",
+    }
     worst = 0.0
     for _ in range(5):
         started = time.perf_counter()

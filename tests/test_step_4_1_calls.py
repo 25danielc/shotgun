@@ -29,6 +29,7 @@ async def dispatch(http, label, preapproval=None, job_type="coder"):
         "type": job_type,
         "details": f"{label}, please",
         "label": label,
+        "repo": "my demo app",
         "caller": DANIEL,
         "called": "+15555550199",
     }

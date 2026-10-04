@@ -1,8 +1,12 @@
 {
   "type": "coder",
+  "repo": "my demo app",
   "details": "Fix the login bug Sarah filed.",
   "label": "Fix Sarah's login bug",
-  "preapproval": {"condition": "merge it if the tests pass", "require_tests_pass": true},
+  "preapproval": {
+    "condition": "merge it if the tests pass",
+    "require_tests_pass": true
+  },
   "caller": "+15555550100",
   "called": "+15555550199",
   "conversation_id": "conv_sample_inbound"

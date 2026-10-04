@@ -46,6 +46,7 @@ answer in < 8 s; every request checks X-Shotgun-Secret (TOOLS_SHARED_SECRET) and
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
@@ -109,6 +110,7 @@ class DispatchBody(CallContext):
     request: str | None = None  # the old name of `details`, sent by agents pushed before D17
     label: str | None = None
     to: str | None = None  # email: who it's for, as spoken ("Alex")
+    repo: str | None = None  # code fix: which repo, as spoken ("my demo app")
     preapproval: Preapproval | None = None
 
 
@@ -233,6 +235,26 @@ async def set_destination(body: DestinationBody, conn: Conn) -> Reply:
     return Reply(ok=True, message=message, drive_id=drive.id)
 
 
+def repo_matches(said: str) -> bool:
+    """Did the driver name the one connected repo? "my demo app", "the demo workflow repo",
+    "shotgun demo" and "shotgun-demo-app" do; "the shotgun repo" doesn't (that's 25danielc/shotgun,
+    this project). Rule: the word "demo", or GITHUB_DEMO_REPO's own name."""
+    words = set(re.findall(r"[a-z0-9]+", said.lower()))
+    repo_name = settings.github_demo_repo.rsplit("/", 1)[-1].lower()
+    return "demo" in words or repo_name in "-".join(re.findall(r"[a-z0-9]+", said.lower()))
+
+
+def repo_refusal(said: str | None) -> str | None:
+    """None if a code fix may go ahead, else what to tell the driver (only one repo is
+    connected, and the driver has to say it's that one)."""
+    spoken = settings.github_repo_spoken
+    if not said or not said.strip():
+        return f"Which repo is that in? I'm only connected to your {spoken}."
+    if not repo_matches(said):
+        return f"I'm not connected to {said.strip()}. I can only work on your {spoken}."
+    return None
+
+
 def job_type_of(name: str | None) -> JobType:
     """The worker type named, else `plan` (unknown or missing types are never dropped)."""
     if not name:
@@ -260,11 +282,18 @@ async def dispatch_task(body: DispatchBody, conn: Conn) -> Reply:
         details["to"] = body.to.strip()
         details["body"] = text  # email: the exact text the driver approved
     preapproval = body.preapproval.model_dump(exclude_none=True) if body.preapproval else None
+    job_type = job_type_of(body.type)
+    if job_type is JobType.CODER:
+        refusal = repo_refusal(body.repo)
+        if refusal:
+            log.info("dispatch_task: coder refused (repo %r)", body.repo)
+            return Reply(ok=False, message=refusal)
+        details["repo"] = settings.github_demo_repo
     async with conn.transaction():
         drive = await drives.current_or_open(conn)
         job = await jobs.create_job(
             conn,
-            job_type_of(body.type),
+            job_type,
             details,
             request=text,
             source="voice",

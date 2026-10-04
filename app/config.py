@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     github_token: str = ""
     github_demo_repo: str = ""
     github_webhook_secret: str = ""
+    # How the driver names GITHUB_DEMO_REPO out loud. A code fix must name it (Daniel, 21:30).
+    github_repo_spoken: str = "shotgun demo app"
 
     # Composio Gmail worker
     composio_api_key: str = ""
