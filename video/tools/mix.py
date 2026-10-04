@@ -38,6 +38,20 @@ def read(path: Path) -> np.ndarray:
     return x
 
 
+SPEECH_RMS_DB = -20.0  # every spoken clip, before the master loudnorm
+MUSIC_BED_DB = -4.0  # the bed under everything; ducking comes on top
+
+
+def soft_limit(x: np.ndarray, knee: float = 0.7) -> np.ndarray:
+    """Leave everything under the knee alone; round off peaks above it (never past 1.0)."""
+    over = np.abs(x) > knee
+    y = x.copy()
+    y[over] = np.sign(x[over]) * (
+        knee + (1 - knee) * np.tanh((np.abs(x[over]) - knee) / (1 - knee))
+    )
+    return y
+
+
 def fade(x: np.ndarray, ms: float = 15) -> np.ndarray:
     n = min(len(x) // 2, int(SR * ms / 1000))
     if n:
@@ -80,14 +94,17 @@ def main() -> int:
         gain = {"intro": 1.0, "car": 0.55, "ring": 0.9, "call": 1.0}[c["kind"]]
         if c["kind"] == "call":
             seg = seg + 0.35 * sosfilt(presence, seg, axis=0).astype(np.float32)
-        seg = fade(seg * gain)
+        if c["kind"] in ("intro", "call"):
+            # level-match every spoken clip (the two sides of a phone call differ by ~8 dB)
+            rms = float(np.sqrt(np.mean(seg**2))) + 1e-9
+            gain = db(SPEECH_RMS_DB) / rms
+        seg = soft_limit(fade(seg * gain))
         a = int(c["at"] * SR)
         b = min(total, a + len(seg))
         speech[a:b] += seg[: b - a]
         if c["kind"] in ("intro", "call"):
             talk_mask[a:b] = 1.0
-    # normalize speech so every call clip sits at a similar level (phone audio varies)
-    music = read(Path(VIDEO / plan["music"]["file"]))[:total]
+    music = read(Path(VIDEO / plan["music"]["file"]))[:total] * db(MUSIC_BED_DB)
     if len(music) < total:
         music = np.pad(music, ((0, total - len(music)), (0, 0)))
 
@@ -128,6 +145,15 @@ def main() -> int:
         }.get(name, -24)
         sfx[a:b] += x[: b - a] * db(level + 6)  # sfx files peak at -6 dBFS
     mix = speech + music + sfx
+    # masking check: speech vs (ducked) music over every placed speech clip
+    for c in plan["speech"]:
+        a, b = int(c["at"] * SR), int((c["at"] + c["out"] - c["in"]) * SR)
+        sp = 20 * np.log10(np.sqrt(np.mean(speech[a:b] ** 2)) + 1e-9)
+        mu = 20 * np.log10(np.sqrt(np.mean(music[a:b] ** 2)) + 1e-9)
+        print(
+            f"  {c.get('id', c['kind']):>5} at {c['at']:6.2f}s  speech {sp:6.1f} dB  "
+            f"music {mu:6.1f} dB  gap {sp - mu:5.1f} dB"
+        )
     raw = AUD / "mix_raw.wav"
     wavfile.write(raw, SR, mix.astype(np.float32))
 

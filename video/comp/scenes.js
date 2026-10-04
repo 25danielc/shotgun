@@ -219,7 +219,7 @@ const fClips = F.clips.map((c) => ({ ...c }));
 scene('talk', F.start, F.end, (s, root) => {
   el('div', { class: 'bg' }, root);
   const head = new Headline(root, F.headline, F.headline_breaks_after);
-  const card = new CallCard(root, '┌─ ON CALL · DEPARTURE ─┐', [96, 340, 900, 520]);
+  const card = new CallCard(root, '┌─ ON CALL · DEPARTURE · REAL CALL AUDIO ─┐', [96, 340, 900, 520]);
   const panel = el('div', { class: 'win', style: { left: '1040px', top: '340px', width: '784px', height: '520px' } }, root);
   el('div', { class: 'title' }, panel, '┌─ CALL ─┐');
   const list = el('div', { style: { position: 'absolute', left: '32px', top: '40px', right: '28px' } }, panel);
@@ -261,6 +261,7 @@ scene('subagents', G.start, G.end, (s, root) => {
   const dimmer = el('div', { class: 'bg', style: { opacity: '0.62' } }, root);
   const svg = el('svg', { class: 'over' }, root);
   const head = new Headline(root, G.headline, G.headline_breaks_after);
+  const prov = el('div', { class: 'callout-label dim', style: { left: '96px', top: '1000px', fontSize: '24px', transform: 'translateY(-100%)' } }, root, 'DRIVE #8 · OCT 3, 22:25 · REAL DATA, TIME-COMPRESSED');
   const wins = G.windows.map((w, i) => ({
     w, end: i + 1 < G.windows.length ? G.windows[i + 1].t : G.end,
     callouts: (w.callouts || []).map((c) => ({ c, v: new Callout(svg, root, c.text) })),
@@ -278,6 +279,7 @@ scene('subagents', G.start, G.end, (s, root) => {
   s.render = (t) => {
     const cur = wins.find((x) => t >= x.w.t && t < x.end);
     show(dimmer, !cur);
+    show(prov, !!cur);
     if (!cur) {
       dash.frame(hms(G.headline_bg_replay));
       dash.set({ cx: 960, cy: 540, s: 1, fx: 960, fy: 540 });
@@ -320,7 +322,7 @@ scene('arrival', Hh.start, Hh.end, (s, root) => {
   const call = new Callout(svg, root, cd.callout.text);
   const cardL = el('div', { class: 'layer' }, root);
   el('div', { class: 'bg' }, cardL);
-  const card = new CallCard(cardL, '┌─ ON CALL · ARRIVAL ─┐', [460, 330, 1000, 520]);
+  const card = new CallCard(cardL, '┌─ ON CALL · ARRIVAL · REAL CALL AUDIO ─┐', [460, 330, 1000, 520]);
   const ov = el('div', { style: { position: 'absolute', right: '40px', bottom: '22px', display: 'flex', gap: '14px', alignItems: 'center' } }, card.root);
   const ovText = el('span', { class: 'tagbox', style: { fontSize: '28px' } }, ov, Hh.overlay.text);
   const ovDone = el('span', { class: 'tag', style: { fontSize: '28px' } }, ov, '[DONE]');

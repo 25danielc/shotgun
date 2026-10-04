@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shotgun thumbnail</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  html, body { width: 1280px; height: 720px; }
+  .crop { position: absolute; inset: 0; overflow: hidden; opacity: 0.4; }
+  /* JOBS + LOG of the drive #8 replay at 22:28:12 (PR #11 merged), 2x frame */
+  .crop img { position: absolute; width: 3200px; left: -1320px; top: -40px; }
+  .shade { position: absolute; inset: 0; background: rgba(7, 9, 12, 0.35); }
+  .lockup { position: absolute; left: 96px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 44px; }
+  .name { font-weight: 800; font-size: 150px; letter-spacing: -0.01em; line-height: 0.9; }
+  .tag { font-weight: 500; font-size: 40px; color: #c9d4df; margin-top: 22px; letter-spacing: 0.01em; }
+  .tag b { color: #39ff9c; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="crop"><img src="../work/dash/departure/01010.jpg" alt=""></div>
+<div class="shade"></div>
+<div class="lockup">
+  <img src="shotgun-mark.svg" width="210" height="210" alt="" style="filter: drop-shadow(0 0 10px rgba(57,255,156,.45))">
+  <div>
+    <div class="name">SHOTGUN</div>
+    <div class="tag">an ai passenger for your car<b>█</b></div>
+  </div>
+</div>
+</body>
+</html>

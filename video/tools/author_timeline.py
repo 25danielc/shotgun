@@ -60,7 +60,7 @@ tl = {
             {"start": 6.95, "end": 9.4, "text": "but we built one for your car."},
         ],
     },
-    "A_swipe": {"start": 0.0, "end": T(0)},
+    "A_swipe": {"start": 0.02, "end": T(0), "nosnap": True},
     "B_thesis": {
         "start": T(0),
         "end": T(8),
@@ -244,7 +244,7 @@ tl = {
                         "text": "1 VOICE AGENT → 3 SUBAGENTS",
                         "t_beat": 1.0,
                         "target": [38, 859],
-                        "label_off": [80, -260],
+                        "label_off": [80, -190],
                     },
                     {
                         "text": "CLAUDE CODE VIA GITHUB ACTIONS",
@@ -264,7 +264,7 @@ tl = {
                         "text": "INLINE TOOLS < 8 S · BACKGROUND < 500 MS",
                         "t_beat": 1.0,
                         "target": [760, 860],
-                        "label_off": [-40, -250],
+                        "label_off": [40, -250],
                     }
                 ],
             },
@@ -302,7 +302,7 @@ tl = {
             "callout": {
                 "text": "ETA − 3 MIN · GOOGLE ROUTES",
                 "t_beat": 0.5,
-                "target": [77, 154],
+                "target": [110, 142],
                 "label_off": [520, 200],
             },
         },

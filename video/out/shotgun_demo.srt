@@ -48,11 +48,11 @@ SHOTGUN: Want me to merge it if the tests pass?
 Uh, yeah, that'd be great.
 
 12
-00:01:08,823 --> 00:01:11,443
+00:01:08,943 --> 00:01:11,443
 SHOTGUN: Shotgun here.
 You're about three minutes out.
 
 13
-00:01:11,443 --> 00:01:15,243
+00:01:11,443 --> 00:01:14,943
 SHOTGUN: Got the email capitalization fix merged
 and tests came through.

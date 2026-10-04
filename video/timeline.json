@@ -41,8 +41,9 @@
   ]
  },
  "A_swipe": {
-  "start": 0.0,
-  "end": 0.4
+  "start": 0.02,
+  "end": 0.4,
+  "nosnap": true
  },
  "B_thesis": {
   "start": 0.4,
@@ -475,7 +476,7 @@
       ],
       "label_off": [
        80,
-       -260
+       -190
       ]
      },
      {
@@ -520,7 +521,7 @@
        860
       ],
       "label_off": [
-       -40,
+       40,
        -250
       ]
      }
@@ -613,8 +614,8 @@
     "text": "ETA − 3 MIN · GOOGLE ROUTES",
     "t_beat": 0.5,
     "target": [
-     77,
-     154
+     110,
+     142
     ],
     "label_off": [
      520,
