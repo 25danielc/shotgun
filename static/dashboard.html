@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>Shotgun · mission control</title>
+<!-- Brand: logo direction A, "Lit Seat". Source files: static/brand/shotgun-mark.svg (64 px and up)
+     and static/brand/shotgun-mark-small.svg (32 px and below). The small mark is inlined here (the
+     page stays one self-contained file); tests/test_brand.py keeps the copies identical. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none"%3E %3Crect x="8" y="8" width="104" height="104" rx="14" stroke="#c9d4df" stroke-width="10"/%3E %3Crect x="27" y="40" width="27" height="54" rx="6" stroke="#c9d4df" stroke-width="9"/%3E %3Crect x="66" y="40" width="27" height="54" rx="6" fill="#39ff9c"/%3E %3C/svg%3E">
 <!--
   Shotgun mission control: the judging-table view of a drive. Read-only: it polls
   GET /dashboard/state (docs/dashboard_state.schema.md) and never approves anything.
@@ -249,7 +253,8 @@ a:hover { color: var(--accent); }
   white-space: nowrap;
   overflow: hidden;
 }
-.sys .brand { color: var(--fg); font-weight: 700; letter-spacing: .12em; }
+.sys .brand { color: var(--fg); font-weight: 700; letter-spacing: .12em; display: inline-flex; align-items: center; gap: 8px; }
+.sys .mark { width: 18px; height: 18px; flex: none; display: block; }
 .sys .sep { color: var(--line); }
 .btn {
   background: none;
@@ -294,7 +299,7 @@ a:hover { color: var(--accent); }
   <section class="win" id="w-tools"><header class="t"><b class="lbl">TOOLS</b><b class="stat" id="st-tools"></b></header><div class="body" id="b-tools"><div class="empty">-- connecting --</div></div></section>
   <section class="win" id="w-log"><header class="t"><b class="lbl">LOG</b><b class="stat" id="st-log"></b></header><div class="body" id="b-log"><div id="log-lines"></div><div class="line"><span class="dim">$</span><span class="cursor">█</span></div></div></section>
   <section class="win" id="w-services"><header class="t"><b class="lbl">SERVICES</b><b class="stat" id="st-services"></b></header><div class="body" id="b-services"><div class="empty">-- connecting --</div></div></section>
-  <footer class="win" id="w-sys"><div class="sys" id="b-sys"><span class="brand">SHOTGUN</span><span class="dim">mission control</span><span class="dim">connecting…</span></div></footer>
+  <footer class="win" id="w-sys"><div class="sys" id="b-sys"><span class="brand"><span class="mark-slot"></span>SHOTGUN</span><span class="dim">mission control</span><span class="dim">connecting…</span></div></footer>
 </main>
 <script>
 'use strict';
@@ -770,10 +775,16 @@ function renderServices(s) {
   if (pulseNow) pulse('services');
 }
 
+// ── brand ───────────────────────────────────────────────────────
+// The small "Lit Seat" mark (static/brand/shotgun-mark-small.svg), 18 px in the system strip.
+const MARK_SMALL = `<svg class="mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none"> <rect x="8" y="8" width="104" height="104" rx="14" stroke="#c9d4df" stroke-width="10"/> <rect x="27" y="40" width="27" height="54" rx="6" stroke="#c9d4df" stroke-width="9"/> <rect x="66" y="40" width="27" height="54" rx="6" fill="#39ff9c"/> </svg>`;
+const BRAND = `<span class="brand">${MARK_SMALL}SHOTGUN</span>`;
+document.querySelectorAll('.mark-slot').forEach((el) => { el.outerHTML = MARK_SMALL; });
+
 // ── SYSTEM strip ────────────────────────────────────────────────
 let offline = false, lastOk = null, lastError = '', demoNote = '';
 function renderSystem(s) {
-  const parts = ['<span class="brand">SHOTGUN</span><span class="dim">mission control</span>'];
+  const parts = [`${BRAND}<span class="dim">mission control</span>`];
   if (s) parts.push(`<span><span class="k">up</span> <span data-up="${s.server.uptime_s},${ts(s.server.now) ?? now()}"></span></span>`);
   if (offline) {
     parts.push(`<span class="err">[ OFFLINE ] retrying…</span><span class="dim">${esc(lastError)}${lastOk ? ` · last ok ${hms(lastOk)}` : ''}</span>`);

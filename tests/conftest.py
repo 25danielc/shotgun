@@ -53,8 +53,10 @@ def no_real_claude(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def default_call_policy(monkeypatch):
-    """Tests see the default departure policy, whatever CALL_POLICY the local .env sets."""
+    """Tests see the defaults, whatever the local .env sets: the departure policy, and no
+    callback agent (tests that need one set it themselves)."""
     monkeypatch.setattr(settings, "call_policy", "auto")
+    monkeypatch.setattr(settings, "elevenlabs_callback_agent_id", "")
 
 
 @pytest.fixture(scope="session")
