@@ -274,13 +274,13 @@ Sources (the rules of app/calls.py and app/workers/coder.py, imported, not copie
 | Field | Type | Notes |
 |---|---|---|
 | `name` | enum | `voice \| orchestrator \| coder \| research \| email` (always in this order). |
-| `status` | enum | `idle \| busy \| offline \| not_built`. **offline** if `last_heartbeat` is older than 60 s. **not_built**: the worker doesn't exist yet (email, 3.2 stretch); the page shows it dim, not as an error. |
+| `status` | enum | `idle \| busy \| offline \| not_built`. **offline** if `last_heartbeat` is older than 60 s. **not_built**: a worker with no loop in this build; the page shows it dim, not as an error. Every worker is built now (email since 3.2), so this is reserved for future workers. |
 | `last_heartbeat` | timestamp or null | |
 | `current_job_id` | int or null | Set while busy. The diagram labels busy nodes with it. |
 
 Heartbeats:
 - **Workers** (orchestrator, coder, research, email): every worker loop runs in the Railway
-  process, so the heartbeat is its asyncio task (named `planner`, `coder`, `research` in
+  process, so the heartbeat is its asyncio task (named `planner`, `coder`, `research`, `email` in
   app/main.py) being alive: `last_heartbeat` = `server.now`, else `offline` with null.
 - **voice**: `busy` while a call is ringing or active. Otherwise `idle` if the last
   ElevenLabs health check passed, `offline` if it failed. `last_heartbeat` = the most recent
@@ -334,11 +334,19 @@ Shortened. See `tests/fixtures/dashboard_state.json` for a full payload.
   ],
   "agents": [
     {"name": "voice", "status": "busy", "last_heartbeat": "2026-10-03T22:34:50Z", "current_job_id": null},
-    {"name": "email", "status": "not_built", "last_heartbeat": null, "current_job_id": null}
+    {"name": "email", "status": "idle", "last_heartbeat": "2026-10-03T22:34:50Z", "current_job_id": null}
   ],
   "active_agent": "coder"
 }
 ```
+
+## Public replay
+
+```
+GET /tests/fixtures/{name}   public, no auth (dashboard_state.json, dashboard_state_empty.json, dashboard_state_edge.json)
+```
+
+`/dashboard?mock=1` (also `mock=empty`, `mock=edge`) loads one of these recorded states and plays a scripted story on top of it in the browser. The fixtures are already in the public repo. In mock mode the SIMULATE buttons only change the page and never call the server, so this is the link to share publicly.
 
 ## Demo endpoints
 
@@ -383,7 +391,7 @@ real rows or live checks; nothing is invented.
 | `tool_calls` | `ToolCallRecorder` ASGI middleware on `/tools/*`. Refused callers (401, 403, a stranger's `/tools/init`) are not recorded. Latency stops at the last response byte. In memory (last 20), so it resets on deploy. |
 | `events` | `drives` (plug_in by source, unplug), `calls` (call_started, arrival_call, exception_call), `job_events` (job_dispatched, job_state), coder `result` (issue filed, PR opened) and in-memory tool, call and demo events. |
 | `services` | `run_monitor()` every 30 s, read-only probes as above. `api_server.latency_ms` is the time the last payload took to build. |
-| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`) is alive → idle or busy (a `running` or `approved` job of its type); no task → offline. `email` has no worker yet, so it is always `not_built`. |
+| `agents` | voice: live call → busy, ElevenLabs probe failed → offline. Workers: the asyncio task (`planner`, `coder`, `research`, `email`) is alive → idle or busy (a `running` or `approved` job of its type); no task → offline. |
 | `active_agent` | The newest of: the live call's last tool call (voice), and each working job's last state change or PR (its worker). |
 
 The state read is five indexed queries on one pooled connection (2 s pool timeout): the latest

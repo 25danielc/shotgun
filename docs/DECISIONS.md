@@ -16,7 +16,7 @@ Rule: don't reopen a decision below without asking Daniel. Add new decisions to 
 | Judging | 12:30 to 3:00 PM EDT Sunday, science-fair style at your table. Winners at 5:00 PM EDT |
 | Main rubric | Innovation, Technical Complexity, Usability, Adherence to Theme |
 | Test car | 2026 Honda Civic, **wired** CarPlay over USB, iPhone |
-| Mac | The setup laptop is an **Apple Silicon (arm64)** Mac. Whether it's the one at the venue is still to confirm (only matters for the DoorDash CLI) |
+| Mac | The setup laptop is an **Apple Silicon (arm64)** Mac. Moot since the food worker (DoorDash CLI) was cut |
 
 ## 2. The product
 
@@ -25,11 +25,11 @@ Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and
 - Pitch lines: **"Everyone put a chatbot in the car. Shotgun is an agent built for the car."** / **"Your agent isn't an app. It's a contact."**
 - What makes it car-specific:
   1. The car tells the agent when to start (plug-in).
-  2. Arrival time is the deadline ("You're 31 minutes out, so I'll order in 6").
+  2. Arrival time is the deadline: the arrival call rings at ETA − 3 min with whatever got done.
   3. No screen forces short answers, spoken confirmation and background work.
 - **Main track: Actually Intelligent (AI).** Finance and food are examples, not the category. (The track description was announced at the opening ceremony and isn't online yet; check that the pitch fits it.)
-- **Demo (about 60 s, filmed parked or with a second driver):** plug in → ring → "Where are you headed?" → request → pre-approval ("merge it if the tests pass?" → "Yes") → goodbye → arrival ring → batched summary. Coding PR only (D17). The full script is in PLAN.md.
-- **Safety story for judges:** voice only; spoken confirmation for every irreversible action; long items wait until parked; the demo is filmed parked or with a second driver.
+- **Demo (filmed, 98.7 s):** plug in → ring → "Shotgun here. Where are we headed?" → destination and ETA → a search → a coding request with pre-approval ("Want me to merge it if the tests pass?" → "Yeah") → PR merged while driving → arrival ring → batched summary → unplug recap. The script as filmed is in PLAN.md.
+- **Safety story for judges:** voice only; spoken confirmation for every irreversible action; at most two calls per drive; only the owner's number is served. ("Long items wait until parked" was dropped: never built, §9.11.)
 
 ## 3. Architecture
 
@@ -82,32 +82,32 @@ Shotgun is an AI agent saved as a phone contact. Plug the phone into the car and
 | D6 | **Calls instead of SMS for callbacks** | US business texting via Twilio needs A2P 10DLC carrier registration that takes days. Voice numbers don't. | Twilio SMS, iMessage |
 | D7 | **Delegate coding to the Claude Code GitHub Action** | Don't build a coding agent. The Action is a configured product. | Custom coding agent, Claude Agent SDK worker |
 | D8 | **Composio for Gmail instead of Google OAuth** | Composio-managed auth skips making a Google OAuth app and its consent-screen setup. | Gmail API with own OAuth client, real inbox |
-| D9 | **Hero action defaults to the coding PR** | It depends only on us. **Switch to food timed to arrival only if DoorDash approves the waitlist and an Apple Silicon Mac is available. Decide by about hour 10** (~10 PM Sat). | Food as default hero |
+| D9 | **Hero action defaults to the coding PR** *(resolved: coding PR; food cut at 19:10)* | It depends only on us. **Switch to food timed to arrival only if DoorDash approves the waitlist and an Apple Silicon Mac is available. Decide by about hour 10** (~10 PM Sat). | Food as default hero |
 | D10 | **No unofficial DoorDash MCP servers** | Don't hand an account and a card to unknown code. | Community DoorDash MCPs/scrapers |
 | D11 | **Voice agent never waits on workers** | Tools return instantly (< 500 ms); work runs in the background; callbacks deliver results. | Synchronous tools that block the call |
 | D12 | **Shared job table, no agent-to-agent protocol** | Simplest way for the voice agent, orchestrator, workers and Fetch.ai agent to coordinate. | Message bus, A2A protocols |
 | D13 | **Orchestrator can be cut** | If time runs short, the voice agent calls `dispatch_task(type, details)` directly. | — |
 | D14 | **Voice-turn model: Claude Haiku 4.5 inside ElevenLabs** | Low latency. ElevenLabs' LLM list includes `claude-haiku-4-5` (checked 2026-10-03, still to confirm in the UI). Fallback: custom LLM pointed at our server. | GPT/Gemini in ElevenLabs |
 | D15 | **Research = Claude web search for everything** (Daniel, 16:55) | One worker, no extra key or API to wire up: Sonnet 5.5 with Anthropic's server-side web search tool answers place lookups and general questions alike. | Google Places API (New) for places plus a second path for other questions |
-| D16 | **ETA destination = fixed `HOME_ADDRESS`** (Daniel, 16:55); **"text X" = email** (Daniel says "email" in the demo) | Simplest, works without calendar access. The address lives only in `.env` and Railway, never in git. | Next calendar event; the agent asks |
+| D16 | *(destination part superseded by D17)* **ETA destination = fixed `HOME_ADDRESS`** (Daniel, 16:55); **"text X" = email** (Daniel says "email" in the demo) | Simplest, works without calendar access. The address lives only in `.env` and Railway, never in git. | Next calendar event; the agent asks |
 | D17 | **"Two calls per drive" passenger** (Daniel, 17:43). At most a DEPARTURE call (on plug-in, only if the call policy says so) and an ARRIVAL call (ETA − 3 min, batched summary), plus rare EXCEPTION calls. The agent stays on the call until the driver says goodbye; searches and drafts finish inline; a "yes" can be given up front as a pre-approval. Supersedes the per-job callback watcher (4.1), the "always hang up" rule (log 14:25), D11's "never waits on work" (now: never waits on *workers*) and D16's fixed destination (the agent asks). Details in the decision log, 17:43 | A ring per finished job is a phone that keeps interrupting a driver; hanging up to "call back later" turned a 5 s answer into two calls. Batching to arrival matches when the driver can act | Callback per job (the 4.1 design); hang up and call back for every search; a third-party search API; SMS or push as the main channel; removing `end_call` entirely |
 
 ## 5. Cut from scope (don't build)
 
-Fetch.ai / Agentverse (6.1, cut at hour 5.7, D17) · Capital One Nessie money worker · the receipt page and the .tech domain · Photon / Relay / Spacetime · any hardware (OBD-II, ESP32 button) · a native CarPlay app · Gemini · the Figma prize · real restaurant reservations · real-inbox Gmail · controlling the car · Siri anywhere in the flow.
+Fetch.ai / Agentverse (6.1, cut at hour 5.7, D17) · the food worker and DoorDash CLI (3.4) and deadline scheduling (5.2), cut at 19:10 · Capital One Nessie money worker · the receipt page and the .tech domain · Photon / Relay / Spacetime · any hardware (OBD-II, ESP32 button) · a native CarPlay app · Gemini · the Figma prize · real restaurant reservations · real-inbox Gmail · controlling the car · Siri anywhere in the flow.
 
 ## 6. Sponsor prizes being targeted
 
-Devpost rules: *"You may submit to only one main MHacks track, but you may enter as many eligible sponsor tracks or prizes as you would like."* So entering all four below is allowed. Whether one project can **win** more than one isn't stated (open question §10).
+Devpost rules: *"You may submit to only one main MHacks track, but you may enter as many eligible sponsor tracks or prizes as you would like."* **Entered: ElevenLabs (sponsor + MLH) and Neon.** Notability only if step 0.3 gets done. **Fetch.ai is not entered** (6.1 cut). Whether one project can **win** more than one isn't stated (open question §10).
 
 | Prize | How we qualify | Requirement to remember |
 |---|---|---|
 | **Best Project Built with ElevenLabs** (sponsor) + **[MLH] Best Use of ElevenLabs** | The voice layer is ElevenLabs Agents | **Tag ElevenLabs on Devpost.** Sponsor prize is 3 months of the Scale tier per member; MLH prize is earbuds |
-| **Fetch.ai ASI:One Agent Challenge** ($1,250 / $750 / $500 + internship interview) | Orchestrator registered on Agentverse, discoverable via ASI:One | See §6a. **Also submit through the ASI "MHacks Submission Agent", not just Devpost** |
+| ~~**Fetch.ai ASI:One Agent Challenge**~~ ($1,250 / $750 / $500 + internship interview), **not entered** | Would need the orchestrator registered on Agentverse (6.1, cut) | See §6a. **Also submit through the ASI "MHacks Submission Agent", not just Devpost** |
 | **Best Use of Neon Backend** ($1,000 / $500 / $100 in AI Gateway credits) | Job table on Neon Postgres | No extra requirement posted |
 | **Best Use of Notability** (1 yr Notability Pro + merch) | Architecture sketch + wireframes made in Notability Pro (step 0.3) | **Tag Notability on Devpost with a note on how it was used and at least 2 screenshots** |
 
-### 6a. Fetch.ai hackpack (read 2026-10-03, https://innovationlab.fetch.ai/events/hackathons/mhacks-2026/hackpack)
+### 6a. Fetch.ai hackpack (reference only, not entered; read 2026-10-03, https://innovationlab.fetch.ai/events/hackathons/mhacks-2026/hackpack)
 
 - **Required:** at least one agent registered on Agentverse; **Agent Chat Protocol implemented**; discoverable and usable directly in ASI:One; meaningful tool execution or multi-agent orchestration; **the main workflow runs entirely inside an ASI:One chat** (no custom frontend); a **public GitHub repo** with run instructions.
 - **Not required:** ASI:One's own LLM (ASI-1). Any framework is allowed, so Claude is fine.
@@ -119,10 +119,10 @@ Devpost rules: *"You may submit to only one main MHacks track, but you may enter
 
 ## 7. Stretch order and fallback gates
 
-- **Stretch order (only after milestone 1 works):** email worker (3.2). Fetch.ai (6.1) is cut and 4.3 is core (D17); research (3.5) is done.
-- **Gate, hour 4 (~4 PM Sat):** if plug-in → ring isn't working, make **tapping the contact** the trigger and move on.
-- **Gate, hour 10 (~10 PM Sat):** pick the hero (D9).
-- **Gate, hour 12 (~midnight):** if voice dispatch → callback isn't working end to end, **cut Fetch.ai**.
+- **Stretch order (only after milestone 1 works):** email worker (3.2), **done and used live**. Fetch.ai (6.1) is cut and 4.3 is core (D17); research (3.5) is done.
+- **Gate, hour 4 (~4 PM Sat):** if plug-in → ring isn't working, make **tapping the contact** the trigger and move on. *Passed: plug-in rang at 15:06 and in the Civic at 15:47.*
+- **Gate, hour 10 (~10 PM Sat):** pick the hero (D9). *Coding PR.*
+- **Gate, hour 12 (~midnight):** if voice dispatch → callback isn't working end to end, **cut Fetch.ai**. *Moot: Fetch.ai was cut at hour 5.7.*
 - **Never cut:** plug-in ring, the arrival call (was "callback"), one real completed action.
 - PLAN.md's "Risks and fallbacks" table lists the other fallbacks.
 
@@ -130,7 +130,7 @@ Devpost rules: *"You may submit to only one main MHacks track, but you may enter
 
 Claude must stop and ask, never pretend to verify these:
 
-- **0.1** Join the DoorDash CLI waitlist (form: https://forms.gle/gvCQZvu9C1EKA6aM6).
+- **0.1** Join the DoorDash CLI waitlist *(cut with the food worker)*.
 - **0.2** Account creation (Anthropic, ElevenLabs, Twilio, Railway, Neon, Composio, GitHub, Google Maps).
 - **0.3** Notability sketches + screenshots.
 - **1.1, 1.3, 1.6** Civic tests.
@@ -141,31 +141,31 @@ Claude must stop and ask, never pretend to verify these:
 
 PLAN.md wins on build steps; these are flagged for Daniel.
 
-1. **Demo script vs default hero.** PLAN.md's script callback is the ramen order (food hero), but D9 makes the coding PR the default. If the PR is the hero, the callback line becomes something like "Sarah's login bug: I opened PR 4 with a fix. Merge it?" → "Yes."
+1. *(Resolved: the coding PR is the hero; the demo as filmed is in PLAN.md.)* **Demo script vs default hero.** PLAN.md's script callback is the ramen order (food hero), but D9 makes the coding PR the default. If the PR is the hero, the callback line becomes something like "Sarah's login bug: I opened PR 4 with a fix. Merge it?" → "Yes."
 2. **"Text Alex" has no worker.** SMS is out (D6) and email is the only messaging worker. Say "email Alex" in the script, or drop that part. As built (2.4): the planner turns "text X" into an email job. **Resolved (D16):** OK'd; Daniel says "email" in the demo.
 3. **Coder "done" vs the approval rule.** The context says the GitHub webhook marks the job done; PLAN.md lists *merge* as irreversible. Proposed flow: PR opened → `needs_approval` → spoken "yes" → merge → `done`. Step 3.1's pass check ("PR opens and webhook marks job done") stays as written; read "done" there as "the worker's part is done".
 4. **The Claude Code Action doesn't open the PR by itself.** Per its docs (capabilities-and-limitations.md, checked 2026-10-03), from an issue it pushes a `claude/...` branch and posts a link to a **prefilled PR creation page**. Fix in step 3.1: either our server opens the PR with the GitHub API when the `claude/*` branch appears (webhook `create`/`push`), or the workflow allows `gh pr create` (TODO(verify) the `claude_args`/allowed-tools syntax). The first option is simpler and fully under our control. **As built (3.1):** our webhook reads the Action's "[Create a PR](…/compare/base...claude/branch?quick_pull=1…)" link from its `issue_comment` (format from `src/entrypoints/update-comment-link.ts`), opens the PR through the API and moves the job to `needs_approval`.
 5. **ElevenLabs has no built-in caller allowlist.** *(As built: `/tools/init`; the webhook fires only on inbound calls, or on outbound calls that carry no initiation data, which ours always do.)* Use the *conversation initiation client data webhook* (it receives `caller_id`) to give unknown callers a refusal greeting and `end_call`, **and** check `system__caller_id` in every tool webhook. Whether that webhook can reject a call outright is unverified.
-6. **Fetch.ai wants a 3 to 5 minute demo video**; our main demo is 60 s. Plan a longer cut, or a separate ASI:One walkthrough, for the Fetch.ai submission.
-7. **The DoorDash CLI also ships for Linux x86_64**, not only macOS Apple Silicon (README, 2026-10-03). It might run on Railway with `DD_CLI_ACCESS_TOKEN`. D9 still says Mac; this note just weakens the Mac dependency. Decide at hour 10.
-8. **Fetch.ai requires a public repo.** `25danielc/shotgun` is already public, so secret hygiene matters (the pre-commit hook blocks `.env` and key-shaped strings).
+6. *(Moot: Fetch.ai cut.)* **Fetch.ai wants a 3 to 5 minute demo video**; our main demo is 60 s. Plan a longer cut, or a separate ASI:One walkthrough, for the Fetch.ai submission.
+7. *(Moot: food cut.)* **The DoorDash CLI also ships for Linux x86_64**, not only macOS Apple Silicon (README, 2026-10-03). It might run on Railway with `DD_CLI_ACCESS_TOKEN`. D9 still says Mac; this note just weakens the Mac dependency. Decide at hour 10.
+8. **The repo is public** (Fetch.ai required it; Fetch.ai is cut, but the repo stays public), so secret hygiene matters (the pre-commit hook blocks `.env` and key-shaped strings).
 9. PLAN.md's build steps skip **3.3** (3.2 → 3.4). The IDs are unchanged on purpose.
-10. **Step 2.3's "3 rows appear" relies on the planner.** The voice prompt calls `dispatch_task` once with the whole request, which stores one `plan` row. The 3 worker rows appear only once the orchestrator (2.4) splits it. PLAN.md lists 2.3's Needs as 1.1 and 2.2 only, so either build 2.4 before 2.3's live test (2.4 needs only 2.1), or switch the prompt to the D13 fallback (one `dispatch_task(type, request)` per part).
-11. **"Long items wait until parked" has no build step.** It's in the safety story (§2) but no PLAN.md row implements it. Either add it to the 4.3 call policy, using the `carplay_disconnected` event, or drop it from the pitch.
-12. **`/events` doesn't store the location yet.** The planner has no ETA until it does: `run_planner` passes none, and deadlines tied to arrival come back as null. Step 5.1 should save the latest trip (location, time) from `/events` and feed it to 5.2.
+10. *(Resolved by D17: the voice agent calls `dispatch_task` with a type per job.)* **Step 2.3's "3 rows appear" relies on the planner.** The voice prompt calls `dispatch_task` once with the whole request, which stores one `plan` row. The 3 worker rows appear only once the orchestrator (2.4) splits it. PLAN.md lists 2.3's Needs as 1.1 and 2.2 only, so either build 2.4 before 2.3's live test (2.4 needs only 2.1), or switch the prompt to the D13 fallback (one `dispatch_task(type, request)` per part).
+11. *(Dropped from the pitch: never built.)* **"Long items wait until parked" has no build step.** It's in the safety story (§2) but no PLAN.md row implements it. Either add it to the 4.3 call policy, using the `carplay_disconnected` event, or drop it from the pitch.
+12. *(Resolved: the `drives` table stores the plug-in location, and `set_destination` sets the ETA, step 5.1.)* **`/events` doesn't store the location yet.** The planner has no ETA until it does: `run_planner` passes none, and deadlines tied to arrival come back as null. Step 5.1 should save the latest trip (location, time) from `/events` and feed it to 5.2.
 
 ## 10. Open questions
 
 | Question | Status | Decide by |
 |---|---|---|
 | Exact submission deadline | **Resolved:** Sun Oct 4, 12:00 PM EDT (Devpost header shows 12:15) | — |
-| Is an Apple Silicon Mac available at the venue? | Setup Mac is arm64; confirm it's at the venue. Linux CLI build may remove the need (§9.7) | Hour 10 |
+| Is an Apple Silicon Mac available at the venue? | **Moot:** only the food worker needed it, and it was cut | — |
 | Does ElevenLabs offer Claude for voice turns? | **Resolved:** the agent runs `claude-haiku-4-5` (pushed via API and read back, 14:14) | — |
 | Fetch.ai hackpack: own LLM or chat protocol required? | **Resolved:** Chat Protocol required; ASI-1 LLM **not** required (§6a) | — |
 | How many sponsor prizes can one project enter? | **Resolved:** as many as eligible. Whether it can *win* several isn't stated; ask an organizer | Before submitting |
-| Where does the ETA destination come from? | **Resolved (D16):** fixed `HOME_ADDRESS` in `.env` / Railway | — |
+| Where does the ETA destination come from? | **Resolved (D17):** the driver says it on the departure call (`set_destination`); "home" still maps to `HOME_ADDRESS` | — |
 | Can the ElevenLabs initiation webhook reject a caller outright? | Not described in the docs. Built instead: `/tools/init` returns `caller_allowed: "no"` and a refusal greeting, the prompt hangs up at once, and the tools return 403 | — |
-| Does the iOS 26 CarPlay automation fire reliably with the phone locked? | Open; step 1.3 measures it (5 of 5 replugs locked) | Hour 4 gate |
+| Does the iOS 26 CarPlay automation fire reliably with the phone locked? | **Largely answered:** it fired on all 9 plug-ins during filming (22:25 to 01:58). The locked-phone case wasn't measured separately | — |
 
 ## 11. API notes (checked against docs 2026-10-03)
 
@@ -418,4 +418,23 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - The main agent got "Shotgun here", the character line, the repo rules and the pinned voice (Kai, `eleven_v4_turbo`, the live settings). The new callback agent "Shotgun (arrival)" is `agent_0601m428…`, and `ELEVENLABS_CALLBACK_AGENT_ID` is in `.env` and Railway. Deployed; `make agent-check` passes for both agents.
   - Test arrival call through the callback agent (conv_1101m429…, 11 s): "Shotgun here. This is a test of the arrival call. If you don't have anything else, I'm going to hang up." → "Hang up." → "Talk later." → end_call. The silent 10 s path is still to be seen live.
   - **`.env` glitch:** the file ended without a newline after `EMAIL_CONTACTS`, so the appended line got glued onto it and dotenv failed to parse it. Fixed (backup in the scratchpad), and Railway re-synced and checked without printing the values. Appends to `.env` must start on a new line.
-
+- 2026-10-03 22:25 (hour 10.4): **Full run in the Civic, drive #8.** One departure call:
+  - "The Landmark", 10 min; two `search_web` calls (3073 ms and 3104 ms server-side).
+  - A coder job with the pre-approval "merge it if the tests pass": issue #10 → PR #11, tests passed, merged 1:24 after dispatch.
+  - An email to Daniel, sent on its pre-approval.
+  - The arrival call was placed at 22:32:08, ETA − 3 min to the second. These are the numbers the demo video shows.
+- 2026-10-04 00:30 (hour 12.5): **Demo video, cut 1.** A deterministic HTML-to-MP4 project in `video/` (local only, git-ignored).
+  - Real footage, the drive #8 call audio from ElevenLabs, and a frame-exact replay of drive #8's Neon rows through the real dashboard page. Only time is compressed.
+  - Music synthesized in code. Every number on screen comes from Neon, the logs or the footage.
+- 2026-10-04 01:40–02:10 (hour 13.7–14.2): **Filming drives #13 to #16.** Every plug-in placed the departure call. Drive #16 is the "Lan City, about seven minutes" exchange in the video.
+  - **Known issue:** drive #13 ("Aaron's house") got an ETA about 17 hours out. The place lookup matched somewhere far away. Not fixed.
+- 2026-10-04 02:37 (hour 14.6): **Submission cleanup** (Daniel): `video/`, `CLAUDE.md` and `.claude/` are untracked and git-ignored, the Fetch.ai stub is gone, and the README is new.
+- 2026-10-04 04:01 (hour 16): **Demo video final, cut 2.3** (98.7 s).
+  - In-car footage throughout, with the call and the dashboard in windows, and the call card over the driver's face while the call audio plays.
+  - The light trap bed, a third darker, hits on "car" in the intro.
+  - "YOUR CAR IS THE AGENT" over the ring, and the tagline "your car is the agent".
+- 2026-10-04 04:20 (hour 16.3): **Final repo cleanup.**
+  - Personal data removed: a real home address in a test, a personal email in this log.
+  - The docstring-only food stub is deleted.
+  - The dashboard screenshot tool moved to `scripts/`.
+  - The docs are brought up to date with what shipped.

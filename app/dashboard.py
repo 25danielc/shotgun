@@ -14,9 +14,9 @@ job_events) plus four in-process records kept by this module:
 - HEALTH: run_monitor() probes each service every HEALTH_SECONDS, read-only.
 - LIVE_CALL: run_monitor() asks ElevenLabs for the agent's live conversation every
   CALL_SECONDS while a drive is open (the same list telephony.call_in_progress reads).
-- Worker liveness: the app's background tasks (planner, research, coder) are found by name; a
-  running task is the heartbeat. The email worker isn't built (3.2 stretch), so it shows
-  "not_built" (dim on the page), never a red "offline" that reads as a failure.
+- Worker liveness: the app's background tasks (planner, research, coder, email) are found by
+  name; a running task is the heartbeat. A worker with no task at all would show "not_built"
+  (dim on the page), never a red "offline" that reads as a failure.
 
 Everything derived (drive status, job steps, approval, upcoming) is computed per request from
 those rows, with the same rules the code that acts on them uses (app/calls.py arrival_due and

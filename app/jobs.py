@@ -22,8 +22,8 @@ enforced by code; `condition` is what the driver agreed to, read back to them.
 
 Every state change goes through `transition()`, which locks the row, checks the edge, and logs it
 in job_events (the approval log for step 4.2). Workers claim work with `claim_next()`
-(SELECT ... FOR UPDATE SKIP LOCKED), so the local Mac food worker and the Railway process can
-share the table without an agent-to-agent protocol.
+(SELECT ... FOR UPDATE SKIP LOCKED), so workers in separate processes (a local worker and the
+Railway process) can share the table without an agent-to-agent protocol.
 
 Functions take an open psycopg AsyncConnection (see app/db.py) and use `conn.transaction()`, so
 they commit on an autocommit pool connection and nest as savepoints inside a test transaction.

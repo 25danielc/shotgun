@@ -6,7 +6,7 @@ exception calls. Pass check: a drive with 2 pre-approved jobs makes exactly 2 ou
 
 Each tick (every POLL_SECONDS, one loop in the app process):
 1. Unclaimed guard: a job still queued after UNCLAIMED_MINUTES has no worker running for its
-   type (a stub worker, or the Mac food worker offline). It fails with a spoken reason, so it
+   type (e.g. food, which has no worker in this build). It fails with a spoken reason, so it
    shows up in the arrival summary instead of hanging silently.
 2. Busy-line guard: nothing rings while the agent is on a call (telephony.call_in_progress).
 3. Arrival call, once per drive with at least one job:
