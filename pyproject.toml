@@ -14,10 +14,6 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
-# Stretch: step 6.1. Install with `uv sync --extra fetch`.
-fetch = ["uagents"]  # TODO(verify): pin uagents / uagents-core versions from PyPI when building 6.1
-
 [dependency-groups]
 dev = [
     "pgserver>=0.1.4",
@@ -39,7 +35,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = [".claude/worktrees"]  # subagent worktrees are separate checkouts
+extend-exclude = [".claude/worktrees", "video"]  # worktrees and the local-only video project
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S"]
@@ -48,4 +44,3 @@ ignore = ["S101"]  # assert is fine in tests
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S"]
 "scripts/**" = ["S603", "S607"]  # scripts shell out to git with fixed args
-"video/tools/**" = ["S603", "S607"]  # the video tools shell out to ffmpeg with fixed args

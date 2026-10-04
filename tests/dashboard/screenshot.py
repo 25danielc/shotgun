@@ -5,7 +5,7 @@
 """Screenshot static/dashboard.html in mock mode at the two judging-table sizes.
 
 Not a pytest test: run it by hand after changing the dashboard, then look at the images
-against .claude/skills/shotgun-dashboard-design/SKILL.md.
+against the dashboard design rules (terminal aesthetic, small live windows).
 
     uvx playwright install chromium            # once
     uv run tests/dashboard/screenshot.py [--out DIR] [--wait SECONDS]

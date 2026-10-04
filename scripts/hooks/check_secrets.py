@@ -4,7 +4,7 @@
 Two entry points, one scanner (stdlib only, so it runs without the venv):
 - git pre-commit hook (.githooks/pre-commit, enabled by `make setup`):
       python3 scripts/hooks/check_secrets.py --staged          -> exit 1 to block
-- Claude Code PreToolUse hook on Bash (.claude/settings.json), reads the tool call on stdin:
+- Claude Code PreToolUse hook on Bash (local .claude/settings.json), reads the tool call on stdin:
       python3 scripts/hooks/check_secrets.py --claude-hook     -> exit 2 to block
 
 False positive? Put `secret-scan: allow` on the offending line.

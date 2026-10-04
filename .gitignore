@@ -20,9 +20,12 @@ build/
 .idea/
 .vscode/
 .railway/
-.claude/settings.local.json
 
 # Demo artifacts (videos are large; keep them out of git)
 *.mov
 *.mp4
-.claude/worktrees/
+
+# Not part of the product (kept locally)
+video/
+CLAUDE.md
+.claude/

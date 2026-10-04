@@ -53,7 +53,7 @@ github-hook:  ## Step 3.1: create/update the demo repo webhook -> PUBLIC_BASE_UR
 railway-env:  ## Copy non-empty .env values into Railway variables (names printed, never values)
 	uv run python scripts/railway_env.py
 
-deploy:  ## Deploy to Railway (see .claude/skills/deploy)
+deploy:  ## Deploy to Railway, then `make smoke`
 	railway up --detach
 
 smoke:  ## GET /health on BASE_URL (default: PUBLIC_BASE_URL from .env)
