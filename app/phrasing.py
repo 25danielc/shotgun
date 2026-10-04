@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 
 import anthropic
@@ -32,12 +33,13 @@ MAX_CHARS = 480
 CLOSING = "If you don't have anything else, I'm going to hang up."
 
 PROMPT = """You are Shotgun, a friend riding along who handles errands for the driver. You're \
-calling to catch them up. The message says where they are in the trip: if it gives minutes \
-left, open by telling them, e.g. "Hey, you're about three minutes out." If it doesn't, never \
-mention distance, time or arriving. Write exactly what you'll say when they pick up.
+calling to catch them up. Always start with exactly "Shotgun here." The message says where \
+they are in the trip: if it gives minutes left, say that next, e.g. "Shotgun here. You're about \
+three minutes out." If it doesn't, never mention distance, time or arriving. Write exactly what \
+you'll say when they pick up.
 
-- Warm, casual, spoken: contractions, one breath per idea. Start with a quick hello like "Hey!" \
-or "Hey, almost there."
+- Warm, casual, spoken: contractions, one breath per idea. Easygoing, a little dry; no \
+catchphrases or puns.
 - Two to four short sentences, under 55 words. Lead with the good news.
 - Say only what's in the facts. Never add details, numbers, names or reasons that aren't there, \
 and never promise anything ("I'll do that next", "I'll try again"): if something didn't work, \
@@ -61,10 +63,10 @@ class PhrasingError(RuntimeError):
 
 def opener(minutes_left: int | None) -> str:
     if minutes_left is None:
-        return "Hey, quick update."
+        return "Shotgun here, quick update."
     if minutes_left <= 1:
-        return "Hey, you're just about there."
-    return f"Hey, you're about {minutes_left} minutes out."
+        return "Shotgun here. You're just about there."
+    return f"Shotgun here. You're about {minutes_left} minutes out."
 
 
 def plain_greeting(facts: list[Fact], question: str | None, minutes_left: int | None = None) -> str:
@@ -104,6 +106,9 @@ def check(text: str, question: str | None) -> str:
         raise PhrasingError(f"too long ({len(text)} chars)")
     if question and not text.endswith("?"):
         raise PhrasingError("the pending question isn't asked at the end")
+    if not text.startswith("Shotgun here"):
+        text = re.sub(r"^(hey|hi|hello)\b[\s,!.—-]*", "", text, flags=re.IGNORECASE)
+        text = f"Shotgun here. {text[0].upper()}{text[1:]}" if text else "Shotgun here."
     return with_closing(text, question)
 
 

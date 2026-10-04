@@ -247,7 +247,7 @@ async def test_set_destination_tool_answers_inline_on_the_plug_in_drive(
     }
     await http.post("/events", json=body, headers={"X-Shotgun-Secret": EVENTS_SECRET})
     drive = await drives.current_drive(db)
-    assert rang[0]["greeting"] == "Hey, it's Shotgun. Where are you headed?"
+    assert rang[0]["greeting"] == "Shotgun here. Where are we headed?"
 
     payload = {
         "destination": "home",

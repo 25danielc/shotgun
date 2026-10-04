@@ -73,7 +73,9 @@ async def test_drive_with_two_pre_approved_jobs_makes_exactly_two_calls(http, db
     assert arrival["summary"] == (
         "I merged the fix for the login bug. I merged the fix for the signup typo."
     )
-    assert arrival["greeting"].startswith("Hey, quick update.")  # no ETA: no "almost there"
+    assert arrival["greeting"].startswith(
+        "Shotgun here, quick update."
+    )  # no ETA: no "almost there"
 
 
 async def test_late_results_after_the_arrival_call_never_ring(http, db, rang):
@@ -194,7 +196,7 @@ async def test_broken_preapproval_rings_one_exception_call(db, rang):
     assert call["call_kind"] == "exception"
     assert call["pending_job_id"] == str(job.id)
     assert call["greeting"] == (
-        "Hey, quick one. The tests failed on the fix for the login bug. Merge it anyway?"
+        "Shotgun here, quick one. The tests failed on the fix for the login bug. Merge it anyway?"
     )
 
 

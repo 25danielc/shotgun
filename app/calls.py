@@ -252,7 +252,7 @@ async def tick(conn: AsyncConnection, now: datetime | None = None) -> str | None
         return "arrival" if placed else FAILED
     job = pending_exception
     variables = telephony.call_variables(
-        f"Hey, quick one. {job_sentence(job)}",
+        f"Shotgun here, quick one. {job_sentence(job)}",
         summary=job_sentence(job),
         pending_job_id=job.id,
         drive_id=job.drive_id,

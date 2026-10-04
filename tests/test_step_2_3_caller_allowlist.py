@@ -42,7 +42,7 @@ async def test_daniel_gets_the_normal_greeting(client):
     data = response.json()
     assert data["type"] == "conversation_initiation_client_data"
     assert data["dynamic_variables"]["caller_allowed"] == "yes"
-    assert data["dynamic_variables"]["greeting"] == "Shotgun here."
+    assert data["dynamic_variables"]["greeting"] == "Shotgun here. What's up?"
 
 
 async def test_stranger_is_refused(client):

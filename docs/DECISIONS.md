@@ -407,4 +407,9 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
     - `apply_agent.py` creates it (`ELEVENLABS_CALLBACK_AGENT_ID`), `agent-check` covers it, `calls.py` places these calls with it, and the busy-line check and dashboard read both agents' conversations.
     - TODO(verify): an outbound call with an agent that isn't the number's assigned agent (the docs list `agent_id` and `agent_phone_number_id` as separate fields).
   - First live arrival at ETA − 3 with the new opener (21:28:39): "Hey, you're about three minutes out. Good news—I already sent that email to Erica for you."
+- 2026-10-03 21:36 (hour 9.7): **Every call opens "Shotgun here"** (Daniel: character in the first five seconds, without overdoing it).
+  - Openers: departure "Shotgun here. Where are we headed?"; inbound "Shotgun here. What's up?"; arrival "Shotgun here. You're about three minutes out…" (or "Shotgun here, quick update."); exception "Shotgun here, quick one."; voicemail "Shotgun here with your update."
+  - The arrival wording strips a leading "Hey/Hi" before adding the prefix. The prompt gives the character one line: easygoing, a little dry, no catchphrases or puns about riding shotgun.
+  - **The voice, as checked:** "Kai – Clean, Modern, Global" (young American male, "confident… crisp and neutral with an edge"), `eleven_v4_turbo`, stability 0.5, speed 1.0. It was picked in the ElevenLabs UI and isn't pinned in the repo (`tts.voice_id` is still TODO), so a UI save can change it.
+  - Test fix: `conftest.py` resets `inline._shared` per test. A reused client from an earlier test's event loop made live phrasing silently fall back.
 

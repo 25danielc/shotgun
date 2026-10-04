@@ -44,7 +44,8 @@ router = APIRouter()
 
 CONNECTED = "carplay_connected"
 DISCONNECTED = {"carplay_disconnected", "car_disconnected"}  # the D17 spec's name is an alias
-GREETING = "Hey, it's Shotgun. Where are you headed?"  # step 5.1: the answer sets the ETA
+# Every call opens "Shotgun here." (Daniel 21:40): a little character in the first five seconds.
+GREETING = "Shotgun here. Where are we headed?"  # step 5.1: the answer sets the ETA
 
 
 class Location(BaseModel):
@@ -67,7 +68,7 @@ def departure_variables(drive: drives.Drive | None, waiting: list[Job]) -> dict[
         summary = calls.job_sentence(question)
         if others:
             summary = f"{others} more thing{'s' if others > 1 else ''} waiting too. {summary}"
-        greeting = f"Hey, it's Shotgun. {summary}"
+        greeting = f"Shotgun here. {summary}"
     return telephony.call_variables(
         greeting,
         summary=summary,

@@ -23,8 +23,9 @@ FACTS = [
 ]
 QUESTION = "The fix for the signup typo is ready as a pull request. Want me to merge it?"
 NICE = (
-    "Hey, almost there! The login fix is merged and the tests passed. I couldn't email Alex, "
-    "that's not hooked up yet. The signup typo fix is ready, want me to merge it?"
+    "Shotgun here. Almost there! The login fix is merged and the tests passed. "
+    "I couldn't email Alex, that's not hooked up yet. "
+    "The signup typo fix is ready, want me to merge it?"
 )
 
 
@@ -91,7 +92,7 @@ async def test_slow_or_failing_claude_falls_back(monkeypatch):
 async def test_no_key_and_no_client_is_plain_without_a_request():
     assert settings.anthropic_api_key == ""  # tests/conftest.py keeps Claude offline
     assert await phrasing.arrival_greeting(FACTS, None) == (
-        "Hey, quick update. I merged the fix for the login bug, and the tests passed. "
+        "Shotgun here, quick update. I merged the fix for the login bug, and the tests passed. "
         "I can't do that one yet: email Alex I'm running late. "
         "If you don't have anything else, I'm going to hang up."
     )
@@ -146,9 +147,9 @@ async def test_live_arrival_wording_sounds_natural():
 @pytest.mark.parametrize(
     ("left", "opener"),
     [
-        (3, "Hey, you're about 3 minutes out."),
-        (1, "Hey, you're just about there."),
-        (None, "Hey, quick update."),
+        (3, "Shotgun here. You're about 3 minutes out."),
+        (1, "Shotgun here. You're just about there."),
+        (None, "Shotgun here, quick update."),
     ],
 )
 def test_plain_opener_says_minutes_left_only_when_known(left, opener):
@@ -170,7 +171,7 @@ async def test_arrival_at_eta_minus_3_says_how_far_out(db, rang):
     )
     await run(db, job.id, "running")
     assert await calls.tick(db, now) == "arrival"
-    assert rang[0]["greeting"].startswith("Hey, you're about 3 minutes out.")
+    assert rang[0]["greeting"].startswith("Shotgun here. You're about 3 minutes out.")
     assert rang[0]["eta_minutes"] == "3"
 
 
@@ -184,8 +185,26 @@ async def test_live_arrival_mentions_minutes_out():
 async def test_no_question_ends_by_saying_it_will_hang_up():
     """Daniel 21:30: talk about what finished, then "if you don't have anything else, I'm going
     to hang up", then hang up after about 10 seconds (the callback agent's turn timeout)."""
-    nice = "Hey, you're about three minutes out. I sent your email to Erica."
+    nice = "Shotgun here. You're about three minutes out. I sent your email to Erica."
     text = await phrasing.arrival_greeting(FACTS[:1], None, 3, client=FakeClaude(nice))
     assert text == f"{nice} {phrasing.CLOSING}"
     asked = await phrasing.arrival_greeting(FACTS, QUESTION, 3, client=FakeClaude(NICE))
     assert phrasing.CLOSING not in asked and asked.endswith("?")  # said after the answer
+
+
+@pytest.mark.parametrize(
+    ("said", "spoken"),
+    [
+        (
+            "Hey, almost there! The login fix is merged.",
+            "Shotgun here. Almost there! The login fix is merged.",
+        ),
+        ("Hey! The login fix is merged.", "Shotgun here. The login fix is merged."),
+        ("The login fix is merged.", "Shotgun here. The login fix is merged."),
+        ("Shotgun here. The login fix is merged.", "Shotgun here. The login fix is merged."),
+    ],
+)
+async def test_every_arrival_call_opens_with_shotgun_here(said, spoken):
+    """Daniel 21:40: "Shotgun here" whenever it picks up."""
+    text = await phrasing.arrival_greeting([], None, client=FakeClaude(said))
+    assert text == f"{spoken} {phrasing.CLOSING}"

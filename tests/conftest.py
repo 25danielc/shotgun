@@ -35,6 +35,15 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(autouse=True)
+def fresh_claude_client(monkeypatch):
+    """app.inline shares one AsyncAnthropic per process; its connection pool belongs to one event
+    loop, and every test gets a new loop, so a reused client fails (and phrasing falls back)."""
+    from app import inline
+
+    monkeypatch.setattr(inline, "_shared", None)
+
+
+@pytest.fixture(autouse=True)
 def no_real_claude(monkeypatch):
     """Offline tests never reach Anthropic: code that would use the .env key without an
     injected client (e.g. the arrival wording) falls back instead. Live tests keep the key."""

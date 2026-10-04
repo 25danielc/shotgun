@@ -55,7 +55,7 @@
               "description": "Call this as soon as you hear a voicemail greeting or an automated message instead of the driver. It leaves the update and hangs up.",
               "params": {
                 "system_tool_type": "voicemail_detection",
-                "voicemail_message": "Hey, it's Shotgun with your update. {{summary}} Call me back on this number if you want to say yes or no to anything."
+                "voicemail_message": "Shotgun here with your update. {{summary}} Call me back on this number if you want to say yes or no to anything."
               }
             }
           }

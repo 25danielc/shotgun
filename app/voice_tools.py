@@ -154,7 +154,7 @@ class InitBody(BaseModel):
     conversation_id: str | None = None
 
 
-INBOUND_GREETING = "Shotgun here."  # D17: never open with "How can I help?"
+INBOUND_GREETING = "Shotgun here. What's up?"  # a friend picking up, not "How can I help?"
 REFUSAL_GREETING = "Sorry, this line is private. Goodbye."
 
 

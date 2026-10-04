@@ -85,7 +85,7 @@ async def test_first_plug_in_rings_a_quick_replug_stays_silent(http, db, rang):
     assert await plug_in(http) is True
     first = await drives.current_drive(db)
     assert (first.start_lat, first.start_lng) == (42.28, -83.74)
-    assert rang[0]["greeting"] == "Hey, it's Shotgun. Where are you headed?"
+    assert rang[0]["greeting"] == "Shotgun here. Where are we headed?"
     assert rang[0]["call_kind"] == "departure"
     assert rang[0]["drive_id"] == str(first.id)
 
@@ -109,8 +109,7 @@ async def test_waiting_items_ring_and_lead_the_greeting(http, db, rang):
     assert await plug_in(http) is True  # a quick replug, but something is waiting
     call = rang[1]
     assert call["greeting"] == (
-        "Hey, it's Shotgun. "
-        "The fix for the login bug is ready as a pull request. Want me to merge it?"
+        "Shotgun here. The fix for the login bug is ready as a pull request. Want me to merge it?"
     )
     assert call["pending_job_id"] == str(held.id)
 
