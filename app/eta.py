@@ -17,8 +17,11 @@ the address.
 A street address with no city ("333 East Jefferson") is ambiguous, and Routes picks its own
 city: on 2026-10-03 it routed Daniel from Ann Arbor to 333 E Jefferson in Detroit (76 km, 53 min)
 instead of Ann Arbor (4 km, 9 min). So such an address is also tried in the home area (the city
-and state of HOME_ADDRESS), both requests run in parallel, and the closer one wins. Only street
-addresses get this: a bare place name like "Detroit" is sent as said.
+and state of HOME_ADDRESS), both requests run in parallel, and the closer one wins.
+A place name with no city ("The Landmark") is sent as said, and only if Routes finds nothing is it
+tried in the home area (live 2026-10-03 20:52: "The Landmark" -> no route; with ", Ann Arbor, MI"
+-> 15 min). The closer-wins rule isn't used for names: "Detroit" must stay Detroit, not become a
+Detroit Street nearby.
 Calendar and trip-history destinations are out of scope (later stretch).
 
 Routes API, checked 2026-10-03 against developers.google.com/maps/documentation/routes
@@ -98,7 +101,29 @@ def candidates(address: str) -> list[str]:
     return [address]
 
 
+def in_home_area(address: str) -> str | None:
+    """The home-area version of a place name that names no city, else None."""
+    area = home_area()
+    if area and "," not in address and not STREET_ADDRESS.match(address):
+        return f"{address}, {area}"
+    return None
+
+
 async def best_route(
+    lat: float, lng: float, address: str, *, client: httpx.AsyncClient | None = None
+) -> Route:
+    """The route to the destination (see the module docstring). Raises EtaError if none."""
+    try:
+        return await closest_route(lat, lng, address, client=client)
+    except EtaError:
+        local = in_home_area(address)
+        if local is None:
+            raise
+        log.info("set_destination: no route for the name as said, trying the home area")
+        return await drive_time(lat, lng, local, client=client)
+
+
+async def closest_route(
     lat: float, lng: float, address: str, *, client: httpx.AsyncClient | None = None
 ) -> Route:
     """The closest route among the candidates (see candidates()). Raises EtaError if none."""

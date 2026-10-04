@@ -131,6 +131,41 @@ async def test_the_closer_match_wins():
     assert route.minutes == 10
 
 
+def by_address(minutes: dict[str, int | None]):
+    """A fake Routes: {address: minutes or None for no route}."""
+    seen = []
+
+    def handler(request):
+        address = json.loads(request.content)["destination"]["address"]
+        seen.append(address)
+        found = minutes.get(address)
+        routes = [{"duration": f"{found * 60}s"}] if found is not None else []
+        return httpx.Response(200, json={"routes": routes})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), seen
+
+
+async def test_a_place_name_falls_back_to_the_home_area_only_if_not_found():
+    """Daniel 20:52: "The Landmark" got no route; "The Landmark, Ann Arbor, MI" is 15 min."""
+    client, seen = by_address({"The Landmark, Ann Arbor, MI": 15})
+    route = await eta.best_route(42.2967, -83.7211, "The Landmark", client=client)
+    assert route.minutes == 15
+    assert seen == ["The Landmark", "The Landmark, Ann Arbor, MI"]
+
+
+async def test_a_place_name_that_routes_is_never_swapped_for_a_closer_one():
+    client, seen = by_address({"Detroit": 50, "Detroit, Ann Arbor, MI": 4})
+    route = await eta.best_route(42.2967, -83.7211, "Detroit", client=client)
+    assert route.minutes == 50
+    assert seen == ["Detroit"]
+
+
+async def test_nothing_found_anywhere_is_still_an_error():
+    client, _ = by_address({})
+    with pytest.raises(eta.EtaError):
+        await eta.best_route(42.2967, -83.7211, "Nowhere Special", client=client)
+
+
 async def test_one_failed_version_doesnt_lose_the_other():
     def handler(request):
         address = json.loads(request.content)["destination"]["address"]
