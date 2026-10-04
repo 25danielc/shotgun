@@ -257,3 +257,56 @@ async def test_live_coordinates_to_minutes(monkeypatch):
     )
     assert elapsed < 8
     assert 1 <= route.minutes <= 30
+
+
+# --- drives started without a location (Daniel 20:00: simulated plug-in, "I don't have your
+# location", although the Shortcut had sent it 80 minutes earlier) ------------------------------
+
+
+async def test_a_drive_without_a_location_uses_the_last_known_one(db):
+    now = datetime.now(UTC)
+    shortcut = await drives.open_drive(
+        db, lat=UNION[0], lng=UNION[1], now=now - timedelta(minutes=80)
+    )
+    assert shortcut.location_source == "plug_in"
+    simulated = await drives.open_drive(db, source="dashboard_demo", now=now)
+    assert (simulated.start_lat, simulated.start_lng) == UNION
+    assert simulated.location_source == "last_known"
+
+
+async def test_simulated_plug_in_gets_a_real_eta(db):
+    now = datetime.now(UTC)
+    await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=now - timedelta(minutes=80))
+    simulated = await drives.open_drive(db, source="dashboard_demo", now=now)
+    drive, reply = await eta.set_destination(
+        db, simulated, "333 East Jefferson Street", now=now, client=routes(559)
+    )
+    assert reply == "About 10 minutes. I'll ring you just before you get there."
+    assert drive.arrival_call_at is not None
+
+
+async def test_last_known_location_expires_and_is_never_copied_forward(db):
+    now = datetime.now(UTC)
+    await drives.open_drive(
+        db,
+        lat=UNION[0],
+        lng=UNION[1],
+        now=now - timedelta(hours=drives.LAST_KNOWN_HOURS, minutes=1),
+    )
+    stale = await drives.open_drive(db, now=now)
+    assert (stale.start_lat, stale.location_source) == (None, None)
+
+    await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=now - timedelta(hours=2))
+    copied = await drives.open_drive(db, now=now - timedelta(hours=1))
+    assert copied.location_source == "last_known"
+    # Only real plug-in locations count as "known": a copy is never the source of another copy.
+    assert await drives.last_known_location(db, now) == UNION
+    await db.execute("update drives set start_lat = 0, start_lng = 0 where id = %s", (copied.id,))
+    assert await drives.last_known_location(db, now) == UNION
+
+
+async def test_a_real_plug_in_location_always_wins(db):
+    now = datetime.now(UTC)
+    await drives.open_drive(db, lat=1.0, lng=2.0, now=now - timedelta(minutes=10))
+    fresh = await drives.open_drive(db, lat=UNION[0], lng=UNION[1], now=now)
+    assert ((fresh.start_lat, fresh.start_lng), fresh.location_source) == (UNION, "plug_in")

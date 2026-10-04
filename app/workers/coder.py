@@ -355,7 +355,9 @@ async def merge_approved(conn: AsyncConnection, gh: GitHub) -> Job | None:
                 conn,
                 job.id,
                 JobState.FAILED,
-                summary=f"I couldn't merge the fix for {fix_name(job)}. The pull request is still open.",
+                summary=(
+                    f"I couldn't merge the fix for {fix_name(job)}. The pull request is still open."
+                ),
                 error=str(exc),
             )
         summary = f"I merged the fix for {fix_name(job)}."

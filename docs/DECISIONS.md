@@ -365,4 +365,9 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **Background research now searches near the drive's destination** (D17), not HOME_ADDRESS, and is localized the same way as `search_web`.
   - `calls(drive_id)` index.
 - 2026-10-03 19:59 (hour 8): Pushed the agent with Daniel's OK. Read back: 6 tools, `voicemail_detection` with `{{summary}}` in its message, honest about email and food, destination asked on departure only, check-in exactly "Anything else?". The number is still on the agent; this time the phone-number PATCH succeeded.
+- 2026-10-03 20:06 (hour 8.1): **"No ETA" on Daniel's 20:00 call** (`conv_3501m423…`, drive 2). The drive was opened by the dashboard's SIMULATE PLUG-IN (`source = dashboard_demo`), which sends no location, so `set_destination` correctly found none. His Shortcut had stored one on drive 1 at 18:40. "Nearby" search worked only because search is localized by city.
+  - **Fix:** a drive opened without a location takes the last known location: the newest drive with a real plug-in location in the last 12 h (`drives.LAST_KNOWN_HOURS`). It's marked `location_source = last_known` (vs `plug_in`), and a copied location is never copied forward again. This covers the simulate button and tapping the contact. A real plug-in location always wins.
+  - Also seen on that call, not fixed:
+    - The agent made up an explanation for why search worked without a location.
+    - It dispatched the coder job without asking for the pre-approval first, so the job was held and asked on the arrival call, where a "yes" merged it. That's allowed, but not the intended demo flow.
 
