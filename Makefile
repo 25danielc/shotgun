@@ -1,5 +1,5 @@
 # Shotgun task runner. `make help` lists targets.
-.PHONY: agent-check agent-push demo-reset demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
+.PHONY: record-dashboard agent-check agent-push demo-reset demo-call demo-arrive watch help setup dev test test-live test-neon db-init lint fmt check-keys ring curl-tools coder-demo github-hook railway-env deploy smoke
 
 PORT ?= 8000
 
@@ -76,4 +76,7 @@ agent-check:  ## Is the live ElevenLabs agent still what the repo says? (read-on
 
 agent-push:  ## Push config/elevenlabs_agent.json + the prompt to ElevenLabs (ask Daniel first)
 	uv run python scripts/apply_agent.py --stage full
+
+record-dashboard:  ## Step 7.2: record the live dashboard to ~/Movies/shotgun (MIN=30; touch ~/Movies/shotgun/STOP to stop)
+	uv run --with playwright python scripts/record_dashboard.py --minutes $(or $(MIN),30)
 
