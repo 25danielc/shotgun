@@ -113,14 +113,26 @@ def facts_for(batch: list[Job], question: Job | None) -> list[phrasing.Fact]:
     return facts
 
 
-async def arrival_variables(drive: Drive, batch: list[Job], question: Job | None) -> dict[str, str]:
+def minutes_left(drive: Drive, now: datetime) -> int | None:
+    """Minutes to the ETA, for "you're about 3 minutes out". None without an ETA (the call is
+    then the "everything's settled" fallback and must not claim the driver is arriving)."""
+    if drive.eta is None:
+        return None
+    return max(0, round((drive.eta - now).total_seconds() / 60))
+
+
+async def arrival_variables(
+    drive: Drive, batch: list[Job], question: Job | None, now: datetime | None = None
+) -> dict[str, str]:
     """The arrival call: a natural greeting (app/phrasing.py) plus the plain facts as summary."""
     sentences = " ".join(job_sentence(job) for job in batch)
     asked = job_sentence(question) if question else None
-    greeting = await phrasing.arrival_greeting(facts_for(batch, question), asked)
+    left = minutes_left(drive, now or datetime.now(UTC))
+    greeting = await phrasing.arrival_greeting(facts_for(batch, question), asked, left)
     return telephony.call_variables(
         greeting,
         summary=sentences,
+        eta_minutes=left,
         pending_job_id=question.id if question else None,
         drive_id=drive.id,
         call_kind="arrival",
@@ -225,7 +237,12 @@ async def tick(conn: AsyncConnection, now: datetime | None = None) -> str | None
         drive, found = due[0]
         batch, question = arrival_batch(found)
         placed = await place(
-            conn, "arrival", await arrival_variables(drive, batch, question), drive.id, batch, now
+            conn,
+            "arrival",
+            await arrival_variables(drive, batch, question, now),
+            drive.id,
+            batch,
+            now,
         )
         return "arrival" if placed else FAILED
     job = pending_exception

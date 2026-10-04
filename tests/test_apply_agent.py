@@ -242,3 +242,11 @@ def test_agent_never_invents_how_it_works():
     prompt = prompt_text()
     assert "Never guess at how you work or why something happened." in prompt
     assert "say you're not sure" in prompt
+
+
+def test_eta_is_said_right_away_without_a_description():
+    """Daniel 21:00: had to ask for the ETA, and it described The Landmark at length."""
+    prompt = prompt_text()
+    assert "without waiting to be asked, tell them in one short sentence the place" in prompt
+    assert "Don't describe the place or the route." in prompt
+    assert "Don't describe what it is, its history or its reviews unless they ask." in prompt

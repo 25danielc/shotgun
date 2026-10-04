@@ -72,7 +72,7 @@ async def test_drive_with_two_pre_approved_jobs_makes_exactly_two_calls(http, db
     assert arrival["summary"] == (
         "I merged the fix for the login bug. I merged the fix for the signup typo."
     )
-    assert arrival["greeting"].startswith("Hey, almost there.")
+    assert arrival["greeting"].startswith("Hey, quick update.")  # no ETA: no "almost there"
 
 
 async def test_late_results_after_the_arrival_call_never_ring(http, db, rang):

@@ -54,6 +54,7 @@ async def test_natural_wording_is_used_when_it_passes_the_checks():
     assert request["model"] == "claude-haiku-4-5"
     assert "output_config" not in request
     assert request["messages"][0]["content"] == (
+        "Minutes left in the drive: unknown (don't mention it)\n"
         "Facts:\n"
         "- done: I merged the fix for the login bug, and the tests passed.\n"
         "- didn't work: I can't do that one yet: email Alex I'm running late.\n"
@@ -90,7 +91,7 @@ async def test_slow_or_failing_claude_falls_back(monkeypatch):
 async def test_no_key_and_no_client_is_plain_without_a_request():
     assert settings.anthropic_api_key == ""  # tests/conftest.py keeps Claude offline
     assert await phrasing.arrival_greeting(FACTS, None) == (
-        "Hey, almost there. I merged the fix for the login bug, and the tests passed. "
+        "Hey, quick update. I merged the fix for the login bug, and the tests passed. "
         "I can't do that one yet: email Alex I'm running late."
     )
 
@@ -99,8 +100,8 @@ async def test_the_arrival_call_speaks_the_natural_wording(db, rang, monkeypatch
     fake = FakeClaude(NICE)
     real = phrasing.arrival_greeting
 
-    async def greeting(facts, question):
-        return await real(facts, question, client=fake)
+    async def greeting(facts, question, minutes_left=None):
+        return await real(facts, question, minutes_left, client=fake)
 
     monkeypatch.setattr(phrasing, "arrival_greeting", greeting)
     drive = await drives.open_drive(db)
@@ -139,3 +140,41 @@ async def test_live_arrival_wording_sounds_natural():
     assert text != phrasing.plain_greeting(FACTS, QUESTION), "fell back to plain"
     assert text.endswith("?")
     assert not any(ch.isdigit() for ch in text)
+
+
+@pytest.mark.parametrize(
+    ("left", "opener"),
+    [
+        (3, "Hey, you're about 3 minutes out."),
+        (1, "Hey, you're just about there."),
+        (None, "Hey, quick update."),
+    ],
+)
+def test_plain_opener_says_minutes_left_only_when_known(left, opener):
+    assert phrasing.plain_greeting(FACTS, None, left).startswith(opener)
+
+
+async def test_arrival_at_eta_minus_3_says_how_far_out(db, rang):
+    """Daniel 21:00: the last call should be the "you're 3 minutes out" call."""
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    drive = await drives.open_drive(db, now=now)
+    await db.execute(
+        "update drives set eta = %s, arrival_call_at = %s where id = %s",
+        (now + timedelta(minutes=3), now, drive.id),
+    )
+    job = await jobs.create_job(
+        db, JobType.CODER, {"label": "Fix the login bug"}, drive_id=drive.id, preapproval=TESTS_YES
+    )
+    await run(db, job.id, "running")
+    assert await calls.tick(db, now) == "arrival"
+    assert rang[0]["greeting"].startswith("Hey, you're about 3 minutes out.")
+    assert rang[0]["eta_minutes"] == "3"
+
+
+@pytest.mark.live
+async def test_live_arrival_mentions_minutes_out():
+    text = await phrasing.arrival_greeting(FACTS[:1], None, 3)
+    print(f"\n{text}\n")
+    assert "three minutes" in text.lower() or "3 minutes" in text

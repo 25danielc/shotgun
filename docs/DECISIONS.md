@@ -389,4 +389,7 @@ Newest last. Format: `YYYY-MM-DD HH:MM (hour N): decision. Why.`
   - **Miss: "The Landmark" got no ETA.** Routes has no route for the bare name. The first fix (retry with ", Ann Arbor, MI") routed to the wrong place 8 km away, while the agent's own search found the right one (student housing on South University).
   - **Final fix:** a place name (no street number, no city) is looked up first with Haiku and web search near the driver (`inline.find_address`, 5 s cap, a street-address line only, else NONE), then routed. Street addresses and "home" skip the lookup; a failed lookup falls back.
   - Live: The Landmark → 1300 S University, 11 min; the Michigan Union → 530 S State, 11 min; Costco → 771 Airport Blvd, 16 min. 2.6–2.8 s total, inside the 8 s budget.
+- 2026-10-03 21:03 (hour 9.1): Daniel's feedback on Run 1:
+  - **The "last call" wasn't the 3-minute call.** With no ETA (The Landmark failed to route), the arrival call fell back to "all settled" and rang about 3.5 min into the drive. Now that place names are looked up it rings at ETA − 3. The arrival wording opens with the minutes left ("Hey, you're about three minutes out") only when there's an ETA; the fallback opens "Hey, quick update." and never claims arrival. Live: "Hey, you're about three minutes out. Good news, I merged that login bug fix and all the tests passed."
+  - **The prompt changes (need a push):** say the place and the minutes right after set_destination, unasked, with no description; never describe places unless asked.
 
