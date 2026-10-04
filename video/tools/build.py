@@ -87,27 +87,33 @@ def captions(R: dict) -> list[dict]:
     caps = []
     for c in R["intro"]["captions"]:
         caps.append({"start": c["start"], "end": c["end"], "text": c["text"], "speaker": None})
-    e = R["E_ring"]
-    for c in e["captions"]:
+    D = R["D_plugin"]
+    sw = D["selfie"]
+    for c in D["captions"]:
         caps.append({
-            "start": e["start"] + c["start_src"] - e["src_in"] - 0.1,
-            "end": e["start"] + c["end_src"] - e["src_in"],
+            "start": max(D["start"], sw["t"] + c["start_src"] - sw["in"] - 0.1),
+            "end": min(sw["exit"], sw["t"] + c["end_src"] - sw["in"] + 0.3),
             "text": c["text"], "speaker": c["speaker"]})  # fmt: skip
-    F, H = R["F_talk"], R["H_arrival"]
-    for clip in F["clips"]:
-        caps += clip_captions(
-            clip["t"], clip["in"], clip["out"], clip["speaker"], clip["captions"],
-            window=(F["start"], F["end"]),
-        )  # fmt: skip
+    for key in ("E2_where", "F_talk"):
+        S = R[key]
+        for clip in S["clips"]:
+            caps += clip_captions(
+                clip["t"], clip["in"], clip["out"], clip["speaker"], clip["captions"],
+                window=(S["start"], S["end"]),
+            )  # fmt: skip
+    H = R["H_arrival"]
     a = H["audio"]
     caps += clip_captions(
         a["t"], a["in"], a["out"], "SHOTGUN", a["captions"], window=(a["t"], H["end"])
     )
+    caps = sorted(caps, key=lambda c: c["start"])
+    for prev, nxt in zip(caps, caps[1:], strict=False):  # never two captions at once
+        prev["end"] = min(prev["end"], nxt["start"])
     for c in caps:
         for line in c["text"].split("\n"):
             assert len(line) + (9 if c["speaker"] else 0) <= 52, line
         assert c["text"].count("\n") <= 1, c["text"]
-    return sorted(caps, key=lambda c: c["start"])
+    return caps
 
 
 def clip_captions(at, src_in, src_out, speaker, parts, window=(0.0, 1e9)):
@@ -126,18 +132,27 @@ def clip_captions(at, src_in, src_out, speaker, parts, window=(0.0, 1e9)):
 
 
 def speech_clips(R: dict) -> list[dict]:
-    """Placed speech for the mix and for the call-card waveform."""
-    clips = [{"file": "work/audio/intro.wav", "at": 0.0, "in": 0.0, "out": R["intro"]["out"] -
-              R["intro"]["in"], "kind": "intro"}]  # fmt: skip
-    d, e = R["D_plugin"], R["E_ring"]
+    """Placed audio for the mix (and, for kind "call", the call-card waveform)."""
+    intro_len = R["intro"]["out"] - R["intro"]["in"]
+    clips = [
+        {"file": "work/audio/intro.wav", "at": 0.0, "in": 0.0, "out": intro_len, "kind": "intro"}
+    ]
+    D = R["D_plugin"]
+    cuts = D["dash2"] + [{"t": D["end"], "src": None}]
+    for c, nxt in zip(cuts, cuts[1:], strict=False):  # the dash recording's own sound, quietly
+        clips.append({"file": "work/audio/dash2.wav", "at": c["t"], "in": c["src"],
+                      "out": c["src"] + nxt["t"] - c["t"], "kind": "car"})  # fmt: skip
+    sw = D["selfie"]
+    clips.append({"file": "work/audio/selfie.wav", "at": sw["t"], "in": sw["in"], "out": sw["out"],
+                  "kind": "intro"})  # fmt: skip
+    e = R["E_ring"]
     car0 = 3.0  # work/audio/car.wav starts at 3.0 s of carplay_on.mov
-    clips.append({"file": "work/audio/car.wav", "at": d["start"], "in": d["src_in"] - car0,
-                  "out": d["src_in"] - car0 + d["end"] - d["start"], "kind": "car"})  # fmt: skip
     clips.append({"file": "work/audio/car.wav", "at": e["start"], "in": e["src_in"] - car0,
                   "out": e["src_in"] - car0 + e["end"] - e["start"], "kind": "ring"})  # fmt: skip
-    for c in R["F_talk"]["clips"]:
-        clips.append({"file": R["F_talk"]["audio_src"], "at": c["t"], "in": c["in"],
-                      "out": c["out"], "kind": "call", "id": c["id"]})  # fmt: skip
+    for key in ("E2_where", "F_talk"):
+        for c in R[key]["clips"]:
+            clips.append({"file": R[key]["audio_src"], "at": c["t"], "in": c["in"], "out": c["out"],
+                          "kind": "call", "id": c["id"]})  # fmt: skip
     a = R["H_arrival"]["audio"]
     clips.append({"file": a["src"], "at": a["t"], "in": a["in"], "out": a["out"], "kind": "call",
                   "id": "a1"})  # fmt: skip
@@ -163,7 +178,7 @@ def envelope(clips: list[dict], total: float, fps: int) -> list[float]:
 
 
 def sfx_events(R: dict) -> list[dict]:
-    """Soft clicks for typed text, ticks for [DONE], whoosh and wipe for transitions."""
+    """Soft clicks for typed text, ticks for [DONE] and pops, whoosh and wipe for transitions."""
     ev = []
 
     def typed(t0, text, every=2):
@@ -174,15 +189,19 @@ def sfx_events(R: dict) -> list[dict]:
     ev.append({"sfx": "wipe", "t": R["C_problem"]["wipe"] + 0.15})
     lt = R["intro"]["lower_third"]
     typed(lt["t"], "┌─ " + lt["text"] + " ─┐")
-    f = R["F_talk"]
-    for line in f["panel_lines"]:
-        if line.get("kind") in (None, "say"):
-            typed(line["t"], line["text"])
-        if line.get("done"):
-            ev.append({"sfx": "tick", "t": line["t"] + len(line["text"]) * TYPE_MS / 1000 + 0.1})
-        if line.get("kind") == "tag":
-            ev.append({"sfx": "tick", "t": line["t"]})
-    beat = 60 / 105
+    for logo in R["intro"]["logos"]:
+        ev.append({"sfx": "tick", "t": logo["t"] + 0.2})
+    for key in ("E2_where", "F_talk"):
+        for line in R[key]["panel_lines"]:
+            if line.get("kind") in (None, "chip"):
+                typed(line["t"], line["text"])
+            if line.get("done"):
+                ev.append(
+                    {"sfx": "tick", "t": line["t"] + len(line["text"]) * TYPE_MS / 1000 + 0.1}
+                )
+            if line.get("kind") == "tag":
+                ev.append({"sfx": "tick", "t": line["t"]})
+    beat = 60 / R["music"]["bpm"]
     jobs = R["G_subagents"]["windows"][0]
     for b in sorted(set(jobs.get("done_ticks_beats", []))):
         ev.append({"sfx": "tick", "t": jobs["t"] + b * beat})
@@ -215,7 +234,7 @@ def chapters(R: dict) -> str:
         (0, "Intro"),
         (R["D_plugin"]["start"], "Plug in"),
         (R["E_ring"]["start"], "It calls you"),
-        (R["F_talk"]["start"], "Talk"),
+        (R["E2_where"]["start"], "Talk"),
         (R["G_subagents"]["start"], "Background work: subagents"),
         (R["H_arrival"]["start"], "Arrival call"),
         (R["J_how"]["start"], "How it works"),
@@ -225,7 +244,7 @@ def chapters(R: dict) -> str:
     yt = [
         (0, "Intro"),
         (R["D_plugin"]["start"], "Plug in, it calls you"),
-        (R["F_talk"]["start"], "Talk"),
+        (R["E2_where"]["start"], "Talk"),
         (R["G_subagents"]["start"], "Background work: subagents"),
         (R["H_arrival"]["start"], "Arrival call"),
         (R["J_how"]["start"], "How it works, safety"),
@@ -233,10 +252,58 @@ def chapters(R: dict) -> str:
     lines = ["# Paste into the YouTube description (every chapter is at least 10 s, as YouTube "
              "requires):"]  # fmt: skip
     lines += [f"{mmss(t)} {name}" for t, name in yt]
-    lines += ["", "# Full list as requested (Plug in and How it works are under 10 s, so YouTube "
-              "won't show these as chapters):"]  # fmt: skip
+    lines += ["", "# Full list as requested (some are under 10 s, so YouTube won't show them as "
+              "chapters):"]  # fmt: skip
     lines += [f"{mmss(t)} {name}" for t, name in full]
     return "\n".join(lines) + "\n"
+
+
+SHOTS = [  # key, name, presets, source
+    ("A_swipe", "A swipe", "swipe_down + green seam, whoosh", "intro last frame → black"),
+    ("B_thesis", "B thesis", "mark_build, IO slide, word_in/out", "graphic"),
+    ("C_problem", "C problem", "word_in, scan_wipe, word_out", "dot grid"),
+    (
+        "D_plugin",
+        "D plug in",
+        "split: dash push_in + selfie window, callout",
+        "new_screen.mov + IMG_0354",
+    ),
+    ("E_ring", "E it calls you", "push_in 1.00→1.08, word_in, callouts", "carplay_on.mov"),
+    (
+        "E2_where",
+        "E2 say where",
+        "dash push_in, call panel window, captions",
+        "new_screen.mov + drive #16 call",
+    ),
+    (
+        "F_talk",
+        "F talk",
+        "b-roll cuts on the beat, call card + panel windows",
+        "IMG_0353 + drive #8 call",
+    ),
+    (
+        "G_subagents",
+        "G subagents",
+        "punch (420 ms IO) + push_in, live driving window",
+        "dashboard replay + IMG_0353",
+    ),
+    (
+        "H_arrival",
+        "H arrival",
+        "countdown punch + driving window, call card over b-roll",
+        "replay + IMG_0353 + drive #8 call",
+    ),
+    (
+        "I_parked",
+        "I parked",
+        "scale 0.96→1.0 (OUT 400 ms), callout",
+        "recap_text(drive #8) over new_screen.mov",
+    ),
+    ("J_how", "J how it works", "nodes draw (leader preset), packets LIN 600 ms", "graphic"),
+    ("K_safe", "K safe", "type_line + tag_done", "graphic"),
+    ("L_stack", "L stack", "one label per 1/4 beat", "graphic"),
+    ("M_end", "M end card", "mark_build ×0.7, letter word_in 40 ms, type_line", "graphic"),
+]
 
 
 def keyframes(R: dict) -> str:
@@ -244,166 +311,44 @@ def keyframes(R: dict) -> str:
     off = R["intro_len"]
     beat = 60 / R["music"]["bpm"]
 
-    def g(x):
-        return f"{x:6.2f}"
+    def events(S):
+        found = []
 
-    def T(x):
-        return f"{x - off:6.2f}"
+        def walk(n, path=""):
+            if isinstance(n, dict):
+                label = n.get("text") or n.get("id") or n.get("name")
+                if label and isinstance(n.get("t"), (int, float)):
+                    found.append(f"{label} @{n['t']:.2f}")
+                for k, v in n.items():
+                    walk(v, k)
+            elif isinstance(n, list):
+                for v in n:
+                    walk(v, path)
 
-    def b(x):
-        return f"{(x - off - R['music']['downbeat_T']) / beat:6.1f}"
+        walk(S)
+        return "; ".join(found[:14]) + (" …" if len(found) > 14 else "")
 
-    def words(ws):
-        return " / ".join(f"{w['text']}{'*' if w.get('accent') else ''} @{w['t']:.2f}" for w in ws)
-
-    rows = []
-
-    def row(name, start, end, presets, source, notes=""):
-        rows.append(
-            f"| {name} | {g(start)} | {g(end)} | {T(start)} | {b(start)} "
-            f"| {presets} | {source} | {notes} |"
-        )
-
-    i = R["intro"]
-    row(
-        "INTRO",
-        0,
-        R["A_swipe"]["start"],
-        "type_line lower third, word_out; captions",
-        f"self_start.mov {i['in']:.2f}–{i['out']:.2f}",
-        f"lower third {i['lower_third']['t']}–{i['lower_third']['exit']} s",
-    )
-    a = R["A_swipe"]
-    row(
-        "A swipe",
-        a["start"],
-        a["end"],
-        "swipe_down + green seam, whoosh",
-        "intro last frame → black",
-    )
-    B = R["B_thesis"]
-    row(
-        "B thesis",
-        B["start"],
-        B["end"],
-        "mark_build, IO slide, word_in/out",
-        "graphic",
-        words(B["headline"]),
-    )
-    C = R["C_problem"]
-    row(
-        "C problem",
-        C["start"],
-        C["end"],
-        "word_in, scan_wipe, word_out",
-        "dot grid",
-        words(C["headline1"]) + " | wipe @" + f"{C['wipe']:.2f} | " + words(C["headline2"]),
-    )
-    for key, name in (("D_plugin", "D plug in"), ("E_ring", "E it calls you")):
+    rows = [
+        f"| INTRO | {0:6.2f} | {R['A_swipe']['start']:6.2f} | {-off:6.2f} | — | "
+        "logos on finger lines, "
+        f"lower third, captions | self_start.mov {R['intro']['in']:.2f}–{R['intro']['out']:.2f} | "
+        + "; ".join(f"{x['name']} @{x['t']:.2f}" for x in R["intro"]["logos"])
+        + " |"
+    ]
+    for key, name, presets, source in SHOTS:
         S = R[key]
-        src_out = S["src_in"] + S["end"] - S["start"]
-        cs = S.get("callouts") or [S["callout"]]
-        row(
-            name,
-            S["start"],
-            S["end"],
-            "push_in 1.00→1.08, word_in, callout",
-            f"carplay_on.mov {S['src_in']:.3f}–{src_out:.3f}",
-            words(S["headline"]) + " | " + "; ".join(f"{c['text']} @{c['t']:.2f}" for c in cs),
-        )
-    F = R["F_talk"]
-    clips = "; ".join(f"{c['id']} @{c['t']:.2f} ← {c['in']:.2f}–{c['out']:.2f}" for c in F["clips"])
-    row(
-        "F talk",
-        F["start"],
-        F["end"],
-        "word_in, type_line, tag_done, call card",
-        "d8_departure (ElevenLabs)",
-        clips,
-    )
-    G = R["G_subagents"]
-    wins = "; ".join(
-        f"{w['id']} @{w['t']:.2f} replay {w['replay'][0][1]}→{w['replay'][-1][1]}"
-        for w in G["windows"]
-    )
-    row(
-        "G subagents",
-        G["start"],
-        G["end"],
-        "punch (420 ms IO) + push_in, hard cuts, callouts, tag_done",
-        "dashboard replay of drive #8",
-        words(G["headline"]) + " | " + wins,
-    )
-    H = R["H_arrival"]
-    au = H["audio"]
-    row(
-        "H arrival",
-        H["start"],
-        H["end"],
-        "punch to countdown, call card, tag_done",
-        f"replay {H['countdown']['replay'][0][1]}→{H['countdown']['replay'][-1][1]}; "
-        f"d8_arrival {au['in']:.2f}–{au['out']:.2f} @{au['t']:.2f}",
-        words(H["headline1"])
-        + " | "
-        + words(H["headline2"])
-        + f" | overlay @{H['overlay']['t']:.2f}",
-    )
-    Ip = R["I_parked"]
-    row(
-        "I parked",
-        Ip["start"],
-        Ip["end"],
-        "scale 0.96→1.0 (OUT 400 ms), callout",
-        "recap_text(drive #8 jobs)",
-        words(Ip["headline"]),
-    )
-    J = R["J_how"]
-    row(
-        "J how it works",
-        J["start"],
-        J["end"],
-        "nodes draw (leader preset), packets LIN 600 ms",
-        "graphic",
-        "; ".join(f"{n['id']} @{n['t']:.2f}" for n in J["nodes"]),
-    )
-    K = R["K_safe"]
-    row(
-        "K safe",
-        K["start"],
-        K["end"],
-        "type_line + tag_done",
-        "graphic",
-        "; ".join(f"@{x['t']:.2f}" for x in K["lines"]),
-    )
-    L = R["L_stack"]
-    row(
-        "L stack",
-        L["start"],
-        L["end"],
-        f"one label per {L['per_label_beats']} beat",
-        "graphic",
-        " · ".join(L["labels"]),
-    )
-    M = R["M_end"]
-    row(
-        "M end card",
-        M["start"],
-        R["duration"],
-        "mark_build ×0.7, letter word_in 40 ms, type_line",
-        "graphic",
-        f"wordmark @{M['wordmark_t']:.2f}, tagline @{M['tagline_t']:.2f}, "
-        f"small @{M['small_t']:.2f}",
-    )
+        end = R["duration"] if key == "M_end" else S["end"]
+        b = (S["start"] - off - R["music"]["downbeat_T"]) / beat
+        rows.append(f"| {name} | {S['start']:6.2f} | {end:6.2f} | {S['start'] - off:6.2f} "
+                    f"| {b:6.1f} "
+                    f"| {presets} | {source} | {events(S)} |")  # fmt: skip
     head = (
         "# Keyframes (as built)\n\n"
         "Generated by tools/build.py from timeline.json. Times are global seconds; "
-        "T is seconds after "
-        f"the intro ({off:.2f} s); beat counts from the first downbeat "
-        f"(T {R['music']['downbeat_T']}, "
-        f"{R['music']['bpm']} BPM). `*` marks the accent word. "
-        "To re-time: edit timeline.json, then "
-        "`build.py`, `mix.py`, `render.py`.\n\n"
-        "| Shot | Start | End | T | Beat | Presets | Source in/out | Events |\n"
+        f"T is seconds after the intro ({off:.2f} s); beat counts from the first downbeat "
+        f"(T {R['music']['downbeat_T']}, {R['music']['bpm']} BPM). "
+        "To re-time: edit timeline.json, then `build.py`, `mix.py`, `render.py`.\n\n"
+        "| Shot | Start | End | T | Beat | Presets | Source | Events (global s) |\n"
         "|---|---|---|---|---|---|---|---|\n"
     )
     return head + "\n".join(rows) + "\n"

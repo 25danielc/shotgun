@@ -13,46 +13,63 @@ dots,
 but we built one for your car.
 
 4
-00:00:29,385 --> 00:00:31,885
-SHOTGUN: Shotgun here. Where are we headed?
+00:00:17,629 --> 00:00:21,800
+Alright, we just got in my car,
+so I'm going to connect via CarPlay.
 
 5
-00:00:32,537 --> 00:00:35,297
-Can you find me some ramen places nearby?
+00:00:28,751 --> 00:00:31,109
+SHOTGUN: Shotgun here. Where are we headed?
 
 6
-00:00:35,680 --> 00:00:38,900
+00:00:31,109 --> 00:00:32,180
+Land City.
+
+7
+00:00:32,180 --> 00:00:33,680
+SHOTGUN: Let me look that up real quick.
+
+8
+00:00:33,680 --> 00:00:36,800
+SHOTGUN: Got it. Land City, about seven minutes.
+
+9
+00:00:36,894 --> 00:00:39,466
+Can you find me some ramen places nearby?
+
+10
+00:00:39,466 --> 00:00:42,466
 SHOTGUN: You've got Tomukun Noodle Bar
 and Slurping Turtle.
 
-7
-00:00:39,109 --> 00:00:43,629
+11
+00:00:42,466 --> 00:00:46,986
 Before I left, I remember I had a bug
 in my demo workspace.
 
-8
-00:00:43,629 --> 00:00:45,479
+12
+00:00:46,986 --> 00:00:48,836
 It has to do with email capitalization.
 
-9
-00:00:45,479 --> 00:00:47,329
+13
+00:00:48,836 --> 00:00:50,609
 Do you think you could go in
 and fix that for me?
 
-10
-00:00:47,394 --> 00:00:49,804
+14
+00:00:50,609 --> 00:00:52,751
 SHOTGUN: Want me to merge it if the tests pass?
 
-11
-00:00:49,680 --> 00:00:51,300
+15
+00:00:52,751 --> 00:00:54,371
 Uh, yeah, that'd be great.
 
-12
-00:01:08,943 --> 00:01:11,443
+16
+00:01:13,229 --> 00:01:15,729
 SHOTGUN: Shotgun here.
 You're about three minutes out.
 
-13
-00:01:11,443 --> 00:01:14,943
+17
+00:01:15,729 --> 00:01:19,229
 SHOTGUN: Got the email capitalization fix merged
 and tests came through.

@@ -1,18 +1,22 @@
 {
- "_doc": "All times are T seconds after the intro clip ends (global = intro length + T), except intro.* (seconds into the intro clip) and *_src (seconds into the source file). snap=true moves every T to the nearest half-beat of the music grid (bpm, downbeat_T) at build time; tools/build.py reports moves > 0.25 s.",
+ "_doc": "All times are T seconds after the intro clip ends (global = intro length + T), except intro.* (seconds into the intro clip) and *_src / in / out (seconds into a source file). snap=true moves every T to the nearest half-beat of the music grid (bpm, downbeat_T) at build time; tools/build.py reports moves > 0.25 s.",
  "fps": 30,
  "width": 1920,
  "height": 1080,
  "snap": true,
  "music": {
-  "bpm": 105,
+  "bpm": 140,
   "downbeat_T": 0.4,
-  "file": "work/audio/music.wav",
+  "file": "work/audio/music_trap.wav",
   "duck_speech_db": -10,
   "duck_ring_db": -8,
   "fade_out_end_T": 90.4
  },
  "end_T": 90.4,
+ "grade": {
+  "drive": "brightness(1.45) contrast(1.08) saturate(0.9)",
+  "dash2": "brightness(1.25) contrast(1.05)"
+ },
  "intro": {
   "src": "footage/self_start.mov",
   "in": 2.6,
@@ -22,6 +26,55 @@
    "t": 1.0,
    "exit": 4.0
   },
+  "logos": [
+   {
+    "id": "muse",
+    "t": 2.62,
+    "from": [
+     995,
+     455
+    ],
+    "to": [
+     330,
+     250
+    ],
+    "logo": "logos/meta_white.svg",
+    "name": "MUSE",
+    "by": "META"
+   },
+   {
+    "id": "instinct",
+    "t": 3.02,
+    "from": [
+     905,
+     470
+    ],
+    "to": [
+     1590,
+     250
+    ],
+    "logo": "logos/instinct_white.png",
+    "name": "INSTINCT",
+    "by": "INSTINCT"
+   },
+   {
+    "id": "dots",
+    "t": 6.45,
+    "from": [
+     895,
+     480
+    ],
+    "to": [
+     1590,
+     560
+    ],
+    "logo": "logos/openai_symbol_white.svg",
+    "name": "DOTS",
+    "by": "OPENAI"
+   }
+  ],
+  "logos_dim": 7.7,
+  "logos_exit": 8.9,
   "captions": [
    {
     "start": 0.06,
@@ -47,54 +100,54 @@
  },
  "B_thesis": {
   "start": 0.4,
-  "end": 4.971,
+  "end": 4.686,
   "mark_size": 240,
-  "mark_slide": 1.829,
+  "mark_slide": 1.471,
   "mark_small": 96,
   "headline": [
    {
     "text": "YOUR",
-    "t": 2.114
+    "t": 1.686
    },
    {
     "text": "CAR",
-    "t": 2.4
+    "t": 1.9
    },
    {
     "text": "HAS A",
-    "t": 2.686
+    "t": 2.114
    },
    {
     "text": "PASSENGER",
-    "t": 3.257,
+    "t": 2.543,
     "accent": true
    },
    {
     "text": "NOW",
-    "t": 3.829
+    "t": 2.971
    }
   ],
   "headline_breaks_after": [
    "CAR"
   ],
-  "exit": 4.686
+  "exit": 4.471
  },
  "C_problem": {
-  "start": 4.971,
-  "end": 9.543,
+  "start": 4.686,
+  "end": 8.114,
   "headline1": [
    {
     "text": "YOU DRIVE",
-    "t": 5.257
+    "t": 4.9
    },
    {
     "text": "HOURS",
-    "t": 5.829,
+    "t": 5.329,
     "accent": true
    },
    {
     "text": "A WEEK",
-    "t": 6.114
+    "t": 5.543
    }
   ],
   "headline1_breaks_after": [
@@ -102,86 +155,123 @@
   ],
   "callout1": {
    "text": "time you can't spend on a screen",
-   "t": 6.686
+   "t": 5.757
   },
-  "wipe": 7.543,
+  "wipe": 6.4,
   "headline2": [
    {
     "text": "YOUR AI",
-    "t": 7.829
+    "t": 6.614
    },
    {
     "text": "CAN'T",
-    "t": 8.114
+    "t": 6.829
    },
    {
     "text": "COME",
-    "t": 8.4,
+    "t": 7.043,
     "accent": true
    }
   ],
   "headline2_breaks_after": [
    "YOUR AI"
   ],
-  "exit": 9.257
+  "exit": 7.9
  },
  "D_plugin": {
-  "start": 9.543,
+  "start": 8.114,
   "end": 14.114,
-  "src": "footage/carplay_on.mov",
-  "src_in": 4.572,
+  "dash2": [
+   {
+    "t": 8.114,
+    "src": 0.8
+   },
+   {
+    "t": 12.4,
+    "src": 8.4
+   }
+  ],
+  "dash2_cam": {
+   "origin": [
+    700,
+    400
+   ],
+   "scale": 1.55,
+   "push": 0.06
+  },
+  "selfie": {
+   "t": 8.329,
+   "in": 0.0,
+   "out": 4.1,
+   "rect": [
+    96,
+    236,
+    400,
+    711
+   ],
+   "title": "┌─ YOU · IN THE CAR ─┐",
+   "exit": 12.4
+  },
   "headline": [
    {
     "text": "PLUG",
-    "t": 10.114
+    "t": 8.543
    },
    {
     "text": "IN.",
-    "t": 10.4,
+    "t": 8.757,
     "accent": true
    }
   ],
   "callout": {
    "text": "CARPLAY_CONNECTED → /EVENTS",
-   "t": 10.971,
+   "t": 13.043,
    "target": [
-    900,
-    460
+    705,
+    365
    ],
    "label_off": [
-    300,
-    380
+    -120,
+    330
    ]
-  }
+  },
+  "captions": [
+   {
+    "start_src": 0.0,
+    "end_src": 4.1,
+    "speaker": null,
+    "text": "Alright, we just got in my car,\nso I'm going to connect via CarPlay."
+   }
+  ]
  },
  "E_ring": {
   "start": 14.114,
-  "end": 22.686,
+  "end": 19.257,
   "src": "footage/carplay_on.mov",
-  "src_in": 10.229,
+  "src_in": 10.371,
   "headline": [
    {
     "text": "IT",
-    "t": 15.257
+    "t": 14.757
    },
    {
     "text": "CALLS",
-    "t": 15.543,
+    "t": 14.971,
     "accent": true
    },
    {
     "text": "YOU",
-    "t": 15.829
+    "t": 15.186
    }
   ],
   "headline_breaks_after": [
    "CALLS"
   ],
-  "exit": 22.114,
+  "exit": 19.043,
   "callouts": [
    {
     "text": "ELEVENLABS AGENT · TWILIO OUTBOUND",
-    "t": 16.4,
+    "t": 15.829,
     "target": [
      940,
      455
@@ -190,11 +280,11 @@
      140,
      -330
     ],
-    "exit": 22.114
+    "exit": 19.043
    },
    {
     "text": "CARPLAY ON → RING 4.8 S",
-    "t": 17.829,
+    "t": 16.9,
     "target": [
      1195,
      605
@@ -203,50 +293,190 @@
      80,
      230
     ],
-    "exit": 22.114
+    "exit": 19.043
    }
   ],
-  "captions": [
+  "captions": []
+ },
+ "E2_where": {
+  "start": 19.257,
+  "end": 27.4,
+  "audio_src": "work/audio/d16_departure.wav",
+  "dash2_call_start": 21.5,
+  "dash2_cam": {
+   "origin": [
+    705,
+    365
+   ],
+   "scale": 1.9,
+   "push": 0.05
+  },
+  "headline": [
    {
-    "start_src": 16.2,
-    "end_src": 18.6,
+    "text": "SAY",
+    "t": 19.686
+   },
+   {
+    "text": "WHERE.",
+    "t": 19.9,
+    "accent": true
+   }
+  ],
+  "exit": 27.186,
+  "clips": [
+   {
+    "id": "g1",
+    "t": 19.471,
+    "in": 0.3,
+    "out": 2.4,
     "speaker": "SHOTGUN",
-    "text": "Shotgun here. Where are we headed?"
+    "captions": [
+     {
+      "text": "Shotgun here. Where are we headed?"
+     }
+    ]
+   },
+   {
+    "id": "g2",
+    "t": 21.829,
+    "in": 6.0,
+    "out": 6.9,
+    "speaker": "DANIEL",
+    "captions": [
+     {
+      "text": "Land City."
+     }
+    ]
+   },
+   {
+    "id": "g3",
+    "t": 22.9,
+    "in": 8.35,
+    "out": 9.55,
+    "speaker": "SHOTGUN",
+    "captions": [
+     {
+      "text": "Let me look that up real quick."
+     }
+    ]
+   },
+   {
+    "id": "g4",
+    "t": 24.4,
+    "in": 14.55,
+    "out": 17.45,
+    "speaker": "SHOTGUN",
+    "captions": [
+     {
+      "text": "Got it. Land City, about seven minutes."
+     }
+    ]
+   }
+  ],
+  "panel": {
+   "rect": [
+    1180,
+    300,
+    644,
+    330
+   ],
+   "title": "┌─ CALL · DRIVE #16 ─┐"
+  },
+  "panel_lines": [
+   {
+    "t": 21.829,
+    "who": "you",
+    "text": "land city"
+   },
+   {
+    "t": 23.114,
+    "kind": "chip",
+    "text": "set_destination · 5.4 s",
+    "done": true
+   },
+   {
+    "t": 26.114,
+    "kind": "tag",
+    "text": "eta 7 min · arrival call at eta − 3"
    }
   ]
  },
  "F_talk": {
-  "start": 22.686,
-  "end": 43.829,
+  "start": 27.4,
+  "end": 47.543,
   "audio_src": "work/audio/d8_departure.wav",
   "call_started_src": 0.0,
+  "broll": [
+   {
+    "t": 27.4,
+    "src": 0.2
+   },
+   {
+    "t": 30.829,
+    "src": 13.0
+   },
+   {
+    "t": 34.257,
+    "src": 22.0
+   },
+   {
+    "t": 37.686,
+    "src": 42.5
+   },
+   {
+    "t": 41.114,
+    "src": 46.5
+   },
+   {
+    "t": 44.543,
+    "src": 49.0
+   }
+  ],
   "headline": [
    {
     "text": "TALK.",
-    "t": 22.971
+    "t": 27.614
    },
    {
     "text": "IT",
-    "t": 23.257,
+    "t": 27.829,
     "accent": true
    },
    {
     "text": "HANDLES",
-    "t": 23.543
+    "t": 28.043
    },
    {
     "text": "IT",
-    "t": 23.829
+    "t": 28.257
    }
   ],
   "headline_breaks_after": [
    "IT"
   ],
-  "exit": 43.257,
+  "exit": 47.329,
+  "card": {
+   "rect": [
+    96,
+    560,
+    760,
+    330
+   ],
+   "title": "┌─ REAL CALL · DRIVE #8 ─┐"
+  },
+  "panel": {
+   "rect": [
+    1120,
+    300,
+    704,
+    560
+   ],
+   "title": "┌─ CALL ─┐"
+  },
   "clips": [
    {
     "id": "c1",
-    "t": 23.257,
+    "t": 27.614,
     "in": 17.33,
     "out": 19.62,
     "speaker": "DANIEL",
@@ -258,7 +488,7 @@
    },
    {
     "id": "c2",
-    "t": 26.4,
+    "t": 30.186,
     "in": 25.05,
     "out": 27.8,
     "speaker": "SHOTGUN",
@@ -270,7 +500,7 @@
    },
    {
     "id": "c3",
-    "t": 29.829,
+    "t": 33.186,
     "in": 64.45,
     "out": 72.2,
     "speaker": "DANIEL",
@@ -290,7 +520,7 @@
    },
    {
     "id": "c4",
-    "t": 38.114,
+    "t": 41.329,
     "in": 90.36,
     "out": 92.3,
     "speaker": "SHOTGUN",
@@ -302,7 +532,7 @@
    },
    {
     "id": "c5",
-    "t": 40.4,
+    "t": 43.471,
     "in": 93.1,
     "out": 94.25,
     "speaker": "DANIEL",
@@ -315,38 +545,38 @@
   ],
   "panel_lines": [
    {
-    "t": 23.257,
+    "t": 27.614,
     "who": "you",
     "text": "find me some ramen places nearby"
    },
    {
-    "t": 26.114,
+    "t": 29.971,
     "kind": "chip",
     "text": "search_web · 3073 ms",
     "done": true
    },
    {
-    "t": 34.971,
+    "t": 38.543,
     "who": "you",
     "text": "fix the email capitalization bug"
    },
    {
-    "t": 38.114,
+    "t": 41.329,
     "who": "shotgun",
     "text": "merge it if the tests pass?"
    },
    {
-    "t": 40.4,
+    "t": 43.471,
     "who": "you",
     "text": "yeah, that'd be great"
    },
    {
-    "t": 41.543,
+    "t": 44.757,
     "kind": "tag",
     "text": "preapproval: require_tests_pass"
    },
    {
-    "t": 42.114,
+    "t": 45.186,
     "kind": "chip",
     "text": "dispatch_task → coder subagent · 165 ms",
     "done": true
@@ -354,45 +584,66 @@
   ]
  },
  "G_subagents": {
-  "start": 43.829,
-  "end": 57.543,
+  "start": 47.543,
+  "end": 61.257,
   "headline": [
    {
     "text": "SUBAGENTS",
-    "t": 44.114,
+    "t": 47.757,
     "accent": true
    },
    {
     "text": "WORK",
-    "t": 44.4
+    "t": 47.971
    },
    {
     "text": "WHILE",
-    "t": 44.686
+    "t": 48.186
    },
    {
     "text": "YOU",
-    "t": 44.971
+    "t": 48.4
    },
    {
     "text": "DRIVE",
-    "t": 45.257
+    "t": 48.614
    }
   ],
   "headline_breaks_after": [
    "WORK"
   ],
-  "exit": 45.829,
-  "headline_bg_replay": "22:26:47",
+  "exit": 49.9,
+  "broll_full": {
+   "t": 47.543,
+   "src": 33.0
+  },
+  "pip": {
+   "rect": [
+    1344,
+    730,
+    480,
+    270
+   ],
+   "title": "┌─ YOU · DRIVING ─┐",
+   "src": 22.0
+  },
   "windows": [
    {
     "id": "jobs",
-    "t": 46.114,
+    "t": 50.114,
     "rect": [
      505,
      12,
      777,
      300
+    ],
+    "at": [
+     820,
+     430
+    ],
+    "room": [
+     1200,
+     520
     ],
     "replay": [
      [
@@ -400,57 +651,65 @@
       "22:26:44"
      ],
      [
-      0.5,
+      0.75,
       "22:26:47"
      ],
      [
-      1.5,
+      2.25,
       "22:27:52"
      ],
      [
-      2.5,
+      3.75,
       "22:28:06"
      ],
      [
-      3.5,
+      5.25,
       "22:28:10"
      ],
      [
-      4,
+      6,
       "22:28:11"
      ]
     ],
     "done_ticks_beats": [
-     0.5,
-     1.5,
-     1.5,
-     2.5,
-     2.5,
-     3.5
+     0.75,
+     2.25,
+     2.25,
+     3.75,
+     3.75,
+     5.25
     ],
     "callouts": [
      {
       "text": "STEP-LEVEL STATE · NEON POSTGRES",
-      "t_beat": 0.75,
+      "t_beat": 1.0,
       "target": [
        538,
        94
       ],
       "label_off": [
-       60,
-       -200
+       40,
+       -150
       ]
      }
     ]
    },
    {
     "id": "agents",
-    "t": 48.4,
+    "t": 52.686,
     "rect": [
      6,
      832,
      493,
      212
+    ],
+    "at": [
+     820,
+     470
+    ],
+    "room": [
+     1200,
+     560
     ],
     "replay": [
      [
@@ -458,30 +717,30 @@
       "22:26:40"
      ],
      [
-      1,
+      1.5,
       "22:26:46"
      ],
      [
-      4,
+      6,
       "22:26:52"
      ]
     ],
     "callouts": [
      {
       "text": "1 VOICE AGENT → 3 SUBAGENTS",
-      "t_beat": 1.0,
+      "t_beat": 1.5,
       "target": [
        38,
        859
       ],
       "label_off": [
        80,
-       -190
+       -170
       ]
      },
      {
       "text": "CLAUDE CODE VIA GITHUB ACTIONS",
-      "t_beat": 2.0,
+      "t_beat": 3.0,
       "target": [
        113,
        900
@@ -495,12 +754,20 @@
    },
    {
     "id": "tools",
-    "t": 50.686,
+    "t": 55.257,
     "rect": [
      505,
      832,
      777,
      212
+    ],
+    "at": [
+     820,
+     470
+    ],
+    "room": [
+     1200,
+     560
     ],
     "replay": [
      [
@@ -508,7 +775,7 @@
       "22:25:14"
      ],
      [
-      4,
+      5,
       "22:27:16"
      ]
     ],
@@ -529,12 +796,20 @@
    },
    {
     "id": "log",
-    "t": 52.971,
+    "t": 57.4,
     "rect": [
      1288,
      12,
      626,
      520
+    ],
+    "at": [
+     820,
+     470
+    ],
+    "room": [
+     1200,
+     560
     ],
     "replay": [
      [
@@ -550,12 +825,20 @@
    },
    {
     "id": "services",
-    "t": 55.257,
+    "t": 59.114,
     "rect": [
      1288,
      832,
      626,
      212
+    ],
+    "at": [
+     820,
+     470
+    ],
+    "room": [
+     1200,
+     560
     ],
     "replay": [
      [
@@ -563,7 +846,7 @@
       "22:28:15"
      ],
      [
-      4,
+      5,
       "22:28:17"
      ]
     ],
@@ -577,7 +860,7 @@
       ],
       "label_off": [
        80,
-       -250
+       -200
       ]
      }
     ]
@@ -585,28 +868,36 @@
   ]
  },
  "H_arrival": {
-  "start": 57.543,
-  "end": 65.543,
+  "start": 61.257,
+  "end": 69.829,
   "countdown": {
-   "t": 57.543,
-   "until": 59.543,
+   "t": 61.257,
+   "until": 63.829,
    "rect": [
     6,
     12,
     493,
     210
    ],
+   "at": [
+    820,
+    500
+   ],
+   "room": [
+    1200,
+    560
+   ],
    "replay": [
     [
      0,
-     "22:32:02"
+     "22:32:03"
     ],
     [
-     3.0,
+     5.0,
      "22:32:08"
     ],
     [
-     3.5,
+     6,
      "22:32:09"
     ]
    ],
@@ -618,48 +909,70 @@
      142
     ],
     "label_off": [
-     520,
-     200
+     300,
+     240
     ]
    }
+  },
+  "pip": {
+   "rect": [
+    1344,
+    730,
+    480,
+    270
+   ],
+   "title": "┌─ YOU · DRIVING ─┐",
+   "src": 42.5
+  },
+  "broll_full": {
+   "src": 49.0
+  },
+  "card": {
+   "rect": [
+    560,
+    330,
+    800,
+    380
+   ],
+   "title": "┌─ REAL CALL · ARRIVAL · DRIVE #8 ─┐"
   },
   "headline1": [
    {
     "text": "ONE CALL",
-    "t": 58.114
+    "t": 61.471
    },
    {
     "text": "TO HAND",
-    "t": 58.4
+    "t": 61.686
    },
    {
     "text": "IT OFF",
-    "t": 58.686
+    "t": 61.9
    }
   ],
   "headline2": [
    {
     "text": "ONE CALL",
-    "t": 59.829
+    "t": 64.043
    },
    {
     "text": "BEFORE",
-    "t": 60.114
+    "t": 64.257
    },
    {
     "text": "YOU",
-    "t": 60.4
+    "t": 64.471
    },
    {
     "text": "PARK",
-    "t": 60.686,
+    "t": 64.686,
     "accent": true
    }
   ],
-  "exit1": 59.543,
-  "exit2": 65.257,
+  "exit1": 63.614,
+  "exit2": 69.614,
   "audio": {
-   "t": 59.543,
+   "t": 63.829,
    "src": "work/audio/d8_arrival.wav",
    "in": 0.35,
    "out": 6.3,
@@ -675,12 +988,13 @@
   },
   "overlay": {
    "text": "PR #11 MERGED · TESTS PASSED",
-   "t": 64.114
+   "t": 68.543
   }
  },
  "I_parked": {
-  "start": 65.543,
-  "end": 69.543,
+  "start": 69.829,
+  "end": 73.686,
+  "bg_dash2_src": 45.5,
   "recap_title": "Shotgun: drive recap",
   "recap_lines": [
    "Done: I merged the fix for the email capitalization bug, and the tests passed.",
@@ -689,42 +1003,42 @@
   "headline": [
    {
     "text": "PARK.",
-    "t": 65.829
+    "t": 70.043
    },
    {
     "text": "READ",
-    "t": 66.114,
+    "t": 70.257,
     "accent": true
    },
    {
     "text": "LATER.",
-    "t": 66.4
+    "t": 70.471
    }
   ],
   "callout": {
    "text": "UNPLUG → NTFY RECAP. NO CALL.",
-   "t": 66.971
+   "t": 71.114
   }
  },
  "J_how": {
-  "start": 69.543,
-  "end": 77.543,
+  "start": 73.686,
+  "end": 79.686,
   "headline": [
    {
     "text": "THE PHONE",
-    "t": 69.829
+    "t": 73.9
    },
    {
     "text": "IS JUST",
-    "t": 70.114
+    "t": 74.114
    },
    {
     "text": "A",
-    "t": 70.4
+    "t": 74.329
    },
    {
     "text": "SENSOR",
-    "t": 70.686,
+    "t": 74.543,
     "accent": true
    }
   ],
@@ -735,113 +1049,113 @@
    {
     "id": "car",
     "label": "CARPLAY + iOS SHORTCUT",
-    "t": 71.257
+    "t": 74.971
    },
    {
     "id": "api",
     "label": "FASTAPI ORCHESTRATOR",
-    "t": 71.543
+    "t": 75.186
    },
    {
     "id": "voice",
     "label": "ELEVENLABS VOICE AGENT",
     "sub": "CLAUDE HAIKU",
-    "t": 71.829
+    "t": 75.4
    },
    {
     "id": "neon",
     "label": "NEON JOB + DRIVE TABLES",
-    "t": 72.114
+    "t": 75.614
    },
    {
     "id": "subs",
     "label": "SUBAGENTS",
     "sub": "CODER (CLAUDE CODE) · RESEARCH · EMAIL",
-    "t": 72.4
+    "t": 75.829
    },
    {
     "id": "eta",
     "label": "ARRIVAL SCHEDULER",
     "sub": "GOOGLE ROUTES",
-    "t": 72.686
+    "t": 76.043
    },
    {
     "id": "ntfy",
     "label": "NTFY",
-    "t": 72.971
+    "t": 76.257
    }
   ],
   "packets": [
    [
     "car",
     "api",
-    73.543
+    76.686
    ],
    [
     "api",
     "voice",
-    74.114
+    77.114
    ],
    [
     "voice",
     "api",
-    74.686
+    77.543
    ],
    [
     "api",
     "neon",
-    74.971
+    77.757
    ],
    [
     "neon",
     "subs",
-    75.257
+    77.971
    ],
    [
     "subs",
     "neon",
-    75.829
+    78.4
    ],
    [
     "neon",
     "eta",
-    76.114
+    78.614
    ],
    [
     "eta",
     "voice",
-    76.4
+    78.829
    ],
    [
     "api",
     "ntfy",
-    76.971
+    79.257
    ]
   ],
-  "exit": 77.257
+  "exit": 79.471
  },
  "K_safe": {
-  "start": 77.543,
-  "end": 83.829,
+  "start": 79.686,
+  "end": 84.829,
   "label": "SAFE BY DESIGN",
   "lines": [
    {
-    "t": 77.829,
+    "t": 79.9,
     "text": "NOTHING IRREVERSIBLE WITHOUT A SPOKEN YES."
    },
    {
-    "t": 79.829,
+    "t": 81.4,
     "text": "ONLY YOUR NUMBER. SHARED-SECRET TRIGGER."
    },
    {
-    "t": 81.829,
+    "t": 82.9,
     "text": "IT ONLY RINGS WHEN IT'S WORTH IT."
    }
   ]
  },
  "L_stack": {
-  "start": 83.829,
-  "end": 84.971,
+  "start": 84.829,
+  "end": 85.686,
   "per_label_beats": 0.25,
   "labels": [
    "CARPLAY",
@@ -855,14 +1169,14 @@
   ]
  },
  "M_end": {
-  "start": 84.971,
+  "start": 85.686,
   "end": 90.4,
   "mark_speed": 0.7,
   "wordmark": "SHOTGUN",
-  "wordmark_t": 85.829,
+  "wordmark_t": 86.329,
   "tagline": "an ai passenger for your car",
-  "tagline_t": 86.686,
+  "tagline_t": 86.971,
   "small": "github.com/25danielc/shotgun · built at MHacks 2026",
-  "small_t": 87.543
+  "small_t": 87.614
  }
 }

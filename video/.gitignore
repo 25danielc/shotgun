@@ -5,3 +5,6 @@ work/
 out/*.mp4
 out/*.png
 out/*.wav
+# third-party logos (fetched by tools/fetch_logos.sh; not ours to redistribute)
+comp/logos/
+ffmpeg2pass-*
