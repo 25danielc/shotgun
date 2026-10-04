@@ -8,7 +8,7 @@ fails; regenerate with
 
     REGEN_DASHBOARD_FIXTURES=1 uv run pytest tests/test_dashboard_fixtures.py
 
-and look at the diff (and the screenshots, tests/dashboard/screenshot.py).
+and look at the diff (and the screenshots, scripts/screenshot_dashboard.py).
 """
 
 import asyncio

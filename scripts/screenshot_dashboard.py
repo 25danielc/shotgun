@@ -8,7 +8,7 @@ Not a pytest test: run it by hand after changing the dashboard, then look at the
 against the dashboard design rules (terminal aesthetic, small live windows).
 
     uvx playwright install chromium            # once
-    uv run tests/dashboard/screenshot.py [--out DIR] [--wait SECONDS]
+    uv run scripts/screenshot_dashboard.py [--out DIR] [--wait SECONDS]
 
 Serves the repo root statically (so ?mock= can fetch tests/fixtures/) and writes
 dashboard_<mock>_<w>x<h>.png for ?mock=1 (mid-drive), ?mock=empty and ?mock=edge (nulls, long
@@ -28,7 +28,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 MOCKS = {"1": "mock", "empty": "empty", "edge": "edge"}
 SIZES = ((1440, 900), (1280, 800))
 

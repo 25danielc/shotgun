@@ -39,7 +39,7 @@ No self-hosted models: every model is an API. You host one small Python server; 
 | Phone + voice | ElevenLabs Agents + Twilio voice number | ElevenLabs (sponsor + MLH) | Inbound and outbound calls; tools call our webhooks |
 | Voice-turn model | Claude Haiku 4.5, selected inside ElevenLabs | — | Confirm Claude is selectable; else custom-LLM endpoint |
 | Server | Python FastAPI on Railway | — | /events, /tools/\*, /github/hook; ngrok as fallback |
-| Orchestrator | Claude Sonnet 5.5 via Anthropic API, tool use | Fetch.ai ASI:One (wrapped as an Agentverse agent) | Plans request → jobs with deadlines |
+| Orchestrator | Claude Sonnet 5.5 via Anthropic API, tool use | — (Fetch.ai cut, D17) | Plans request → jobs with deadlines |
 | Job table | Neon Postgres | Neon | Shared state: `drives` + `jobs`. queued → running → (needs\_approval | exception) → approved → done / failed; pre-approved jobs skip the question |
 | Coding worker | Claude Code GitHub Action on a demo repo | — | We open an issue mentioning @claude; it opens the PR |
 | Email worker | Composio Gmail tools, throwaway Gmail account | — | Skips Google OAuth setup |

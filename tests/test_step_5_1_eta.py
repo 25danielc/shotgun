@@ -101,7 +101,7 @@ def test_home_means_home_address_and_is_never_read_out(said, spoken, address):
 
 def test_home_area_comes_from_home_address(monkeypatch):
     assert eta.home_area() == "Ann Arbor, MI"
-    monkeypatch.setattr(settings, "home_address", "1780 Broadway St, Ann Arbor, MI 48105")
+    monkeypatch.setattr(settings, "home_address", "742 Elm St, Ann Arbor, MI 48104")
     assert eta.home_area() == "Ann Arbor, MI"
     monkeypatch.setattr(settings, "home_address", "")
     assert eta.home_area() is None
